@@ -59,7 +59,7 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
     ) -> None:
         self.bug_report = bug_report
         self.submitter = submitter
-        self.log_dir = TemporaryDirectory(delete=False)
+        self.log_dir = TemporaryDirectory()
         self.log_workers = {}
         super().__init__(name, id, classes)
 
