@@ -7,6 +7,9 @@ This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [
 [Features](#features) | [Installation](#installation) | [Development](#development) | [Limitations](#limitations)
 
 
+> [!CAUTION]
+> This project is VERY EXPERIMENTAL as of Aug 11 2025. **DO NOT** connect to any of the real Jira/Launchpad backends for now.
+
 ## Features
 
 - Complete mouse support provided by textual. Now you can click, drag and scroll like a real app!
