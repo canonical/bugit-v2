@@ -1,0 +1,61 @@
+# core24 python apps are still broken
+# https://github.com/canonical/craft-parts/issues/786
+# https://github.com/canonical/snapcraft/issues/5009
+
+name: bugit-v2
+type: app
+base: core22
+grade: devel
+summary: Cool new bugit
+description: |
+  This snap is a fresh new UI for bugit
+version: "0.1"
+confinement: classic
+
+apps:
+  bugit-v2:
+    # The final command must have this structure for classic confinement
+    # 1. Must run `bin/python3 <python file>` and NOT directly invoking the script.
+    #   Otherwise system python is used and won't have the libs
+    # 2. Anything after the first token must have the $SNAP var in their path
+    # If there are more "apps" later, make sure their command follows this example
+    command: bin/python3 $SNAP/src/bugit_v2/app.py
+
+parts:
+  dump-files:
+    plugin: dump
+    source: src
+    organize:
+      "*": src/
+
+  run-poetry-plugin:
+    # finally run the plugin, see:
+    # https://documentation.ubuntu.com/snapcraft/stable/reference/plugins/python_plugin/
+    # https://documentation.ubuntu.com/snapcraft/stable/reference/plugins/poetry_plugin/
+    plugin: poetry
+    build-attributes:
+      - enable-patchelf
+    source: .
+    build-packages:
+      - pipx # poetry is distributed with pipx
+    # "pipx inject" is needed for the poetry plugin,
+    # since the poetry plugin basically asks poetry to export all dependencies,
+    # then calls the python plugin to package it
+    # also symlink the new poetry we installed with pipx to /root/.local/bin
+    override-build: |
+      apt remove python3-poetry -y
+      pipx install poetry
+      pipx inject poetry poetry-plugin-export
+      ln -sf /root/.local/bin/poetry /usr/bin/poetry
+      poetry lock
+      poetry sync
+      craftctl default
+    stage-packages:
+      # These 3 packages are required for classic confinement
+      # do NOT use "python3.10", it's not sufficient
+      - python3.10-minimal
+      - libpython3.10-minimal
+      - libpython3.10-stdlib
+      - xclip
+    after:
+      - dump-files
