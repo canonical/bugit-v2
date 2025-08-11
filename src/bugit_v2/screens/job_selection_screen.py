@@ -26,7 +26,7 @@ class JobSelectionScreen(Screen[str]):
     selected_job: str | None
 
     CSS = """
-    Screen {
+    JobSelectionScreen {
         align: center middle;
     }
     """

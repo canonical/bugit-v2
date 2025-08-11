@@ -10,7 +10,7 @@ from textual.containers import VerticalGroup
 from textual.reactive import var
 from textual.screen import Screen
 from textual.widgets import Footer, Header, ProgressBar, RichLog
-from textual.worker import Worker
+from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
@@ -180,6 +180,9 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         if not self.log_widget or event.worker.name not in self.log_workers:
             return
+        
+        if event.worker.state == WorkerState.CANCELLED:
+            self.log_widget.write(f"{event.worker.name} was cancelled")
 
         if self.last_submission_err is None and all(
             log_worker.is_finished for log_worker in self.log_workers.values()
