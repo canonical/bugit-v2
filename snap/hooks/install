@@ -1,0 +1,8 @@
+#!/bin/sh
+#
+# This hook allows software requiring sudo (including bugit) to be run without
+# having to input password.
+
+set -e
+
+echo "%sudo ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/bugit-v2

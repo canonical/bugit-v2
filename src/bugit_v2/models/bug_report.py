@@ -1,0 +1,53 @@
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from typing import Final, Literal, TypeVar
+
+from bugit_v2.dut_utils.log_collectors import LogName
+
+# Internal representation of bug severity
+Severity = Literal["highest", "high", "medium", "low", "lowest"]
+SEVERITIES: Final[tuple[Severity, ...]] = Severity.__args__
+# values are what appears on screen in report editor
+pretty_severities: Mapping[Severity, str] = {
+    "highest": "Critical (LP) / Highest (Jira)",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low",
+    "lowest": "Lowest",
+}
+
+IssueFileTime = Literal["immediate", "after_reboot", "later"]
+ISSUE_FILE_TIMES: Final[tuple[IssueFileTime, ...]] = IssueFileTime.__args__
+pretty_issue_file_times: Mapping[IssueFileTime, str] = {
+    "immediate": "Right after it happened",
+    "after_reboot": "Device froze, reported after a reboot",
+    "later": "At a later stage",
+}
+
+T = TypeVar("T")
+
+
+@dataclass
+class BugReport:
+    # required
+    title: str
+    description: str
+    project: str
+    severity: Severity
+    issue_file_time: IssueFileTime
+    # optionals
+    assignee: str | None = None  # appear as unassigned if None
+    platform_tags: Sequence[str] = field(default_factory=list[str])
+    additional_tags: Sequence[str] = field(default_factory=list[str])
+    # selections
+    logs_to_include: Sequence[LogName] = field(default_factory=list[LogName])
+    impacted_features: Sequence[str] = field(default_factory=list[str])
+    impacted_vendors: Sequence[str] = field(default_factory=list[str])
+
+    def get_with_type(self, attr: str, expected_type: type[T]) -> T:
+        value = getattr(self, attr)  # pyright: ignore[reportAny]
+        if type(value) is expected_type:  # pyright: ignore[reportAny]
+            return value
+        raise TypeError(
+            f"Expected {expected_type}, but got {type(value)}"  # pyright: ignore[reportAny]
+        )
