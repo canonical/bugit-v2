@@ -31,10 +31,24 @@ sudo apt install pipx
 Make sure you have access rights to this repository, then do:
 
 ```sh
-pipx install git+ssh://git@github.com/canonical/ceqa-jira-ops-automator@bugit-v2-main
+pipx install git+https://github.com/canonical/bugit-v2.git
 ```
 
-This should give you a new command called `bugit-v2`. If pipx is installed for the first time, it will prompt you about the app not being in $PATH. To fix this permanently, add `$HOME/.local/bin` to your $PATH.
+This should give you a new command called `bugit-v2`. If pipx is installed for the first time, it will prompt you about the app not being in `$PATH`. To fix this permanently, add `$HOME/.local/bin` to your $PATH.
+
+Run the app:
+```
+bugit-v2
+```
+
+Typically we need sudo for the log collectors. To run with sudo:
+
+```
+sudo -E env PATH="$PATH" JIRA_SERVER=<jira_server_url> bugit-v2
+```
+
+where jira_server_url is the base URL of your jira server.
+
 
 To uninstall, `pipx uninstall bugit-v2`
 
