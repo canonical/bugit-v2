@@ -93,18 +93,18 @@ class BugReportScreen(Screen[BugReport]):
     elem_id_to_border_title: Final[Mapping[str, tuple[str, str]]] = {
         "title": ("[b]Bug Title", "This is the title in Jira/Launchpad"),
         "description": (
-            "[bold]Bug Description",
+            "[b]Bug Description",
             "Include all the details :)",
         ),
-        "issue_file_time": ("[bold]When was this issue filed?", ""),
-        "platform_tags": ("[bold]Platform Tags", ""),
-        "assignee": ("[bold]Assignee", ""),
-        "severity": ("[bold]How bad is it?", ""),
-        "project": ("[bold]Project Name", ""),
-        "additional_tags": ("[bold]Additional Tags", ""),
-        "logs_to_include": ("[bold]Select some logs to include", ""),
-        "impacted_features": ("", ""),
-        "impacted_vendors": ("", ""),
+        "issue_file_time": ("[b]When was this issue filed?", ""),
+        "platform_tags": ("[b]Platform Tags", ""),
+        "assignee": ("[b]Assignee", ""),
+        "severity": ("[b]How bad is it?", ""),
+        "project": ("[b]Project Name", ""),
+        "additional_tags": ("[b]Additional Tags", ""),
+        "logs_to_include": ("[b]Select some logs to include", ""),
+        "impacted_features": ("[b]Impacted Features", ""),
+        "impacted_vendors": ("[b]Impacted Vendors", ""),
     }
 
     CSS = """
@@ -258,14 +258,14 @@ class BugReportScreen(Screen[BugReport]):
             yield SelectionWithPreview(
                 FEATURE_MAP,
                 Label("[i][$primary]These features will be tagged"),
-                "[b]Impacted Features",
                 id="impacted_features",
+                classes="default_box",
             )
             yield SelectionWithPreview(
                 VENDOR_MAP,
                 Label("[i][$primary]These vendors will be tagged"),
-                "[b]Impacted Vendors",
                 id="impacted_vendors",
+                classes="default_box",
             )
 
             yield Button(
