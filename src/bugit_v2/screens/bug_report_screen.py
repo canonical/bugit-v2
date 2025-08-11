@@ -37,22 +37,6 @@ from bugit_v2.models.bug_report import (
 )
 from bugit_v2.utils.constants import FEATURE_MAP, VENDOR_MAP
 
-REPORT_TEMPLATE = """
-[Summary]
-
-[Steps to reproduce]
-
-[Expected result]
-
-[Actual result]
-
-[Failure rate]
-
-[Affected test cases]
-
-[Additional Information]
-""".strip()
-
 
 class ValidSpaceSeparatedTags(Validator):
     @override
@@ -88,9 +72,10 @@ class NoSpaces(Validator):
 class BugReportScreen(Screen[BugReport]):
     session: Final[Session]
     job_id: Final[str]
+    initial_report: dict[str, str]
     # [id] = (title, subtitle)
     # id should match the property name in the BugReport object
-    elem_id_to_border_title: Final[Mapping[str, tuple[str, str]]] = {
+    ELEM_ID_TO_BORDER_TITLE: Final[Mapping[str, tuple[str, str]]] = {
         "title": ("[b]Bug Title", "This is the title in Jira/Launchpad"),
         "description": (
             "[b]Bug Description",
@@ -136,7 +121,18 @@ class BugReportScreen(Screen[BugReport]):
         self.session = session
         self.job_id = job_id
         self.existing_report = existing_report
-        self.machine_info = get_standard_info()
+        self.machine_info = get_standard_info()  # slow
+        self.initial_report = {
+            "Summary": "",
+            "Steps to reproduce": "",
+            "Expected result": "",
+            "Actual result": "",
+            "Failure rate": "",
+            "Affected test cases": "",
+            "Additional Information": "\n".join(
+                f"{k}: {v}" for k, v in self.machine_info.items()
+            ),
+        }
 
     @override
     def compose(self) -> ComposeResult:
@@ -158,10 +154,9 @@ class BugReportScreen(Screen[BugReport]):
             with HorizontalGroup():
                 with VerticalGroup(id="bug_report_description"):
                     yield TextArea(
-                        REPORT_TEMPLATE
-                        + "\n"
-                        + "\n".join(
-                            f"{k}: {v}" for k, v in self.machine_info.items()
+                        "\n".join(
+                            f"[{k}]\n" + v
+                            for k, v in self.initial_report.items()
                         ),
                         classes="default_box",
                         show_line_numbers=True,
@@ -277,7 +272,7 @@ class BugReportScreen(Screen[BugReport]):
         yield Footer()
 
     def on_mount(self):
-        for elem_id, border_titles in self.elem_id_to_border_title.items():
+        for elem_id, border_titles in self.ELEM_ID_TO_BORDER_TITLE.items():
             elem = self.query_exactly_one(f"#{elem_id}")
             elem.border_title, elem.border_subtitle = border_titles
             # restore existing report
@@ -405,7 +400,7 @@ class BugReportScreen(Screen[BugReport]):
             return
 
         if event.validation_result.is_valid:
-            event.input.border_subtitle = self.elem_id_to_border_title.get(
+            event.input.border_subtitle = self.ELEM_ID_TO_BORDER_TITLE.get(
                 event.input.id, ("", "")
             )[1]
 
