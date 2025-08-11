@@ -90,4 +90,20 @@ mock_collectors: CollectorMap = {
     ),
 }
 
+
+real_collectors: CollectorMap = {
+    "sosreport": LogCollector(
+        "sosreport",
+        sos_report,
+        "SOS Report",
+        "Runs the 'sos report --batch' command",
+    ),
+    "oem-getlogs": LogCollector(
+        "oem-getlogs",
+        oem_getlogs,
+        "OEM GetLogs",
+        "Runs the oem-getlogs command",
+    ),
+}
+
 LOG_NAME_TO_COLLECTOR = mock_collectors

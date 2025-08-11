@@ -13,7 +13,6 @@ from typing_extensions import override
 
 @final
 class SelectionWithPreview(Widget):
-
     # maps from selection key to actual values
     data: Mapping[str, Sequence[str]]
     preview_label: Label
@@ -40,7 +39,6 @@ class SelectionWithPreview(Widget):
         )
         self.data = data
         self.preview_label = preview_label
-        # self.border_title = border_title
 
     @override
     def compose(self) -> ComposeResult:

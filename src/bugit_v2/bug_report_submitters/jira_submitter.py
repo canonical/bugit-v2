@@ -1,3 +1,7 @@
+"""
+Implements the concrete Jira submitter that submits a bug report to Jira.
+"""
+
 import json
 import os
 from collections.abc import Generator, Mapping
