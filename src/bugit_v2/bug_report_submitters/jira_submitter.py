@@ -4,10 +4,10 @@ Implements the concrete Jira submitter that submits a bug report to Jira.
 
 import json
 import os
-from collections.abc import Generator, Mapping
-from dataclasses import asdict, dataclass
 import random
 import time
+from collections.abc import Generator, Mapping
+from dataclasses import asdict, dataclass
 from typing import final
 
 from jira import JIRA
@@ -19,12 +19,13 @@ from textual.widgets import Button, Checkbox, Input, Label
 from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
+    AdvanceMessage,
     BugReportSubmitter,
 )
 from bugit_v2.models.bug_report import BugReport, Severity
 
 
-@dataclass
+@dataclass(slots=True)
 class JiraBasicAuth:
     email: str
     token: str
@@ -125,7 +126,7 @@ class JiraBugReportSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
     @override
     def submit(
         self, bug_report: BugReport
-    ) -> Generator[str | Exception, None, str]:
+    ) -> Generator[str | AdvanceMessage | Exception, None, str]:
         # final submit
         bug_dict = {
             "assignee": bug_report.assignee,
@@ -147,43 +148,52 @@ class JiraBugReportSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
             self.jira = JIRA(
                 server=jira_server_addr,
                 basic_auth=(self.auth.email, self.auth.token),
-                validate=True,  # check auth on create
+                validate=True,
             )
-            yield (
-                "OK! Jira authentication finished"
+
+            # immediately cache
+            if self.allow_cache_credentials:
+                with open(f"/tmp/{self.name}-credentials.json", "w") as f:
+                    json.dump(asdict(self.auth), f)
+            yield AdvanceMessage(
+                "Jira auth is valid"
                 + (
-                    " and the credentials have been cached."
+                    " and credentials have been cached!"
                     if self.allow_cache_credentials
                     else ""
                 )
             )
 
-            yield f"Checking if project {bug_report.project} exists..."
             assert self.project_exists(
                 bug_report.project
             ), f"Project '{bug_report.project}' doesn't exist!"
-            yield "OK! Project exists"
+            yield AdvanceMessage(
+                f"Project {bug_report.project} exists on {jira_server_addr}"
+            )
 
             if bug_report.assignee:
-                yield f"Checking if {bug_report.assignee} exists..."
                 assert self.assignee_exists_and_unique(
                     bug_report.assignee
                 ), f"Assignee {bug_report.assignee} doesn't exist or isn't unique!"
-                yield "OK! Assignee exists and is unique"
-
-            if os.getenv("DEBUG"):
-                # can still do checks, but don't actually create issues
-                return "Debug mode, not submitting anything to real jira"
+                # yield "OK! Assignee exist"
+                yield AdvanceMessage(
+                    f"Assignee [u]{bug_report.assignee}[/u] exists and is unique!"
+                )
+            else:
+                yield AdvanceMessage(
+                    "Assignee unspecified, marking the bug as unassigned"
+                )
 
             issue = self.jira.create_issue(  # pyright: ignore[reportUnknownMemberType]
                 bug_dict
             )
-            yield f"OK! Created {issue.id}"
+            yield AdvanceMessage(f"Created {issue.id}")
             return issue.id
         except Exception as e:
             yield e
 
-        return "bad"  # shouldn't be reachable
+        # the submission screen should stop as soon as an Exception is yielded
+        raise RuntimeError("Intermediate exceptions were not caught")
 
     @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:
@@ -196,8 +206,9 @@ class JiraBugReportSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
 
 
 @final
-class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str | Exception]):
+class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
     name = "mock_jira_submitter"
+    display_name = "Mock Jira"
     steps = 4
     jira: JIRA | None = None
     auth_modal = JiraAuthModal
@@ -245,8 +256,7 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str | Exception]):
     @override
     def submit(
         self, bug_report: BugReport
-    ) -> Generator[str | Exception, None, str]:
-
+    ) -> Generator[str | AdvanceMessage | Exception, None, str]:
         # final submit
         bug_dict = {
             "assignee": bug_report.assignee,
@@ -271,38 +281,37 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str | Exception]):
                 validate=True,
             )
 
-            if os.getenv("MOCK_SUBMIT") == "random":
-                if random.random() > 0.5:
-                    raise RuntimeError("err during auth")
-
             # immediately cache
             if self.allow_cache_credentials:
                 with open(f"/tmp/{self.name}-credentials.json", "w") as f:
                     json.dump(asdict(self.auth), f)
-            yield "OK! Jira auth valid"
+            yield AdvanceMessage(
+                "Jira auth is valid"
+                + (
+                    " and credentials have been cached!"
+                    if self.allow_cache_credentials
+                    else ""
+                )
+            )
 
             assert self.project_exists(
                 bug_report.project
             ), f"Project '{bug_report.project}' doesn't exist!"
-
-            if os.getenv("MOCK_SUBMIT") == "random":
-                if random.random() > 0.5:
-                    raise RuntimeError("err during project")
-
-            yield "OK! Project exists"
+            yield AdvanceMessage(
+                f"Project {bug_report.project} exists on {jira_server_addr}"
+            )
 
             if bug_report.assignee:
                 assert self.assignee_exists_and_unique(
                     bug_report.assignee
                 ), f"Assignee {bug_report.assignee} doesn't exist or isn't unique!"
-                yield "OK! Assignee exist"
+                yield AdvanceMessage(
+                    f"Assignee [u]{bug_report.assignee}[/u] exists and is unique!"
+                )
             else:
-                yield "OK! Unassigned"
-
-            if os.getenv("MOCK_SUBMIT") == "random":
-                if random.random() > 0.5:
-                    raise RuntimeError("err during assignee")
-
+                yield AdvanceMessage(
+                    "Assignee unspecified, marking the bug as unassigned"
+                )
             print(bug_dict)
             if os.getenv("MOCK_SUBMIT") == "random":
                 if random.random() > 0.5:

@@ -25,6 +25,7 @@ from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
+    AdvanceMessage,
     BugReportSubmitter,
 )
 from bugit_v2.components.confirm_dialog import ConfirmScreen
@@ -41,7 +42,9 @@ TReturn = TypeVar("TReturn")
 
 
 @final
-class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
+class SubmissionProgressScreen(
+    Generic[TAuth, TReturn], Screen[ReturnScreenChoice]
+):
     bug_report: BugReport
     finished = var(False)
     last_submission_err = var[Exception | None](None)
@@ -49,6 +52,8 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
     log_workers: dict[LogName, Worker[sp.CompletedProcess[str]]]
     log_dir: TemporaryDirectory[str]
     log_widget: RichLog | None = None  # late init in on_mount
+
+    submitter: BugReportSubmitter[TAuth, TReturn]
 
     CSS = """
     SubmissionProgressScreen {
@@ -119,11 +124,11 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
 
                 if rv.returncode == 0:
                     self.log_widget.write(
-                        f"[green][ OK! ][/green] {collector.name} finished! mainseq"
+                        f"[green]OK![/green] {collector.name} finished!"
                     )
                 else:
                     self.log_widget.write(
-                        f"[red][ FAILED ][/red] Collector {collector.name} failed"
+                        f"[red]FAILED![/red] Collector {collector.name} failed"
                     )
                     self.log_widget.write(Pretty(rv))
 
@@ -139,14 +144,21 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
             )
 
             self.log_widget.write(
-                f"[green][ OK! ][/green] Launched {log_name} log collector in the background!"
+                f"[green]OK![/green] Launched {log_name} log collector in the background!"
             )  # late write
 
         # then do the jira/lp stuff
+        display_name = self.submitter.display_name or self.submitter.name
         for step_result in self.submitter.submit(self.bug_report):
             match step_result:
                 case str():
-                    self.log_widget.write(step_result)
+                    self.log_widget.write(
+                        f"[b]{display_name}[/b]: {step_result}"
+                    )
+                case AdvanceMessage():
+                    self.log_widget.write(
+                        f"[green]OK![/green] [b]{display_name}[/b]: {step_result.message}"
+                    )
                     progress_bar.advance()
                 case Exception():
                     self.last_submission_err = step_result
@@ -216,7 +228,6 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
             yield RichLog(id="submission_logs", markup=True)
 
         with VerticalGroup(classes="db"):
-
             with VerticalGroup(
                 classes="w100 ha center tbm1", id="menu_after_finish"
             ):

@@ -80,6 +80,12 @@ class SessionSelectionScreen(Screen[Path]):
             )
 
     def _get_valid_sessions(self) -> list[Path]:
+        """Get a list of valid sessions in /var/tmp/checkbox-ng
+
+        This is achieved by looking at which session directory has non-empty
+        io-logs. If it's empty, it's either tossed by checkbox or didn't even 
+        reach the test case where it dumps the udev database, thus invalid
+        """        
         if not self.session_root.exists():
             return []
         valid_session_dirs: list[Path] = []

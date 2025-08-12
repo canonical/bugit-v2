@@ -73,8 +73,9 @@ class BugReportScreen(Screen[BugReport]):
     session: Final[Session]
     job_id: Final[str]
     initial_report: dict[str, str]
-    # [id] = (title, subtitle)
+    # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
     # id should match the property name in the BugReport object
+    # TODO: rename this, it does more than just holding titles now
     ELEM_ID_TO_BORDER_TITLE: Final[Mapping[str, tuple[str, str]]] = {
         "title": ("[b]Bug Title", "This is the title in Jira/Launchpad"),
         "description": (
