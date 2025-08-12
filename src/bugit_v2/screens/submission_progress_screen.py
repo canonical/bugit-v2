@@ -115,28 +115,32 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
 
                 if rv.returncode == 0:
                     self.log_widget.write(
-                        f"[green][ OK! ][/green] {log} finished!"
+                        f"[green][ OK! ][/green] {collector.name} finished! mainseq"
                     )
+                    print(collector.name, "finished")
                 else:
                     self.log_widget.write(
-                        f"[red][ FAILED ][/red] Collector {log} failed"
+                        f"[red][ FAILED ][/red] Collector {collector.name} failed"
                     )
                     self.log_widget.write(Pretty(rv))
+                    print(collector.name, "failed")
 
                 return rv
 
-            self.log_workers[log_name] = self.run_worker(
+            n = "".join(list(log_name))
+            self.log_workers[n] = self.run_worker(
                 lambda: run_collect(
-                    log_name  # pyright: ignore[reportArgumentType] # pyright being stupid
+                    n  # pyright: ignore[reportArgumentType] # pyright being stupid
                 ),
                 thread=True,  # not async
-                name=log_name,
+                name=n,
                 exit_on_error=False,  # hold onto the err, don't crash
             )
+
             self.log_widget.write(
                 f"[green][ OK! ][/green] Launched {log_name} log collector in the background!"
             )  # late write
-
+        print(self.log_workers, len(self.log_workers))
         # then do the jira/lp stuff
         for step_result in self.submitter.submit(self.bug_report):
             match step_result:
