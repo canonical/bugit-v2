@@ -56,6 +56,10 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
         height: 100%;
         align: center middle;
     }
+
+    #menu_after_finish {
+        display: none;
+    }
     """
 
     CSS_PATH = "styles.tcss"
@@ -127,13 +131,12 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
 
                 return rv
 
-            n = "".join(list(log_name))
-            self.log_workers[n] = self.run_worker(
-                lambda: run_collect(
-                    n  # pyright: ignore[reportArgumentType] # pyright being stupid
-                ),
+            self.log_workers[log_name] = self.run_worker(
+                # closure workaround
+                # https://stackoverflow.com/a/1107260
+                lambda n=log_name: run_collect(n),
                 thread=True,  # not async
-                name=n,
+                name=log_name,
                 exit_on_error=False,  # hold onto the err, don't crash
             )
 
