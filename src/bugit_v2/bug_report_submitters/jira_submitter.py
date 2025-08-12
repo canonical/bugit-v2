@@ -7,6 +7,7 @@ import os
 from collections.abc import Generator, Mapping
 from dataclasses import asdict, dataclass
 import random
+import time
 from typing import final
 
 from jira import JIRA
@@ -307,13 +308,14 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str | Exception]):
                 if random.random() > 0.5:
                     raise RuntimeError("err during issue()")
 
+            time.sleep(2)
             yield "OK! Created `issue id`"
 
             return "issue id"
         except Exception as e:
             yield e
 
-        return ""
+        raise RuntimeError("Intermediate exceptions were not caught")
 
     @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:

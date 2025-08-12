@@ -7,7 +7,7 @@ from all other collectors.
 """
 
 import subprocess as sp
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Literal
@@ -23,7 +23,6 @@ LogName = Literal[
     "always-fail",
 ]
 LOG_NAMES: tuple[LogName, ...] = LogName.__args__
-CollectorMap = Mapping[LogName, "LogCollector"]
 
 
 @dataclass
@@ -61,49 +60,52 @@ def oem_getlogs(target_dir: Path):
     )
 
 
-mock_collectors: CollectorMap = {
-    "sosreport": LogCollector(
+mock_collectors: Sequence[LogCollector] = (
+    LogCollector(
         "sosreport", lambda _: sp.run(["sleep", "4"], text=True), "SOS Report"
     ),
-    "oem-getlogs": LogCollector(
+    LogCollector(
         "oem-getlogs",
         lambda _: sp.run(["sleep", "2"], text=True),
         "OEM GetLogs",
     ),
-    "immediate": LogCollector(
+    LogCollector(
         "immediate", lambda _: sp.run(["echo"], text=True), "Immediate return"
     ),
-    "fast1": LogCollector(
+    LogCollector(
         "fast1", lambda _: sp.run(["sleep", "3"], text=True), "Fast collect 1"
     ),
-    "fast2": LogCollector(
+    LogCollector(
         "fast2", lambda _: sp.run(["sleep", "5"], text=True), "Fast collect 2"
     ),
-    "slow1": LogCollector(
+    LogCollector(
         "slow1", lambda _: sp.run(["sleep", "6"], text=True), "Slow collect 1"
     ),
-    "slow2": LogCollector(
+    LogCollector(
         "slow2", lambda _: sp.run(["sleep", "7"], text=True), "Slow collect 2"
     ),
-    "always-fail": LogCollector(
+    LogCollector(
         "always-fail", lambda _: sp.run(["false"], text=True), "Always fail"
     ),
-}
+)
 
 
-real_collectors: CollectorMap = {
-    "sosreport": LogCollector(
+real_collectors: Sequence[LogCollector] = (
+    LogCollector(
         "sosreport",
         sos_report,
         "SOS Report",
         "Runs the 'sos report --batch' command",
     ),
-    "oem-getlogs": LogCollector(
+    LogCollector(
         "oem-getlogs",
         oem_getlogs,
         "OEM GetLogs",
         "Runs the oem-getlogs command",
     ),
-}
+)
 
-LOG_NAME_TO_COLLECTOR = mock_collectors
+LOG_NAME_TO_COLLECTOR: Mapping[LogName, LogCollector] = {
+    collector.name: collector
+    for collector in mock_collectors  # replace mock_collectors with others
+}
