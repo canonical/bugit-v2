@@ -121,13 +121,11 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
                     self.log_widget.write(
                         f"[green][ OK! ][/green] {collector.name} finished! mainseq"
                     )
-                    print(collector.name, "finished")
                 else:
                     self.log_widget.write(
                         f"[red][ FAILED ][/red] Collector {collector.name} failed"
                     )
                     self.log_widget.write(Pretty(rv))
-                    print(collector.name, "failed")
 
                 return rv
 
@@ -143,7 +141,7 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
             self.log_widget.write(
                 f"[green][ OK! ][/green] Launched {log_name} log collector in the background!"
             )  # late write
-        print(self.log_workers, len(self.log_workers))
+
         # then do the jira/lp stuff
         for step_result in self.submitter.submit(self.bug_report):
             match step_result:
