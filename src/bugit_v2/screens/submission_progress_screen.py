@@ -4,12 +4,23 @@ from tempfile import TemporaryDirectory
 from typing import Generic, Literal, TypeVar, final
 
 from rich.pretty import Pretty
-from textual import work
+from textual import on, work
 from textual.app import ComposeResult
-from textual.containers import VerticalGroup
+from textual.containers import (
+    Center,
+    HorizontalGroup,
+    VerticalGroup,
+)
 from textual.reactive import var
 from textual.screen import Screen
-from textual.widgets import Footer, Header, ProgressBar, RichLog
+from textual.widgets import (
+    Button,
+    Footer,
+    Header,
+    Label,
+    ProgressBar,
+    RichLog,
+)
 from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
@@ -66,7 +77,7 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
     @work
     async def on_mount(self) -> None:
         self.log_widget = self.query_exactly_one("#submission_logs", RichLog)
-
+        self.query_exactly_one("#menu_after_finish").display = False
         if self.submitter.auth_modal:
             # this is a bit weird, right now it's basically letting the
             # submission screen control how the credentials are assigned
@@ -146,17 +157,7 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
             return
 
         self.log_dir.cleanup()
-        screen = await self.app.push_screen_wait(
-            ConfirmScreen[ReturnScreenChoice](
-                "Submission finished! You can go back to job/session selection or quit BugIt",
-                choices=(
-                    ("Select Another Job", "job"),
-                    ("Select Another Session", "session"),
-                    ("Quit", "quit"),
-                ),
-            ),
-        )
-        self.dismiss(screen)
+        self.query_exactly_one("#menu_after_finish").display = True
 
     @work
     async def watch_last_submission_err(self):
@@ -180,7 +181,7 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         if not self.log_widget or event.worker.name not in self.log_workers:
             return
-        
+
         if event.worker.state == WorkerState.CANCELLED:
             self.log_widget.write(f"{event.worker.name} was cancelled")
 
@@ -189,16 +190,47 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
         ):
             self.finished = True
 
+    @on(Button.Pressed, "#job")
+    @on(Button.Pressed, "#session")
+    @on(Button.Pressed, "#quit")
+    def handle_button_in_menu_after_finish(self, event: Button.Pressed):
+        if event.button.id in RETURN_SCREEN_CHOICES:
+            self.dismiss(event.button.id)
+
     @override
     def compose(self) -> ComposeResult:
         yield Header(classes="dt")
-        with VerticalGroup(classes="w75 center"):
+
+        with Center(classes="lrm1"):
             yield ProgressBar(
                 total=self.submitter.steps
                 + len(self.bug_report.logs_to_include),
                 id="progress",
                 show_eta=False,
-                classes="w100",
             )
             yield RichLog(id="submission_logs", markup=True)
-        yield Footer(classes="db")
+
+        with VerticalGroup(classes="db"):
+
+            with VerticalGroup(
+                classes="w100 ha center tbm1", id="menu_after_finish"
+            ):
+                yield Center(
+                    Label(
+                        "Submission finished! You can go back to job/session selection or quit BugIt",
+                        classes="wa",
+                    )
+                )
+                with Center():
+                    with HorizontalGroup(classes="wa center"):
+                        yield Button(
+                            "Select another job", classes="mr1", id="job"
+                        )
+                        yield Button(
+                            "Select another session",
+                            classes="mr1",
+                            id="session",
+                        )
+                        yield Button("Quit", id="quit")
+
+            yield Footer()
