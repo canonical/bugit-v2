@@ -126,13 +126,6 @@ class BugitApp(App[None]):
         yield Footer()
 
 
-@final
-class a2(App[None]):
-    @override
-    def compose(self) -> ComposeResult:
-        yield JiraAuthModal()
-
-
 def main():
     app = BugitApp()
     app.run()

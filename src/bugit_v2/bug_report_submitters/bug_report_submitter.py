@@ -33,6 +33,7 @@ class BugReportSubmitter(Generic[TAuth, TReturn], abc.ABC):
     # see the jira submitter for an example
     severity_name_map: Mapping[Severity, str]
     # number of steps, used to show submission progress
+    # NOTE: you need to hard-code this for now
     steps: int
 
     # If the submitter requires the user to authenticate, provide a modal here

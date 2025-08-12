@@ -13,7 +13,7 @@ from typing import final
 from jira import JIRA
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import VerticalGroup
+from textual.containers import Center, VerticalGroup
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Input, Label
 from typing_extensions import override
@@ -35,17 +35,47 @@ class JiraBasicAuth:
 class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool]]):
     auth: JiraBasicAuth | None = None
 
+    CSS = """
+    JiraAuthModal {
+        align: center middle;
+        background: $background 100%;
+    }
+    
+    #top_level_container {
+        padding: 0 5;
+    }
+
+    JiraAuthModal Input {
+        border: round $boost 700%;
+        background: $background 100%;
+    }
+
+    JiraAuthModal Checkbox {
+        border: round $boost 700%;
+        background: $background 100%;
+    }
+
+    JiraAuthModal Input:focus-within {
+        border: round $primary;
+    }
+
+    JiraAuthModal Checkbox:focus-within {
+        border: round $primary;
+    }
+    """
+
     @override
     def compose(self) -> ComposeResult:
-        with VerticalGroup(classes="default_box"):
-            yield Label("Jira auth")
-            yield Label("Email")
+        with VerticalGroup(id="top_level_container"):
+            yield Label("[b][$primary]Jira Authentication")
             yield Input(placeholder="your.email@jira.com", id="email")
-            yield Label("Jira Access Token")
+            yield Input(
+                placeholder="A token can be created at the link below if you don't already have one",
+                id="token",
+            )
             yield Label(
                 "https://id.atlassian.com/manage-profile/security/api-tokens"
             )
-            yield Input(placeholder="Jira Access Token", id="token")
             yield Checkbox(
                 "Cache valid credentials until next boot",
                 tooltip=(
@@ -55,7 +85,16 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool]]):
                 ),
                 value=True,
             )
-            yield Button("Continue", id="continue_button", disabled=True)
+            yield Center(
+                Button("Continue", id="continue_button", disabled=True)
+            )
+
+    def on_mount(self):
+        self.query_exactly_one("#top_level_container").border_title = (
+            "Jira Authentication"
+        )
+        self.query_exactly_one("#email").border_title = "Email"
+        self.query_exactly_one("#token").border_title = "Jira Access Token"
 
     @on(Input.Blurred)
     @on(Input.Changed)
@@ -80,6 +119,7 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool]]):
 @final
 class JiraBugReportSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
     name = "jira_submitter"
+    display_name = "Jira Client"
     steps = 4
     jira: JIRA | None = None
     auth_modal = JiraAuthModal
@@ -187,6 +227,7 @@ class JiraBugReportSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
             issue = self.jira.create_issue(  # pyright: ignore[reportUnknownMemberType]
                 bug_dict
             )
+            print(issue)
             yield AdvanceMessage(f"Created {issue.id}")
             return issue.id
         except Exception as e:
