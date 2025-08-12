@@ -33,7 +33,7 @@ pretty_issue_file_times: Mapping[IssueFileTime, str] = {
 T = TypeVar("T")
 
 
-@dataclass
+@dataclass(slots=True)
 class BugReport:
     # required
     title: str

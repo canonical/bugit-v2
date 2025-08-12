@@ -25,7 +25,7 @@ LogName = Literal[
 LOG_NAMES: tuple[LogName, ...] = LogName.__args__
 
 
-@dataclass
+@dataclass(slots=True)
 class LogCollector:
     name: LogName  # internal name
     collect: Callable[

@@ -23,7 +23,7 @@ from bugit_v2.screens.submission_progress_screen import (
 )
 
 
-@dataclass
+@dataclass(slots=True)
 class AppState:
     session: Session | None = None
     job_id: str | None = None

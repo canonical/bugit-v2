@@ -65,6 +65,10 @@ class SubmissionProgressScreen(
     #menu_after_finish {
         display: none;
     }
+
+    RichLog {
+        padding: 0 1;
+    }
     """
 
     CSS_PATH = "styles.tcss"
