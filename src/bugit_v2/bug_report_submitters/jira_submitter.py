@@ -6,6 +6,7 @@ import json
 import os
 from collections.abc import Generator, Mapping
 from dataclasses import asdict, dataclass
+import random
 from typing import final
 
 from jira import JIRA
@@ -147,7 +148,14 @@ class JiraBugReportSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
                 basic_auth=(self.auth.email, self.auth.token),
                 validate=True,  # check auth on create
             )
-            yield "OK! Jira auth finished"
+            yield (
+                "OK! Jira authentication finished"
+                + (
+                    " and the credentials have been cached."
+                    if self.allow_cache_credentials
+                    else ""
+                )
+            )
 
             yield f"Checking if project {bug_report.project} exists..."
             assert self.project_exists(
@@ -187,7 +195,7 @@ class JiraBugReportSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
 
 
 @final
-class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
+class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str | Exception]):
     name = "mock_jira_submitter"
     steps = 4
     jira: JIRA | None = None
@@ -261,6 +269,11 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
                 basic_auth=(self.auth.email, self.auth.token),
                 validate=True,
             )
+
+            if os.getenv("MOCK_SUBMIT") == "random":
+                if random.random() > 0.5:
+                    raise RuntimeError("err during auth")
+
             # immediately cache
             if self.allow_cache_credentials:
                 with open(f"/tmp/{self.name}-credentials.json", "w") as f:
@@ -270,7 +283,13 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
             assert self.project_exists(
                 bug_report.project
             ), f"Project '{bug_report.project}' doesn't exist!"
+
+            if os.getenv("MOCK_SUBMIT") == "random":
+                if random.random() > 0.5:
+                    raise RuntimeError("err during project")
+
             yield "OK! Project exists"
+
             if bug_report.assignee:
                 assert self.assignee_exists_and_unique(
                     bug_report.assignee
@@ -278,13 +297,23 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
                 yield "OK! Assignee exist"
             else:
                 yield "OK! Unassigned"
+
+            if os.getenv("MOCK_SUBMIT") == "random":
+                if random.random() > 0.5:
+                    raise RuntimeError("err during assignee")
+
             print(bug_dict)
+            if os.getenv("MOCK_SUBMIT") == "random":
+                if random.random() > 0.5:
+                    raise RuntimeError("err during issue()")
+
             yield "OK! Created `issue id`"
+
             return "issue id"
         except Exception as e:
             yield e
 
-        return "bad"  # shouldn't be reachable
+        return ""
 
     @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:
