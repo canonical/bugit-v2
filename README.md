@@ -2,13 +2,11 @@
 
 This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [textual](https://textual.textualize.io/) library.
 
-<img width="960" height="1202" alt="image" src="https://github.com/user-attachments/assets/69f6d326-b302-4962-8125-51695906ac9e" />
-
 [Features](#features) | [Installation](#installation) | [Development](#development) | [Limitations](#limitations)
-
 
 > [!CAUTION]
 > This project is VERY EXPERIMENTAL as of Aug 11 2025. **DO NOT** connect to any of the real Jira/Launchpad backends for now.
+<img width="1019" height="806" alt="BugIt_V2_2025-08-13T10_30_18_8923072" src="https://github.com/user-attachments/assets/40c74a15-186d-4c74-b951-db0161b7142d" />
 
 ## Features
 
