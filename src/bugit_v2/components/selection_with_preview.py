@@ -13,18 +13,15 @@ from typing_extensions import override
 
 @final
 class SelectionWithPreview(Widget):
-
     # maps from selection key to actual values
     data: Mapping[str, Sequence[str]]
     preview_label: Label
-    border_title: str
     selected_keys = var[list[str]]([])
 
     def __init__(
         self,
         data: Mapping[str, Sequence[str]],
         preview_label: Label,
-        border_title: str = "",
         *children: Widget,
         name: str | None = None,
         id: str | None = None,
@@ -42,11 +39,10 @@ class SelectionWithPreview(Widget):
         )
         self.data = data
         self.preview_label = preview_label
-        self.border_title = border_title
 
     @override
     def compose(self) -> ComposeResult:
-        with HorizontalGroup(classes="default_box h100", id="outer"):
+        with HorizontalGroup(classes="h100", id="outer"):
             with VerticalGroup(classes="mr1 w50"):
                 yield SelectionList[str](
                     *(Selection(k, k, False) for k in self.data.keys()),
@@ -66,10 +62,6 @@ class SelectionWithPreview(Widget):
                     Label(id="display", disabled=True),
                     classes="nb",
                 )
-
-    def on_mount(self):
-        if self.border_title:
-            self.query_exactly_one("#outer").border_title = self.border_title
 
     def watch_selected_keys(self):
         display = self.query_exactly_one("#display", Label)

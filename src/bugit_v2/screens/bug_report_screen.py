@@ -37,22 +37,6 @@ from bugit_v2.models.bug_report import (
 )
 from bugit_v2.utils.constants import FEATURE_MAP, VENDOR_MAP
 
-REPORT_TEMPLATE = """
-[Summary]
-
-[Steps to reproduce]
-
-[Expected result]
-
-[Actual result]
-
-[Failure rate]
-
-[Affected test cases]
-
-[Additional Information]
-""".strip()
-
 
 class ValidSpaceSeparatedTags(Validator):
     @override
@@ -88,23 +72,25 @@ class NoSpaces(Validator):
 class BugReportScreen(Screen[BugReport]):
     session: Final[Session]
     job_id: Final[str]
-    # [id] = (title, subtitle)
+    initial_report: dict[str, str]
+    # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
     # id should match the property name in the BugReport object
-    elem_id_to_border_title: Final[Mapping[str, tuple[str, str]]] = {
+    # TODO: rename this, it does more than just holding titles now
+    ELEM_ID_TO_BORDER_TITLE: Final[Mapping[str, tuple[str, str]]] = {
         "title": ("[b]Bug Title", "This is the title in Jira/Launchpad"),
         "description": (
-            "[bold]Bug Description",
+            "[b]Bug Description",
             "Include all the details :)",
         ),
-        "issue_file_time": ("[bold]When was this issue filed?", ""),
-        "platform_tags": ("[bold]Platform Tags", ""),
-        "assignee": ("[bold]Assignee", ""),
-        "severity": ("[bold]How bad is it?", ""),
-        "project": ("[bold]Project Name", ""),
-        "additional_tags": ("[bold]Additional Tags", ""),
-        "logs_to_include": ("[bold]Select some logs to include", ""),
-        "impacted_features": ("", ""),
-        "impacted_vendors": ("", ""),
+        "issue_file_time": ("[b]When was this issue filed?", ""),
+        "platform_tags": ("[b]Platform Tags", ""),
+        "assignee": ("[b]Assignee", ""),
+        "severity": ("[b]How bad is it?", ""),
+        "project": ("[b]Project Name", ""),
+        "additional_tags": ("[b]Additional Tags", ""),
+        "logs_to_include": ("[b]Select some logs to include", ""),
+        "impacted_features": ("[b]Impacted Features", ""),
+        "impacted_vendors": ("[b]Impacted Vendors", ""),
     }
 
     CSS = """
@@ -136,7 +122,18 @@ class BugReportScreen(Screen[BugReport]):
         self.session = session
         self.job_id = job_id
         self.existing_report = existing_report
-        self.machine_info = get_standard_info()
+        self.machine_info = get_standard_info()  # slow
+        self.initial_report = {
+            "Summary": "",
+            "Steps to reproduce": "",
+            "Expected result": "",
+            "Actual result": "",
+            "Failure rate": "",
+            "Affected test cases": "",
+            "Additional Information": "\n".join(
+                f"{k}: {v}" for k, v in self.machine_info.items()
+            ),
+        }
 
     @override
     def compose(self) -> ComposeResult:
@@ -158,10 +155,9 @@ class BugReportScreen(Screen[BugReport]):
             with HorizontalGroup():
                 with VerticalGroup(id="bug_report_description"):
                     yield TextArea(
-                        REPORT_TEMPLATE
-                        + "\n"
-                        + "\n".join(
-                            f"{k}: {v}" for k, v in self.machine_info.items()
+                        "\n".join(
+                            f"[{k}]\n" + v
+                            for k, v in self.initial_report.items()
                         ),
                         classes="default_box",
                         show_line_numbers=True,
@@ -258,14 +254,14 @@ class BugReportScreen(Screen[BugReport]):
             yield SelectionWithPreview(
                 FEATURE_MAP,
                 Label("[i][$primary]These features will be tagged"),
-                "[b]Impacted Features",
                 id="impacted_features",
+                classes="default_box",
             )
             yield SelectionWithPreview(
                 VENDOR_MAP,
                 Label("[i][$primary]These vendors will be tagged"),
-                "[b]Impacted Vendors",
                 id="impacted_vendors",
+                classes="default_box",
             )
 
             yield Button(
@@ -277,7 +273,7 @@ class BugReportScreen(Screen[BugReport]):
         yield Footer()
 
     def on_mount(self):
-        for elem_id, border_titles in self.elem_id_to_border_title.items():
+        for elem_id, border_titles in self.ELEM_ID_TO_BORDER_TITLE.items():
             elem = self.query_exactly_one(f"#{elem_id}")
             elem.border_title, elem.border_subtitle = border_titles
             # restore existing report
@@ -405,7 +401,7 @@ class BugReportScreen(Screen[BugReport]):
             return
 
         if event.validation_result.is_valid:
-            event.input.border_subtitle = self.elem_id_to_border_title.get(
+            event.input.border_subtitle = self.ELEM_ID_TO_BORDER_TITLE.get(
                 event.input.id, ("", "")
             )[1]
 

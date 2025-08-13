@@ -1,3 +1,8 @@
+"""
+The data model for a bug report. Avoid attaching methods to this class unless
+it's a simple getter
+"""
+
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Final, Literal, TypeVar
@@ -16,6 +21,7 @@ pretty_severities: Mapping[Severity, str] = {
     "lowest": "Lowest",
 }
 
+# Internal representation of when the issue was filed
 IssueFileTime = Literal["immediate", "after_reboot", "later"]
 ISSUE_FILE_TIMES: Final[tuple[IssueFileTime, ...]] = IssueFileTime.__args__
 pretty_issue_file_times: Mapping[IssueFileTime, str] = {
@@ -27,7 +33,7 @@ pretty_issue_file_times: Mapping[IssueFileTime, str] = {
 T = TypeVar("T")
 
 
-@dataclass
+@dataclass(slots=True)
 class BugReport:
     # required
     title: str

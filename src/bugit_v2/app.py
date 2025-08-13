@@ -9,10 +9,7 @@ from textual.reactive import var
 from textual.widgets import Footer, Header, LoadingIndicator
 from typing_extensions import override
 
-from bugit_v2.bug_report_submitters.jira_submitter import (
-    JiraAuthModal,
-    MockJiraSubmitter,
-)
+from bugit_v2.bug_report_submitters.jira_submitter import MockJiraSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
 from bugit_v2.models.bug_report import BugReport
 from bugit_v2.screens.bug_report_screen import BugReportScreen
@@ -23,7 +20,7 @@ from bugit_v2.screens.submission_progress_screen import (
 )
 
 
-@dataclass
+@dataclass(slots=True)
 class AppState:
     session: Session | None = None
     job_id: str | None = None
@@ -39,7 +36,7 @@ class BugitApp(App[None]):
     @work
     async def on_mount(self) -> None:
         self.theme = "solarized-light"
-        self.title = "👾 BugIt V2"
+        self.title = "BugIt V2 👾"
 
         if (version := get_checkbox_version()) is not None:
             self.sub_title = f"Checkbox {version}"
@@ -124,13 +121,6 @@ class BugitApp(App[None]):
         yield Header()
         yield LoadingIndicator()
         yield Footer()
-
-
-@final
-class a2(App[None]):
-    @override
-    def compose(self) -> ComposeResult:
-        yield JiraAuthModal()
 
 
 def main():

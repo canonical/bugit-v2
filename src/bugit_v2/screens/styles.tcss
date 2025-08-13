@@ -56,6 +56,10 @@
     margin: 0 1;
 }
 
+.tbm1 {
+    margin: 1 0;
+}
+
 .m1 {
     margin: 1;
 }
@@ -187,9 +191,4 @@ Checkbox.-on>.toggle--button {
 
 #cc_button {
     display: none;
-}
-
-RichLog {
-    padding: 0 1;
-    overflow-y: auto;
 }

@@ -4,16 +4,28 @@ from tempfile import TemporaryDirectory
 from typing import Generic, Literal, TypeVar, final
 
 from rich.pretty import Pretty
-from textual import work
+from textual import on, work
 from textual.app import ComposeResult
-from textual.containers import VerticalGroup
+from textual.containers import (
+    Center,
+    HorizontalGroup,
+    VerticalGroup,
+)
 from textual.reactive import var
 from textual.screen import Screen
-from textual.widgets import Footer, Header, ProgressBar, RichLog
-from textual.worker import Worker
+from textual.widgets import (
+    Button,
+    Footer,
+    Header,
+    Label,
+    ProgressBar,
+    RichLog,
+)
+from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
+    AdvanceMessage,
     BugReportSubmitter,
 )
 from bugit_v2.components.confirm_dialog import ConfirmScreen
@@ -30,20 +42,36 @@ TReturn = TypeVar("TReturn")
 
 
 @final
-class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
+class SubmissionProgressScreen(
+    Generic[TAuth, TReturn], Screen[ReturnScreenChoice]
+):
+    """
+    The progress screen shown while submission/log collection is happening
+    """
+
     bug_report: BugReport
     finished = var(False)
-    last_submission_err = var[Exception | None](None)
+    last_submitter_error = var[Exception | None](None)
 
     log_workers: dict[LogName, Worker[sp.CompletedProcess[str]]]
     log_dir: TemporaryDirectory[str]
     log_widget: RichLog | None = None  # late init in on_mount
+
+    submitter: BugReportSubmitter[TAuth, TReturn]
 
     CSS = """
     SubmissionProgressScreen {
         width: 100%;
         height: 100%;
         align: center middle;
+    }
+
+    #menu_after_finish {
+        display: none;
+    }
+
+    RichLog {
+        padding: 0 1;
     }
     """
 
@@ -59,14 +87,14 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
     ) -> None:
         self.bug_report = bug_report
         self.submitter = submitter
-        self.log_dir = TemporaryDirectory(delete=False)
+        self.log_dir = TemporaryDirectory()
         self.log_workers = {}
         super().__init__(name, id, classes)
 
     @work
     async def on_mount(self) -> None:
         self.log_widget = self.query_exactly_one("#submission_logs", RichLog)
-
+        self.query_exactly_one("#menu_after_finish").display = False
         if self.submitter.auth_modal:
             # this is a bit weird, right now it's basically letting the
             # submission screen control how the credentials are assigned
@@ -81,7 +109,7 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
                 self.submitter.auth, self.submitter.allow_cache_credentials = (
                     cached_credentials,
                     True,  # if it was saved before,
-                    # then allow_cache_credentials is def true
+                    # then allow_cache_credentials is definitely true
                 )
 
         # auth ready, do the jira/lp steps
@@ -104,41 +132,69 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
 
                 if rv.returncode == 0:
                     self.log_widget.write(
-                        f"[green][ OK! ][/green] {log} finished!"
+                        f"[green]OK![/green] {collector.name} finished!"
                     )
                 else:
                     self.log_widget.write(
-                        f"[red][ FAILED ][/red] Collector {log} failed"
+                        f"[red]FAILED![/red] Collector {collector.name} failed"
                     )
                     self.log_widget.write(Pretty(rv))
 
                 return rv
 
             self.log_workers[log_name] = self.run_worker(
-                lambda: run_collect(
-                    log_name  # pyright: ignore[reportArgumentType] # pyright being stupid
-                ),
+                # closure workaround
+                # https://stackoverflow.com/a/1107260
+                # bind the value early
+                lambda n=log_name: run_collect(n),
                 thread=True,  # not async
                 name=log_name,
                 exit_on_error=False,  # hold onto the err, don't crash
             )
+
             self.log_widget.write(
-                f"[green][ OK! ][/green] Launched {log_name} log collector in the background!"
+                f"[green]OK![/green] Launched {log_name} log collector in the background!"
             )  # late write
 
         # then do the jira/lp stuff
+        display_name = self.submitter.display_name or self.submitter.name
         for step_result in self.submitter.submit(self.bug_report):
             match step_result:
                 case str():
-                    self.log_widget.write(step_result)
+                    # general logs
+                    self.log_widget.write(
+                        f"[b]{display_name}[/b]: {step_result}"
+                    )
+                case AdvanceMessage():
+                    # messages that will advance the progress bar
+                    self.log_widget.write(
+                        f"[green]OK![/green] [b]{display_name}[/b]: {step_result.message}"
+                    )
                     progress_bar.advance()
                 case Exception():
-                    self.last_submission_err = step_result
-                    return  # exit early
+                    # errors
+                    self.last_submitter_error = step_result
+                    return  # exit early, don't mark self.finished = True
 
         # update state, there's another updater in on_worker_state_changed
-        if len(self.log_workers) == 0 and self.last_submission_err is None:
-            self.finished = True
+        self.finished = self.is_finished()
+
+    def is_finished(self) -> bool:
+        """
+        Determines the "finished" criteria. The self.finished reactive should
+        always be assigned the value determined by this function.
+
+        - Did all the steps from the submitter finish successfully?
+        - last_submitter_error is None
+        - Did all log collectors *finish*?
+        - errors are ok, just report them in the log window since the user can
+            likely just run the collector again
+        - all(w.is_finished for w in self.log_workers.values())
+        - Was the final tar ball created with the log files and checkbox session?
+        """
+        return self.last_submitter_error is None and all(
+            log_worker.is_finished for log_worker in self.log_workers.values()
+        )
 
     @work
     async def watch_finished(self):
@@ -146,21 +202,11 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
             return
 
         self.log_dir.cleanup()
-        screen = await self.app.push_screen_wait(
-            ConfirmScreen[ReturnScreenChoice](
-                "Submission finished! You can go back to job/session selection or quit BugIt",
-                choices=(
-                    ("Select Another Job", "job"),
-                    ("Select Another Session", "session"),
-                    ("Quit", "quit"),
-                ),
-            ),
-        )
-        self.dismiss(screen)
+        self.query_exactly_one("#menu_after_finish").display = True
 
     @work
     async def watch_last_submission_err(self):
-        if self.last_submission_err is None:
+        if self.last_submitter_error is None:
             return
 
         # stop all log workers asap
@@ -170,7 +216,7 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
 
         await self.app.push_screen_wait(
             ConfirmScreen[ReturnScreenChoice](
-                f"Got the following error during submission: {str(self.last_submission_err)}",
+                f"Got the following error during submission: {str(self.last_submitter_error)}",
                 choices=(("Return to Report Editor", "report_editor"),),
                 focus_id_on_mount="report_editor",
             ),
@@ -181,21 +227,53 @@ class SubmissionProgressScreen(Generic[TAuth], Screen[ReturnScreenChoice]):
         if not self.log_widget or event.worker.name not in self.log_workers:
             return
 
-        if self.last_submission_err is None and all(
-            log_worker.is_finished for log_worker in self.log_workers.values()
-        ):
-            self.finished = True
+        if event.worker.state == WorkerState.CANCELLED:
+            self.log_widget.write(f"{event.worker.name} was cancelled")
+
+        self.finished = self.is_finished()
+
+    @on(Button.Pressed, "#job")
+    @on(Button.Pressed, "#session")
+    @on(Button.Pressed, "#quit")
+    def handle_button_in_menu_after_finish(self, event: Button.Pressed):
+        if event.button.id in RETURN_SCREEN_CHOICES:
+            self.dismiss(event.button.id)
 
     @override
     def compose(self) -> ComposeResult:
         yield Header(classes="dt")
-        with VerticalGroup(classes="w75 center"):
-            yield ProgressBar(
-                total=self.submitter.steps
-                + len(self.bug_report.logs_to_include),
-                id="progress",
-                show_eta=False,
-                classes="w100",
-            )
+
+        with Center(classes="lrm1"):
+            with HorizontalGroup():
+                yield Label("Submission Progress", classes="mr1")
+                yield ProgressBar(
+                    total=self.submitter.steps
+                    + len(self.bug_report.logs_to_include),
+                    id="progress",
+                    show_eta=False,
+                )
             yield RichLog(id="submission_logs", markup=True)
-        yield Footer(classes="db")
+
+        with VerticalGroup(classes="db"):
+            with VerticalGroup(
+                classes="w100 ha center tbm1", id="menu_after_finish"
+            ):
+                yield Center(
+                    Label(
+                        "Submission finished! You can go back to job/session selection or quit BugIt.",
+                        classes="wa",
+                    )
+                )
+                with Center():
+                    with HorizontalGroup(classes="wa center"):
+                        yield Button(
+                            "Select another job", classes="mr1", id="job"
+                        )
+                        yield Button(
+                            "Select another session",
+                            classes="mr1",
+                            id="session",
+                        )
+                        yield Button("Quit", id="quit")
+
+            yield Footer()
