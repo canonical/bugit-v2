@@ -29,6 +29,12 @@ class JobSelectionScreen(Screen[str]):
     JobSelectionScreen {
         align: center middle;
     }
+
+    #job_list_container {
+        align: center middle;
+        overflow: scroll;
+        height: 100%;
+    }
     """
 
     def __init__(
