@@ -9,10 +9,7 @@ from textual.reactive import var
 from textual.widgets import Footer, Header, LoadingIndicator
 from typing_extensions import override
 
-from bugit_v2.bug_report_submitters.jira_submitter import (
-    JiraAuthModal,
-    MockJiraSubmitter,
-)
+from bugit_v2.bug_report_submitters.jira_submitter import MockJiraSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
 from bugit_v2.models.bug_report import BugReport
 from bugit_v2.screens.bug_report_screen import BugReportScreen

@@ -45,9 +45,13 @@ TReturn = TypeVar("TReturn")
 class SubmissionProgressScreen(
     Generic[TAuth, TReturn], Screen[ReturnScreenChoice]
 ):
+    """
+    The progress screen shown while submission/log collection is happening
+    """
+
     bug_report: BugReport
     finished = var(False)
-    last_submission_err = var[Exception | None](None)
+    last_submitter_error = var[Exception | None](None)
 
     log_workers: dict[LogName, Worker[sp.CompletedProcess[str]]]
     log_dir: TemporaryDirectory[str]
@@ -105,7 +109,7 @@ class SubmissionProgressScreen(
                 self.submitter.auth, self.submitter.allow_cache_credentials = (
                     cached_credentials,
                     True,  # if it was saved before,
-                    # then allow_cache_credentials is def true
+                    # then allow_cache_credentials is definitely true
                 )
 
         # auth ready, do the jira/lp steps
@@ -141,6 +145,7 @@ class SubmissionProgressScreen(
             self.log_workers[log_name] = self.run_worker(
                 # closure workaround
                 # https://stackoverflow.com/a/1107260
+                # bind the value early
                 lambda n=log_name: run_collect(n),
                 thread=True,  # not async
                 name=log_name,
@@ -156,21 +161,40 @@ class SubmissionProgressScreen(
         for step_result in self.submitter.submit(self.bug_report):
             match step_result:
                 case str():
+                    # general logs
                     self.log_widget.write(
                         f"[b]{display_name}[/b]: {step_result}"
                     )
                 case AdvanceMessage():
+                    # messages that will advance the progress bar
                     self.log_widget.write(
                         f"[green]OK![/green] [b]{display_name}[/b]: {step_result.message}"
                     )
                     progress_bar.advance()
                 case Exception():
-                    self.last_submission_err = step_result
-                    return  # exit early
+                    # errors
+                    self.last_submitter_error = step_result
+                    return  # exit early, don't mark self.finished = True
 
         # update state, there's another updater in on_worker_state_changed
-        if len(self.log_workers) == 0 and self.last_submission_err is None:
-            self.finished = True
+        self.finished = self.is_finished()
+
+    def is_finished(self) -> bool:
+        """
+        Determines the "finished" criteria. The self.finished reactive should
+        always be assigned the value determined by this function.
+
+        - Did all the steps from the submitter finish successfully?
+        - last_submitter_error is None
+        - Did all log collectors *finish*?
+        - errors are ok, just report them in the log window since the user can
+            likely just run the collector again
+        - all(w.is_finished for w in self.log_workers.values())
+        - Was the final tar ball created with the log files and checkbox session?
+        """
+        return self.last_submitter_error is None and all(
+            log_worker.is_finished for log_worker in self.log_workers.values()
+        )
 
     @work
     async def watch_finished(self):
@@ -182,7 +206,7 @@ class SubmissionProgressScreen(
 
     @work
     async def watch_last_submission_err(self):
-        if self.last_submission_err is None:
+        if self.last_submitter_error is None:
             return
 
         # stop all log workers asap
@@ -192,7 +216,7 @@ class SubmissionProgressScreen(
 
         await self.app.push_screen_wait(
             ConfirmScreen[ReturnScreenChoice](
-                f"Got the following error during submission: {str(self.last_submission_err)}",
+                f"Got the following error during submission: {str(self.last_submitter_error)}",
                 choices=(("Return to Report Editor", "report_editor"),),
                 focus_id_on_mount="report_editor",
             ),
@@ -206,10 +230,7 @@ class SubmissionProgressScreen(
         if event.worker.state == WorkerState.CANCELLED:
             self.log_widget.write(f"{event.worker.name} was cancelled")
 
-        if self.last_submission_err is None and all(
-            log_worker.is_finished for log_worker in self.log_workers.values()
-        ):
-            self.finished = True
+        self.finished = self.is_finished()
 
     @on(Button.Pressed, "#job")
     @on(Button.Pressed, "#session")
@@ -223,12 +244,14 @@ class SubmissionProgressScreen(
         yield Header(classes="dt")
 
         with Center(classes="lrm1"):
-            yield ProgressBar(
-                total=self.submitter.steps
-                + len(self.bug_report.logs_to_include),
-                id="progress",
-                show_eta=False,
-            )
+            with HorizontalGroup():
+                yield Label("Submission Progress", classes="mr1")
+                yield ProgressBar(
+                    total=self.submitter.steps
+                    + len(self.bug_report.logs_to_include),
+                    id="progress",
+                    show_eta=False,
+                )
             yield RichLog(id="submission_logs", markup=True)
 
         with VerticalGroup(classes="db"):
@@ -237,7 +260,7 @@ class SubmissionProgressScreen(
             ):
                 yield Center(
                     Label(
-                        "Submission finished! You can go back to job/session selection or quit BugIt",
+                        "Submission finished! You can go back to job/session selection or quit BugIt.",
                         classes="wa",
                     )
                 )

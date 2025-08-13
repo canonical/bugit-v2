@@ -359,7 +359,7 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
                     raise RuntimeError("err during issue()")
 
             time.sleep(2)
-            yield "OK! Created `issue id`"
+            yield AdvanceMessage("OK! Created `issue id`")
 
             return "issue id"
         except Exception as e:
