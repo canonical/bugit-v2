@@ -108,10 +108,7 @@
     padding: 0 2;
 }
 
-#bug_report_description {
-    height: auto;
-    width: 60%;
-}
+
 
 .transparent_background {
     background: white 0%;
@@ -140,20 +137,6 @@
     background: #fff 0%;
 }
 
-#impacted_features {
-    height: 25;
-}
-
-#impacted_vendors {
-    height: 17;
-}
-
-#submit_button {
-    width: 100%;
-    /* border: heavy $primary; */
-    padding: 0;
-}
-
 .selection-list--button-selected {
     color: $text-success;
     background: $text-success;
@@ -173,22 +156,7 @@ Input.-invalid {
     border: round red;
 }
 
-#job_list_container {
-    align: center middle;
-    overflow: scroll;
-    height: 100%;
-}
-
 Checkbox.-on>.toggle--button {
     color: $text-success;
     background: $text-success;
-}
-
-
-#cc_label {
-    width: auto;
-}
-
-#cc_button {
-    display: none;
 }

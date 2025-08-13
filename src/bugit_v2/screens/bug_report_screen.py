@@ -98,6 +98,25 @@ class BugReportScreen(Screen[BugReport]):
         width: 100%;
         height: 100%;
     }
+
+    #impacted_features {
+        height: 25;
+    }
+
+    #impacted_vendors {
+        height: 17;
+    }
+
+    #submit_button {
+        width: 100%;
+        /* border: heavy $primary; */
+        padding: 0;
+    }
+
+    #bug_report_description {
+        height: auto;
+        width: 60%;
+    }
     """
     CSS_PATH = "styles.tcss"
     BINDINGS = [
