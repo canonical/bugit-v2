@@ -1,13 +1,12 @@
 import os
 from dataclasses import dataclass
-from typing import final
+from typing import final, override
 
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.reactive import var
 from textual.widgets import Footer, Header, LoadingIndicator
-from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.jira_submitter import MockJiraSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version

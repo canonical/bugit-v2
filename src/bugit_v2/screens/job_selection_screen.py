@@ -1,5 +1,5 @@
 import os
-from typing import Final, final
+from typing import Final, final, override
 
 from textual import on
 from textual.app import ComposeResult
@@ -13,7 +13,6 @@ from textual.widgets import (
     RadioButton,
     RadioSet,
 )
-from typing_extensions import override
 
 from bugit_v2.checkbox_utils import Session
 
