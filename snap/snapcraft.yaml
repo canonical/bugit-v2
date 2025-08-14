@@ -1,3 +1,7 @@
+# can't use core24
+# https://github.com/canonical/craft-parts/issues/786
+# https://github.com/canonical/snapcraft/issues/5009
+
 name: bugit-v2
 type: app
 base: core22
