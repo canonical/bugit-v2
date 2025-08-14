@@ -6,21 +6,10 @@ from typing import Generic, Literal, TypeVar, final
 from rich.pretty import Pretty
 from textual import on, work
 from textual.app import ComposeResult
-from textual.containers import (
-    Center,
-    HorizontalGroup,
-    VerticalGroup,
-)
+from textual.containers import Center, HorizontalGroup, VerticalGroup
 from textual.reactive import var
 from textual.screen import Screen
-from textual.widgets import (
-    Button,
-    Footer,
-    Header,
-    Label,
-    ProgressBar,
-    RichLog,
-)
+from textual.widgets import Button, Footer, Header, Label, ProgressBar, RichLog
 from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
@@ -205,7 +194,7 @@ class SubmissionProgressScreen(
         self.query_exactly_one("#menu_after_finish").display = True
 
     @work
-    async def watch_last_submission_err(self):
+    async def watch_last_submitter_error(self):
         if self.last_submitter_error is None:
             return
 
