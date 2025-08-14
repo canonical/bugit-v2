@@ -8,7 +8,7 @@ import random
 import time
 from collections.abc import Generator, Mapping
 from dataclasses import asdict, dataclass
-from typing import final
+from typing import final, override
 
 from jira import JIRA
 from textual import on
@@ -16,7 +16,6 @@ from textual.app import ComposeResult
 from textual.containers import Center, VerticalGroup
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Input, Label
-from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
@@ -40,7 +39,7 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool]]):
         align: center middle;
         background: $background 100%;
     }
-    
+
     #top_level_container {
         padding: 0 5;
     }

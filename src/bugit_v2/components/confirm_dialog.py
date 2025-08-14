@@ -1,11 +1,10 @@
 from collections.abc import Sequence
-from typing import cast, final
+from typing import cast, final, override
 
 from textual.app import ComposeResult
 from textual.containers import Center, HorizontalGroup
 from textual.screen import ModalScreen
 from textual.widgets import Button, Label
-from typing_extensions import override
 
 
 @final

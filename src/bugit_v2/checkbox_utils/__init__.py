@@ -5,9 +5,7 @@ import shutil
 import subprocess
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Final, Literal, TypedDict, cast, final
-
-from typing_extensions import override
+from typing import Any, Final, Literal, TypedDict, cast, final, override
 
 DEFAULT_ROOT: Final = Path("/")
 

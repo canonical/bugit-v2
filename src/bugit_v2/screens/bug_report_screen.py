@@ -1,7 +1,7 @@
 import shutil
 import subprocess
 from collections.abc import Mapping
-from typing import Final, cast, final
+from typing import Final, cast, final, override
 
 from textual import on, work
 from textual.app import ComposeResult
@@ -21,7 +21,6 @@ from textual.widgets import (
     SelectionList,
     TextArea,
 )
-from typing_extensions import override
 
 from bugit_v2.checkbox_utils import Session
 from bugit_v2.components.confirm_dialog import ConfirmScreen

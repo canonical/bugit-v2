@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import final
+from typing import final, override
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -8,7 +8,6 @@ from textual.containers import Center, Vertical, VerticalScroll
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Label
-from typing_extensions import override
 
 
 @final
@@ -83,9 +82,9 @@ class SessionSelectionScreen(Screen[Path]):
         """Get a list of valid sessions in /var/tmp/checkbox-ng
 
         This is achieved by looking at which session directory has non-empty
-        io-logs. If it's empty, it's either tossed by checkbox or didn't even 
+        io-logs. If it's empty, it's either tossed by checkbox or didn't even
         reach the test case where it dumps the udev database, thus invalid
-        """        
+        """
         if not self.session_root.exists():
             return []
         valid_session_dirs: list[Path] = []
