@@ -2,6 +2,7 @@
 A collection of simple functions that gets various information from the DUT
 """
 
+
 import os
 import re
 import shutil
