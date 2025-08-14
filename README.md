@@ -21,7 +21,7 @@ To see more about textual itself, [check out their docs](https://textual.textual
 
 ### pipx
 
-(works on 22.04+, requires python3.10)
+(works on 24.04+, requires python3.12)
 
 Install pipx first:
 
