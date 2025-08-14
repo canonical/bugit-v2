@@ -1,6 +1,6 @@
 name: bugit-v2
 type: app
-base: core24
+base: core22
 grade: devel
 summary: Cool new bugit
 description: |
@@ -47,8 +47,8 @@ parts:
     stage-packages:
       # These 3 packages are required for classic confinement
       # do NOT use "python3.10", it's not sufficient
-      - python3.12-minimal
-      - libpython3.12-minimal
-      - libpython3.12-stdlib
+      - python3.10-minimal
+      - libpython3.10-minimal
+      - libpython3.10-stdlib
     after:
       - dump-files
