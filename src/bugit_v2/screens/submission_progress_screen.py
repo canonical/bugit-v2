@@ -1,7 +1,7 @@
 import subprocess as sp
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Literal, final, override
+from typing import Generic, Literal, TypeVar, final
 
 from rich.pretty import Pretty
 from textual import on, work
@@ -11,6 +11,7 @@ from textual.reactive import var
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Label, ProgressBar, RichLog
 from textual.worker import Worker, WorkerState
+from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
@@ -26,8 +27,14 @@ RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
 )
 
 
+TAuth = TypeVar("TAuth")
+TReturn = TypeVar("TReturn")
+
+
 @final
-class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
+class SubmissionProgressScreen(
+    Generic[TAuth, TReturn], Screen[ReturnScreenChoice]
+):
     """
     The progress screen shown while submission/log collection is happening
     """

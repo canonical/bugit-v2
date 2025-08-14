@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import final, override
+from typing import final
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -8,6 +8,7 @@ from textual.containers import Center, Vertical, VerticalScroll
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Label
+from typing_extensions import override
 
 
 @final

@@ -1,6 +1,7 @@
 import abc
 from collections.abc import Generator, Mapping
 from dataclasses import dataclass
+from typing import Generic, TypeVar
 
 from textual.screen import ModalScreen
 
@@ -17,7 +18,11 @@ class AdvanceMessage:
     message: str
 
 
-class BugReportSubmitter[TAuth, TReturn](abc.ABC):
+TAuth = TypeVar("TAuth")
+TReturn = TypeVar("TReturn")
+
+
+class BugReportSubmitter(Generic[TAuth, TReturn], abc.ABC):
     """The bug report submitter interface"""
 
     # name of the submitter, used in the credential cache file name
