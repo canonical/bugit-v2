@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Generic, cast, final
+from typing import cast, final
 
 from textual.app import ComposeResult
 from textual.containers import Center, HorizontalGroup
