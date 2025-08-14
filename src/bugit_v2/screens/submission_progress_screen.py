@@ -1,7 +1,7 @@
 import subprocess as sp
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Generic, Literal, TypeVar, final
+from typing import Literal, final
 
 from rich.pretty import Pretty
 from textual import on, work
@@ -37,14 +37,9 @@ RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
     ReturnScreenChoice.__args__
 )
 
-TAuth = TypeVar("TAuth")
-TReturn = TypeVar("TReturn")
-
 
 @final
-class SubmissionProgressScreen(
-    Generic[TAuth, TReturn], Screen[ReturnScreenChoice]
-):
+class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     """
     The progress screen shown while submission/log collection is happening
     """

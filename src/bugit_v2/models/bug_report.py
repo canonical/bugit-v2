@@ -5,7 +5,7 @@ it's a simple getter
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Final, Literal, TypeVar
+from typing import Final, Literal
 
 from bugit_v2.dut_utils.log_collectors import LogName
 
@@ -30,8 +30,6 @@ pretty_issue_file_times: Mapping[IssueFileTime, str] = {
     "later": "At a later stage",
 }
 
-T = TypeVar("T")
-
 
 @dataclass(slots=True)
 class BugReport:
@@ -50,7 +48,7 @@ class BugReport:
     impacted_features: Sequence[str] = field(default_factory=list[str])
     impacted_vendors: Sequence[str] = field(default_factory=list[str])
 
-    def get_with_type(self, attr: str, expected_type: type[T]) -> T:
+    def get_with_type[T](self, attr: str, expected_type: type[T]) -> T:
         value = getattr(self, attr)  # pyright: ignore[reportAny]
         if type(value) is expected_type:  # pyright: ignore[reportAny]
             return value
