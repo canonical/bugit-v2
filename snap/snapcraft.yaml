@@ -47,8 +47,6 @@ parts:
       pipx install poetry
       pipx inject poetry poetry-plugin-export
       ln -sf /root/.local/bin/poetry /usr/bin/poetry
-      poetry lock
-      poetry sync
       craftctl default
     stage-packages:
       # These 3 packages are required for classic confinement
@@ -56,6 +54,5 @@ parts:
       - python3.10-minimal
       - libpython3.10-minimal
       - libpython3.10-stdlib
-      - xclip
     after:
       - dump-files
