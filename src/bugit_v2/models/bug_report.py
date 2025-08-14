@@ -7,6 +7,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Final, Literal, TypeVar
 
+from bugit_v2.checkbox_utils import Session
 from bugit_v2.dut_utils.log_collectors import LogName
 
 # Internal representation of bug severity
@@ -41,6 +42,7 @@ class BugReport:
     project: str
     severity: Severity
     issue_file_time: IssueFileTime
+    checkbox_session: Session
     # optionals
     assignee: str | None = None  # appear as unassigned if None
     platform_tags: Sequence[str] = field(default_factory=list[str])

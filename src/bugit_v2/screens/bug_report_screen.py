@@ -109,7 +109,6 @@ class BugReportScreen(Screen[BugReport]):
 
     #submit_button {
         width: 100%;
-        /* border: heavy $primary; */
         padding: 0;
     }
 
@@ -463,6 +462,7 @@ class BugReportScreen(Screen[BugReport]):
 
         return BugReport(
             title=self.query_exactly_one("#title", Input).value,
+            checkbox_session=self.session,
             description=self.query_exactly_one("#description", TextArea).text,
             assignee=self.query_exactly_one("#assignee", Input).value,
             project=self.query_exactly_one("#project", Input).value,
