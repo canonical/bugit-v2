@@ -6,6 +6,8 @@ here is that each log collectors is a (slow-running) function and is *independen
 from all other collectors.
 """
 
+import re
+import shutil
 import subprocess as sp
 import tarfile
 from collections.abc import Mapping, Sequence
@@ -43,7 +45,18 @@ def sos_report(target_dir: Path, _: BugReport):
 
 def oem_getlogs(target_dir: Path, _: BugReport):
     assert target_dir.is_dir()
-    return sp.check_output(["sudo", "-E", "oem-getlogs"], text=True)
+    out = sp.check_output(["sudo", "-E", "oem-getlogs"], text=True)
+    if (
+        log_file_match := re.search(r"oemlogs.*\.apport\.gz", out)
+    ) is not None:
+        file_path = Path(log_file_match.group(0))
+        assert file_path.exists(), f"{file_path} doesn't exist!"
+        shutil.move(file_path, target_dir)
+    else:
+        raise FileNotFoundError(
+            "oem-getlogs finished, but didn't find a filename matching"
+            + "oemlogs.*\\.apport\\.gz in its output"
+        )
 
 
 def pack_checkbox_session(target_dir: Path, bug_report: BugReport) -> str:
@@ -128,6 +141,7 @@ real_collectors: Sequence[LogCollector] = (
         sos_report,
         "SOS Report",
         "Runs the 'sos report --batch' command",
+        False,
     ),
     LogCollector(
         "oem-get-logs",
