@@ -349,16 +349,12 @@ class BugReportScreen(Screen[BugReport]):
 
         if "NVIDIA" not in self.machine_info["GPU"]:
             # disable the nvidia log collector if there's no nvidia card
-            name = "nvidia-bug-report"
             log_selection_list = cast(
                 SelectionList[str],
                 self.query_exactly_one("#logs_to_include", SelectionList),
             )
-            log_selection_list.disable_option(name)
-            log_selection_list.deselect(name)
-            log_selection_list.tooltip = (
-                "There's no NVIDIA Card so its log collector is disabled"
-            )
+            log_selection_list.remove_option("nvidia-bug-report")
+
         self.query_exactly_one("#title", Input).focus()
 
     @on(Button.Pressed, "#copy_to_clipboard")

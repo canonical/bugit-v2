@@ -140,9 +140,14 @@ real_collectors: Sequence[LogCollector] = (
         pack_checkbox_session,
         "Checkbox Session",
     ),
+    LogCollector(
+        "nvidia-bug-report",
+        nvidia_bug_report,
+        "NVIDIA Bug Report",
+    ),
 )
 
 LOG_NAME_TO_COLLECTOR: Mapping[LogName, LogCollector] = {
     collector.name: collector
-    for collector in mock_collectors  # replace mock_collectors with others
+    for collector in real_collectors  # replace mock_collectors with others
 }
