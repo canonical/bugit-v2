@@ -2,35 +2,28 @@
 Implement concrete log collectors here
 --
 Each log collector should be an instance of LogCollector. The big assumption
-here is that each log collectors is a (slow-running) command and is *independent*
+here is that each log collectors is a (slow-running) function and is *independent*
 from all other collectors.
 """
 
 import subprocess as sp
+import tarfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Literal
+from typing import Callable
 
-LogName = Literal[
-    "sosreport",
-    "oem-getlogs",
-    "immediate",
-    "fast1",
-    "fast2",
-    "slow1",
-    "slow2",
-    "always-fail",
-]
-LOG_NAMES: tuple[LogName, ...] = LogName.__args__
+from bugit_v2.models.bug_report import BugReport, LogName
 
 
 @dataclass(slots=True)
 class LogCollector:
     name: LogName  # internal name
     collect: Callable[
-        [Path],
-        sp.CompletedProcess[str],  # (target_dir: Path) -> CompletedProcess
+        [Path, BugReport],
+        str | None,  # (target_dir: Path) -> optional result string
+        # if returns None, a generic success message is logged to the screen
+        # errors should be raised as regular exceptions
     ]  # actually collect the logs
     # right now the assumption is that all collectors are shell commands
     display_name: str  # the string to show in report collector
@@ -40,52 +33,70 @@ class LogCollector:
     collect_by_default: bool = True
 
 
-def sos_report(target_dir: Path):
+def sos_report(target_dir: Path, _):
     assert target_dir.is_dir()
-    return sp.run(
+    return sp.check_output(
         ["sudo", "sos", "report", "--batch", f"--tmp-dir={target_dir}"],
         text=True,
-        stdout=sp.PIPE,
-        stderr=sp.PIPE,
     )
 
 
-def oem_getlogs(target_dir: Path):
+def oem_getlogs(target_dir: Path, _):
     assert target_dir.is_dir()
-    return sp.run(
-        ["sudo", "-E", "oem-getlogs"],
-        text=True,
-        stdout=sp.PIPE,
-        stderr=sp.PIPE,
-    )
+    return sp.check_output(["sudo", "-E", "oem-getlogs"], text=True)
+
+
+def pack_checkbox_session(target_dir: Path, bug_report: BugReport) -> str:
+    with tarfile.open(target_dir / "checkbox_session.tar.gz", "w:gz") as f:
+        f.add(bug_report.checkbox_session.session_path)
+    return f"Added checkbox session to {target_dir}"
 
 
 mock_collectors: Sequence[LogCollector] = (
     LogCollector(
-        "sosreport", lambda _: sp.run(["sleep", "4"], text=True), "SOS Report"
+        "sosreport",
+        lambda p, b: sp.check_output(["sleep", "4"], text=True),
+        "SOS Report",
     ),
     LogCollector(
         "oem-getlogs",
-        lambda _: sp.run(["sleep", "2"], text=True),
+        lambda p, b: sp.check_output(["sleep", "2"], text=True),
         "OEM GetLogs",
     ),
     LogCollector(
-        "immediate", lambda _: sp.run(["echo"], text=True), "Immediate return"
+        "immediate",
+        lambda p, b: sp.check_output(["echo"], text=True),
+        "Immediate return",
     ),
     LogCollector(
-        "fast1", lambda _: sp.run(["sleep", "3"], text=True), "Fast collect 1"
+        "fast1",
+        lambda p, b: sp.check_output(["sleep", "3"], text=True),
+        "Fast collect 1",
     ),
     LogCollector(
-        "fast2", lambda _: sp.run(["sleep", "5"], text=True), "Fast collect 2"
+        "fast2",
+        lambda p, b: sp.check_output(["sleep", "5"], text=True),
+        "Fast collect 2",
     ),
     LogCollector(
-        "slow1", lambda _: sp.run(["sleep", "6"], text=True), "Slow collect 1"
+        "slow1",
+        lambda p, b: sp.check_output(["sleep", "6"], text=True),
+        "Slow collect 1",
     ),
     LogCollector(
-        "slow2", lambda _: sp.run(["sleep", "7"], text=True), "Slow collect 2"
+        "slow2",
+        lambda p, b: sp.check_output(["sleep", "7"], text=True),
+        "Slow collect 2",
     ),
     LogCollector(
-        "always-fail", lambda _: sp.run(["false"], text=True), "Always fail"
+        "always-fail",
+        lambda p, b: sp.check_output(["false"], text=True),
+        "Always fail",
+    ),
+    LogCollector(
+        "checkbox-session",
+        pack_checkbox_session,
+        "Checkbox Session",
     ),
 )
 
@@ -102,6 +113,11 @@ real_collectors: Sequence[LogCollector] = (
         oem_getlogs,
         "OEM GetLogs",
         "Runs the oem-getlogs command",
+    ),
+    LogCollector(
+        "checkbox-session",
+        pack_checkbox_session,
+        "Checkbox Session",
     ),
 )
 

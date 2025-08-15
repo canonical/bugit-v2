@@ -1,14 +1,8 @@
-"""
-The data model for a bug report. Avoid attaching methods to this class unless
-it's a simple getter
-"""
-
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Final, Literal, TypeVar
 
 from bugit_v2.checkbox_utils import Session
-from bugit_v2.dut_utils.log_collectors import LogName
 
 # Internal representation of bug severity
 Severity = Literal["highest", "high", "medium", "low", "lowest"]
@@ -31,11 +25,31 @@ pretty_issue_file_times: Mapping[IssueFileTime, str] = {
     "later": "At a later stage",
 }
 
+# log choices
+LogName = Literal[
+    "sosreport",
+    "oem-getlogs",
+    "immediate",
+    "fast1",
+    "fast2",
+    "slow1",
+    "slow2",
+    "always-fail",
+    "checkbox-session",
+]
+LOG_NAMES: tuple[LogName, ...] = LogName.__args__
+# pretty log names should be specified in the LogCollector class
+
 T = TypeVar("T")
 
 
 @dataclass(slots=True)
 class BugReport:
+    """
+    The data model for a bug report.
+    Avoid attaching methods to this class unless it's a simple getter
+    """
+
     # required
     title: str
     description: str

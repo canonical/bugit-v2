@@ -1,6 +1,4 @@
 import os
-import subprocess as sp
-import tarfile
 from pathlib import Path
 from tempfile import mkdtemp
 from typing import Generic, Literal, TypeVar, final
@@ -20,8 +18,8 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
 )
 from bugit_v2.components.confirm_dialog import ConfirmScreen
-from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR, LogName
-from bugit_v2.models.bug_report import BugReport
+from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
+from bugit_v2.models.bug_report import BugReport, LogName
 
 ReturnScreenChoice = Literal["job", "session", "quit", "report_editor"]
 RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
@@ -44,8 +42,7 @@ class SubmissionProgressScreen(
     finished = var(False)
     last_submitter_error = var[Exception | None](None)
 
-    subprocess_log_workers: dict[str, Worker[sp.CompletedProcess[str]]]
-    general_log_workers: dict[str, Worker[None]]
+    attachment_workers: dict[str, Worker[str | None]]
     log_dir: Path
     log_widget: RichLog | None = None  # late init in on_mount
 
@@ -81,8 +78,7 @@ class SubmissionProgressScreen(
         self.submitter = submitter
         self.log_dir = Path(mkdtemp())
         print(self.log_dir)
-        self.subprocess_log_workers = {}
-        self.general_log_workers = {}
+        self.attachment_workers = {}
         super().__init__(name, id, classes)
 
     @work
@@ -117,26 +113,34 @@ class SubmissionProgressScreen(
         # get the log collectors running first
         for log_name in self.bug_report.logs_to_include:
 
-            def run_collect(log: LogName):
+            def run_collect(log: LogName) -> str | None:
                 collector = LOG_NAME_TO_COLLECTOR[log]
-                rv = collector.collect(Path(self.log_dir.name))
-                progress_bar.advance()
-                if not self.log_widget:
-                    return rv
-
-                if rv.returncode == 0:
-                    self.log_widget.write(
-                        f"[green]OK![/green] {collector.name} finished!"
+                try:
+                    rv = collector.collect(
+                        self.log_dir.expanduser().absolute(), self.bug_report
                     )
-                else:
+                    if not self.log_widget:
+                        return rv
+
+                    if rv:  # only show non-empty, non-null messages
+                        self.log_widget.write(
+                            f"[green]OK![/green] {collector.display_name}: {rv}"
+                        )
+                    else:
+                        self.log_widget.write(
+                            f"[green]OK![/green] {collector.display_name} finished!"
+                        )
+                except Exception as e:
+                    if not self.log_widget:
+                        return
                     self.log_widget.write(
-                        f"[red]FAILED![/red] Collector {collector.name} failed"
+                        f"[red]FAILED![/red] {collector.name} failed!"
                     )
-                    self.log_widget.write(Pretty(rv))
+                    self.log_widget.write(Pretty(e))
+                finally:
+                    progress_bar.advance()
 
-                return rv
-
-            self.subprocess_log_workers[log_name] = self.run_worker(
+            self.attachment_workers[log_name] = self.run_worker(
                 # closure workaround
                 # https://stackoverflow.com/a/1107260
                 # bind the value early
@@ -146,16 +150,10 @@ class SubmissionProgressScreen(
                 exit_on_error=False,  # hold onto the err, don't crash
             )
 
+            display_name = LOG_NAME_TO_COLLECTOR[log_name].display_name
             self.log_widget.write(
-                f"[green]OK![/green] Launched {log_name} log collector in the background!"
+                f"[green]OK![/green] Launched {display_name} in the background!"
             )  # late write
-
-        # also make the tars
-        self.general_log_workers["checkbox_session_tar"] = self.run_worker(
-            lambda: self.pack_checkbox_session(),
-            thread=True,
-            exit_on_error=False,
-        )
 
         # then do the jira/lp stuff
         display_name = self.submitter.display_name or self.submitter.name
@@ -193,16 +191,8 @@ class SubmissionProgressScreen(
         - all(w.is_finished for w in self.log_workers.values())
         - Was the final tar ball created with the log files and checkbox session?
         """
-        return (
-            self.last_submitter_error is None
-            and all(
-                worker.is_finished
-                for worker in self.subprocess_log_workers.values()
-            )
-            and all(
-                worker.is_finished
-                for worker in self.general_log_workers.values()
-            )
+        return self.last_submitter_error is None and all(
+            worker.is_finished for worker in self.attachment_workers.values()
         )
 
     @work
@@ -220,7 +210,7 @@ class SubmissionProgressScreen(
             return
 
         # stop all log workers asap
-        for worker in self.subprocess_log_workers.values():
+        for worker in self.attachment_workers.values():
             worker.cancel()
         if not os.getenv("DEBUG"):
             os.rmdir(self.log_dir)
@@ -237,7 +227,7 @@ class SubmissionProgressScreen(
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         if (
             not self.log_widget
-            or event.worker.name not in self.subprocess_log_workers
+            or event.worker.name not in self.attachment_workers
         ):
             return
 
@@ -252,21 +242,6 @@ class SubmissionProgressScreen(
     def handle_button_in_menu_after_finish(self, event: Button.Pressed):
         if event.button.id in RETURN_SCREEN_CHOICES:
             self.dismiss(event.button.id)
-
-    def pack_checkbox_session(self):
-        assert self.log_widget
-        try:
-            with tarfile.open(
-                self.log_dir / "checkbox_session.tar.gz", "w:gz"
-            ) as f:
-                f.add(self.bug_report.checkbox_session.session_path)
-                self.log_widget.write(
-                    f"[green]OK![/green] Packed checkbox submission to {self.log_dir}"
-                )
-        except Exception as e:
-            self.log_widget.write(
-                f"[red]Failed![/red] Couldn't pack checkbox session. Error: {e}"
-            )
 
     @override
     def compose(self) -> ComposeResult:
