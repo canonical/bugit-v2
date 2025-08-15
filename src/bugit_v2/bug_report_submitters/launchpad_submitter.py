@@ -52,9 +52,8 @@ class ModdedAuthorizeRequestTokenWithURL(AuthorizeRequestTokenWithURL):
         """Have the end-user authorize the token using a URL."""
         authorization_url = self.authorization_url(request_token)
         self.notify_end_user_authorization_url(authorization_url)
-        self.log_widget.write(authorization_url)
-        self.output(
-            "Press the 'finish' button after you have authenticated in the browser"
+        self.log_widget.write(
+            "[b]Press the [blue]'Finish Browser Authentication'[/] button after you have authenticated in the browser"
         )
         while not self.check_finish_button_status():
             time.sleep(0.5)  # avoid busy-poll
@@ -108,7 +107,7 @@ class LaunchpadAuthModal(Screen[Path]):
             with Center():
                 with HorizontalGroup(classes="wa"):
                     yield Button(
-                        "Finish Browser Auth",
+                        "Finish Browser Authentication",
                         id="finish_button",
                     )
                     b = Button(
@@ -156,11 +155,11 @@ class LaunchpadAuthModal(Screen[Path]):
             btn.display = True
             btn.variant = "success"
         except Exception as e:
-            log_widget.write("[red]Authentication failed![/red] Reason:")
-            log_widget.write(str(e))
+            log_widget.write("[red]Authentication failed![/]")
+            log_widget.write(f"[red]Reason[/]: {e}")
             btn = self.query_exactly_one("#continue_button", Button)
             btn.display = True
-            btn.label = "Return to editor"
+            btn.label = "Return to Editor"
 
     @on(Button.Pressed, "#finish_button")
     def finish_browser_auth(self, event: Button.Pressed):
