@@ -33,7 +33,7 @@ class LogCollector:
     collect_by_default: bool = True
 
 
-def sos_report(target_dir: Path, _):
+def sos_report(target_dir: Path, _: BugReport):
     assert target_dir.is_dir()
     return sp.check_output(
         ["sudo", "sos", "report", "--batch", f"--tmp-dir={target_dir}"],
@@ -41,7 +41,7 @@ def sos_report(target_dir: Path, _):
     )
 
 
-def oem_getlogs(target_dir: Path, _):
+def oem_getlogs(target_dir: Path, _: BugReport):
     assert target_dir.is_dir()
     return sp.check_output(["sudo", "-E", "oem-getlogs"], text=True)
 
@@ -52,16 +52,28 @@ def pack_checkbox_session(target_dir: Path, bug_report: BugReport) -> str:
     return f"Added checkbox session to {target_dir}"
 
 
+def nvidia_bug_report(target_dir: Path, _: BugReport) -> str:
+    return sp.check_output(
+        [
+            "nvidia-bug-report.sh",
+            "--extra-system-data",
+            "--output-file",
+            str(target_dir / "nvidia-bug-report.log"),
+        ],
+        text=True,
+    )
+
+
 mock_collectors: Sequence[LogCollector] = (
     LogCollector(
-        "sosreport",
+        "sos-report",
         lambda p, b: sp.check_output(["sleep", "4"], text=True),
         "SOS Report",
     ),
     LogCollector(
-        "oem-getlogs",
+        "oem-get-logs",
         lambda p, b: sp.check_output(["sleep", "2"], text=True),
-        "OEM GetLogs",
+        "OEM Get Logs",
     ),
     LogCollector(
         "immediate",
@@ -98,20 +110,29 @@ mock_collectors: Sequence[LogCollector] = (
         pack_checkbox_session,
         "Checkbox Session",
     ),
+    LogCollector(
+        "nvidia-bug-report",
+        nvidia_bug_report,
+        "NVIDIA Bug Report",
+        (
+            "Runs the nvidia-bug-report.sh command. "
+            "Only available on DUTs with and Nvidia GPU."
+        ),
+    ),
 )
 
 
 real_collectors: Sequence[LogCollector] = (
     LogCollector(
-        "sosreport",
+        "sos-report",
         sos_report,
         "SOS Report",
         "Runs the 'sos report --batch' command",
     ),
     LogCollector(
-        "oem-getlogs",
+        "oem-get-logs",
         oem_getlogs,
-        "OEM GetLogs",
+        "OEM Get Logs",
         "Runs the oem-getlogs command",
     ),
     LogCollector(

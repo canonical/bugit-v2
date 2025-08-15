@@ -77,8 +77,8 @@ class SubmissionProgressScreen(
         self.bug_report = bug_report
         self.submitter = submitter
         self.log_dir = Path(mkdtemp())
-        print(self.log_dir)
         self.attachment_workers = {}
+
         super().__init__(name, id, classes)
 
     @work
@@ -122,9 +122,10 @@ class SubmissionProgressScreen(
                     if not self.log_widget:
                         return rv
 
-                    if rv:  # only show non-empty, non-null messages
+                    if rv and rv.strip():
+                        # only show non-empty, non-null messages
                         self.log_widget.write(
-                            f"[green]OK![/green] {collector.display_name}: {rv}"
+                            f"[green]OK![/green] {collector.display_name}: {rv.strip()}"
                         )
                     else:
                         self.log_widget.write(
@@ -152,7 +153,7 @@ class SubmissionProgressScreen(
 
             display_name = LOG_NAME_TO_COLLECTOR[log_name].display_name
             self.log_widget.write(
-                f"[green]OK![/green] Launched {display_name} in the background!"
+                f"[green]OK![/green] Launched {display_name}!"
             )  # late write
 
         # then do the jira/lp stuff

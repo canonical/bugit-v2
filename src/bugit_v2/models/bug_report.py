@@ -27,8 +27,8 @@ pretty_issue_file_times: Mapping[IssueFileTime, str] = {
 
 # log choices
 LogName = Literal[
-    "sosreport",
-    "oem-getlogs",
+    "sos-report",
+    "oem-get-logs",
     "immediate",
     "fast1",
     "fast2",
@@ -36,6 +36,7 @@ LogName = Literal[
     "slow2",
     "always-fail",
     "checkbox-session",
+    "nvidia-bug-report",
 ]
 LOG_NAMES: tuple[LogName, ...] = LogName.__args__
 # pretty log names should be specified in the LogCollector class
