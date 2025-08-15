@@ -86,21 +86,27 @@ class SubmissionProgressScreen(
         self.log_widget = self.query_exactly_one("#submission_logs", RichLog)
         self.query_exactly_one("#menu_after_finish").display = False
         if self.submitter.auth_modal:
-            # this is a bit weird, right now it's basically letting the
-            # submission screen control how the credentials are assigned
-            cached_credentials = self.submitter.get_cached_credentials()
-            if cached_credentials is None:
-                self.submitter.auth, self.submitter.allow_cache_credentials = (
-                    await self.app.push_screen_wait(
+            # submission screen controls how the credentials are assigned
+            try:
+                cached_credentials = self.submitter.get_cached_credentials()
+                if cached_credentials is None:
+                    (
+                        self.submitter.auth,
+                        self.submitter.allow_cache_credentials,
+                    ) = await self.app.push_screen_wait(
                         self.submitter.auth_modal()
                     )
-                )
-            else:
-                self.submitter.auth, self.submitter.allow_cache_credentials = (
-                    cached_credentials,
-                    True,  # if it was saved before,
-                    # then allow_cache_credentials is definitely true
-                )
+                else:
+                    (
+                        self.submitter.auth,
+                        self.submitter.allow_cache_credentials,
+                    ) = (
+                        cached_credentials,
+                        True,  # if it was saved before,
+                        # then allow_cache_credentials is definitely true
+                    )
+            except Exception:
+                self.dismiss("report_editor")
 
         # auth ready, do the jira/lp steps
         self.call_after_refresh(self.main_submission_sequence)
