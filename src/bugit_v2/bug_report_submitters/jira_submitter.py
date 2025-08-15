@@ -8,15 +8,15 @@ import random
 import time
 from collections.abc import Generator, Mapping
 from dataclasses import asdict, dataclass
-from typing import final
+from pathlib import Path
+from typing import final, override
 
-from jira import JIRA
+from jira import JIRA, Issue
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import Center, VerticalGroup
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Input, Label
-from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
@@ -40,7 +40,7 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool]]):
         align: center middle;
         background: $background 100%;
     }
-    
+
     #top_level_container {
         padding: 0 5;
     }
@@ -117,13 +117,14 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool]]):
 
 
 @final
-class JiraBugReportSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
+class JiraBugReportSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
     name = "jira_submitter"
     display_name = "Jira Client"
     steps = 4
     jira: JIRA | None = None
     auth_modal = JiraAuthModal
     auth: JiraBasicAuth | None = None
+    issue: Issue | None = None
 
     # map the severity value inside the app to the ones on Jira
     severity_name_map: Mapping[Severity, str] = {
@@ -166,7 +167,7 @@ class JiraBugReportSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
     @override
     def submit(
         self, bug_report: BugReport
-    ) -> Generator[str | AdvanceMessage | Exception, None, str]:
+    ) -> Generator[str | AdvanceMessage | Exception, None, None]:
         # final submit
         bug_dict = {
             "assignee": bug_report.assignee,
@@ -186,7 +187,7 @@ class JiraBugReportSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
 
             yield "Starting Jira authentication..."
             self.jira = JIRA(
-                server=jira_server_addr,
+                server=jira_server_addr.rstrip("/"),
                 basic_auth=(self.auth.email, self.auth.token),
                 validate=True,
             )
@@ -215,7 +216,6 @@ class JiraBugReportSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
                 assert self.assignee_exists_and_unique(
                     bug_report.assignee
                 ), f"Assignee {bug_report.assignee} doesn't exist or isn't unique!"
-                # yield "OK! Assignee exist"
                 yield AdvanceMessage(
                     f"Assignee [u]{bug_report.assignee}[/u] exists and is unique!"
                 )
@@ -224,12 +224,11 @@ class JiraBugReportSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
                     "Assignee unspecified, marking the bug as unassigned"
                 )
 
-            issue = self.jira.create_issue(  # pyright: ignore[reportUnknownMemberType]
+            self.issue = self.jira.create_issue(  # pyright: ignore[reportUnknownMemberType]
                 bug_dict
             )
-            print(issue)
-            yield AdvanceMessage(f"Created {issue.id}")
-            return issue.id
+            print(self.issue)
+            yield AdvanceMessage(f"Created {self.issue.id}")
         except Exception as e:
             yield e
 
@@ -244,6 +243,23 @@ class JiraBugReportSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
                 return JiraBasicAuth(auth_json["email"], auth_json["token"])
         except Exception:
             return None
+
+    @override
+    def upload_attachments(
+        self, attachment_dir: Path
+    ) -> Generator[str | AdvanceMessage | Exception, None, None]:
+        assert self.jira
+        assert self.issue
+        for file_path in attachment_dir.iterdir():
+            self.jira.add_attachment(self.issue.id, str(file_path))
+            yield AdvanceMessage(file_path.name)
+
+    @property
+    @override
+    def bug_url(self) -> str:
+        assert self.jira
+        assert self.issue, "Nothing has been submitted to Jira yet"
+        return f"{self.jira.server_url}/browse/{self.issue.key}"
 
 
 @final
@@ -375,3 +391,14 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
                 return JiraBasicAuth(auth_json["email"], auth_json["token"])
         except Exception:
             return None
+
+    @override
+    def upload_attachments(
+        self, attachment_dir: Path
+    ) -> Generator[str | AdvanceMessage | Exception, None, None]:
+        raise NotImplementedError()
+
+    @property
+    @override
+    def bug_url(self) -> str:
+        return "http://example.com/"

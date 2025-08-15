@@ -125,7 +125,7 @@ class SubmissionProgressScreen(
                     if rv and rv.strip():
                         # only show non-empty, non-null messages
                         self.log_widget.write(
-                            f"[green]OK![/green] {collector.display_name}: {rv.strip()}"
+                            f"[green]OK![/green] [b]{collector.display_name}[/b]: {rv.strip()}"
                         )
                     else:
                         self.log_widget.write(
@@ -153,7 +153,7 @@ class SubmissionProgressScreen(
 
             display_name = LOG_NAME_TO_COLLECTOR[log_name].display_name
             self.log_widget.write(
-                f"[green]OK![/green] Launched {display_name}!"
+                f"Launched collector: {display_name}!"
             )  # late write
 
         # then do the jira/lp stuff
@@ -181,16 +181,15 @@ class SubmissionProgressScreen(
 
     def is_finished(self) -> bool:
         """
-        Determines the "finished" criteria. The self.finished reactive should
-        always be assigned the value determined by this function.
+        Determines self.finished. It should always be assigned the value
+        returned by this function.
 
         - Did all the steps from the submitter finish successfully?
-        - last_submitter_error is None
+            - Errors from the submitter should be caught
+            - self.finished is False if submitter failed
         - Did all log collectors *finish*?
-        - errors are ok, just report them in the log window since the user can
-            likely just run the collector again
-        - all(w.is_finished for w in self.log_workers.values())
-        - Was the final tar ball created with the log files and checkbox session?
+            - errors are ok, just report them in the log window since the user
+              can likely just run the collector again
         """
         return self.last_submitter_error is None and all(
             worker.is_finished for worker in self.attachment_workers.values()
@@ -203,6 +202,15 @@ class SubmissionProgressScreen(
 
         if not os.getenv("DEBUG"):
             os.rmdir(self.log_dir)
+        self.query_exactly_one("#finish_message", Label).update(
+            "\n".join(
+                [
+                    "Submission finished!",
+                    f"URL: {self.submitter.bug_url}",
+                    "You can go back to job/session selection or quit BugIt.",
+                ]
+            )
+        )
         self.query_exactly_one("#menu_after_finish").display = True
 
     @work
@@ -263,12 +271,7 @@ class SubmissionProgressScreen(
             with VerticalGroup(
                 classes="w100 ha center tbm1", id="menu_after_finish"
             ):
-                yield Center(
-                    Label(
-                        "Submission finished! You can go back to job/session selection or quit BugIt.",
-                        classes="wa",
-                    )
-                )
+                yield Center(Label(classes="wa", id="finish_message"))
                 with Center():
                     with HorizontalGroup(classes="wa center"):
                         yield Button(
