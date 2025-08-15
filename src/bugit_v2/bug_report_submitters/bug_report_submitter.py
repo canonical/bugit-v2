@@ -62,7 +62,12 @@ class BugReportSubmitter(Generic[TAuth, TReturn], abc.ABC):
 
     @abc.abstractmethod
     def get_cached_credentials(self) -> TAuth | None:
-        """Returns the cached credentials saved in the auth_modal"""
+        """
+        Returns the cached credentials saved in the auth_modal
+
+        Returning None will cause the submission progress screen to show
+        self.auth_modal
+        """
         pass
 
     @abc.abstractmethod
