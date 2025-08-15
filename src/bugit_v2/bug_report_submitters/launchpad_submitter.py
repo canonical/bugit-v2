@@ -91,8 +91,6 @@ class LaunchpadAuthModal(Screen[Path]):
     }
     """
 
-    CSS_PATH = "styles.tcss"
-
     @override
     def compose(self) -> ComposeResult:
         with VerticalGroup(id="top_level_container"):
