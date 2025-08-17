@@ -8,7 +8,7 @@ from launchpadlib.launchpad import AuthorizeRequestTokenWithURL, Launchpad
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Center, HorizontalGroup, VerticalGroup
-from textual.screen import Screen
+from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Label, RichLog
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
@@ -62,7 +62,7 @@ class ModdedAuthorizeRequestTokenWithURL(AuthorizeRequestTokenWithURL):
 
 
 @final
-class LaunchpadAuthModal(Screen[Path]):
+class LaunchpadAuthModal(ModalScreen[tuple[Path, bool]]):
     auth: Path | None = None  # path to the launchpad auth file
     finished_browser_auth = False
 
@@ -119,7 +119,6 @@ class LaunchpadAuthModal(Screen[Path]):
                     yield b
 
     def on_mount(self):
-        print("on mount")
         self.query_exactly_one("#top_level_container").border_title = (
             "Launchpad Authentication"
         )
@@ -132,8 +131,8 @@ class LaunchpadAuthModal(Screen[Path]):
         app_name = os.getenv("BUGIT_APP_NAME")
         assert service_root in ("production", "staging", "qastaging")
         assert app_name
-        log_widget = self.query_exactly_one("#lp_login_stdout", RichLog)
 
+        log_widget = self.query_exactly_one("#lp_login_stdout", RichLog)
         auth_engine = ModdedAuthorizeRequestTokenWithURL(
             log_widget,
             lambda: self.finished_browser_auth,
@@ -171,7 +170,7 @@ class LaunchpadAuthModal(Screen[Path]):
         # should only be clickable when auth has been filled
         assert self.auth
         print(self.auth)
-        self.dismiss(self.auth)
+        self.dismiss((self.auth, self.query_exactly_one(Checkbox).value))
 
 
 @final
@@ -186,6 +185,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     }
     steps = 5
     lp_client: Launchpad | None = None
+    auth_modal = LaunchpadAuthModal
 
     @override
     def submit(

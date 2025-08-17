@@ -76,7 +76,7 @@ class SubmissionProgressScreen(
     ) -> None:
         self.bug_report = bug_report
         self.submitter = submitter
-        self.log_dir = Path(mkdtemp())
+        self.log_dir = Path(mkdtemp()).expanduser().absolute()
         self.attachment_workers = {}
 
         super().__init__(name, id, classes)
@@ -117,14 +117,14 @@ class SubmissionProgressScreen(
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
 
         # get the log collectors running first
+        # all log collectors are allowed to fail. If they do, write a message
+        # to the screen to tell the user how to get the logs manually
         for log_name in self.bug_report.logs_to_include:
 
             def run_collect(log: LogName) -> str | None:
                 collector = LOG_NAME_TO_COLLECTOR[log]
                 try:
-                    rv = collector.collect(
-                        self.log_dir.expanduser().absolute(), self.bug_report
-                    )
+                    rv = collector.collect(self.log_dir, self.bug_report)
                     if not self.log_widget:
                         return rv
 
