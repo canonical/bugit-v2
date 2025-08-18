@@ -1,5 +1,6 @@
 {
     "typeCheckingMode": "recommended",
     "analyzeUnannotatedFunctions": true,
-    "reportUnusedCallResult": "none"
+    "reportUnusedCallResult": "none",
+    "reportImportCycles": "error"
 }

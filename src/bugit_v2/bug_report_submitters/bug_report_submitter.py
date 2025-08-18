@@ -1,6 +1,7 @@
 import abc
 from collections.abc import Generator, Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Generic, TypeVar
 
 from textual.screen import ModalScreen
@@ -40,7 +41,7 @@ class BugReportSubmitter(Generic[TAuth, TReturn], abc.ABC):
     # that will wait until the auth is ready
     # this modal should return a pair of (authType, bool)
     # where authType is actual auth object, bool is whether to cache this
-    auth_modal: type[ModalScreen[tuple[TAuth, bool]]] | None = None
+    auth_modal: type[ModalScreen[tuple[TAuth, bool] | None]] | None = None
     # the actual auth object. Useful if the auth object needs to be reused
     # for every step in the submission process instead of just during init
     auth: TAuth | None = None
@@ -49,7 +50,47 @@ class BugReportSubmitter(Generic[TAuth, TReturn], abc.ABC):
     @abc.abstractmethod
     def submit(
         self, bug_report: BugReport
-    ) -> Generator[str | AdvanceMessage | Exception, None, TReturn]: ...
+    ) -> Generator[str | AdvanceMessage | Exception, None, TReturn]:
+        """The main bug creation sequence
+
+        :param bug_report: bug report to submit
+        :yield: Intermediate results of each step. Concrete submitters decide
+                what message to yield. The number of steps here should match
+                the number in self.steps
+        """
+        pass
 
     @abc.abstractmethod
-    def get_cached_credentials(self) -> TAuth | None: ...
+    def get_cached_credentials(self) -> TAuth | None:
+        """
+        Returns the cached credentials saved in the auth_modal
+
+        Returning None will cause the submission progress screen to show
+        self.auth_modal
+        """
+        pass
+
+    @abc.abstractmethod
+    def upload_attachments(
+        self, attachment_dir: Path
+    ) -> Generator[str | AdvanceMessage | Exception, None, None]:
+        """Uploads the attachments collected during submission
+
+        :param attachment_dir: directory with ALL the files to upload.
+                               The caller is responsible for collecting and
+                               putting the desired files in this directory
+        :yield: Intermediate messages or errors. Caller can decide whether to
+                stop on error
+        """
+        pass
+
+    @property
+    @abc.abstractmethod
+    def bug_url(self) -> str:
+        """
+        Returns the url of the newly created bug
+
+        Concrete submitters should raise if the bug hasn't been created or if
+        submit() failed
+        """
+        pass

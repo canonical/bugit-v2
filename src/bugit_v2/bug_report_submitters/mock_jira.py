@@ -1,129 +1,34 @@
-"""
-Implements the concrete Jira submitter that submits a bug report to Jira.
-"""
-
 import json
 import os
+import random
+import time
 from collections.abc import Generator, Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 from typing import final, override
 
-from jira import JIRA, Issue
-from textual import on
-from textual.app import ComposeResult
-from textual.containers import Center, VerticalGroup
-from textual.screen import ModalScreen
-from textual.widgets import Button, Checkbox, Input, Label
+from jira import JIRA
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
     BugReportSubmitter,
 )
+from bugit_v2.bug_report_submitters.jira_submitter import (
+    JiraAuthModal,
+    JiraBasicAuth,
+)
 from bugit_v2.models.bug_report import BugReport, Severity
 
 
-@dataclass(slots=True)
-class JiraBasicAuth:
-    email: str
-    token: str
-
-
 @final
-class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
-    auth: JiraBasicAuth | None = None
-
-    CSS = """
-    JiraAuthModal {
-        align: center middle;
-        background: $background 100%;
-    }
-
-    #top_level_container {
-        padding: 0 5;
-    }
-
-    JiraAuthModal Input {
-        border: round $boost 700%;
-        background: $background 100%;
-    }
-
-    JiraAuthModal Checkbox {
-        border: round $boost 700%;
-        background: $background 100%;
-    }
-
-    JiraAuthModal Input:focus-within {
-        border: round $primary;
-    }
-
-    JiraAuthModal Checkbox:focus-within {
-        border: round $primary;
-    }
-    """
-
-    @override
-    def compose(self) -> ComposeResult:
-        with VerticalGroup(id="top_level_container"):
-            yield Label("[b][$primary]Jira Authentication")
-            yield Input(placeholder="your.email@jira.com", id="email")
-            yield Input(
-                placeholder="A token can be created at the link below if you don't already have one",
-                id="token",
-            )
-            yield Label(
-                "https://id.atlassian.com/manage-profile/security/api-tokens"
-            )
-            yield Checkbox(
-                "Cache valid credentials until next boot",
-                tooltip=(
-                    "Save the credentials to /tmp so you don't need to "
-                    "type the credentials over and over again. They are erased "
-                    "at the next boot, or you can manually delete them"
-                ),
-                value=True,
-            )
-            yield Center(
-                Button("Continue", id="continue_button", disabled=True)
-            )
-
-    def on_mount(self):
-        self.query_exactly_one("#top_level_container").border_title = (
-            "Jira Authentication"
-        )
-        self.query_exactly_one("#email").border_title = "Email"
-        self.query_exactly_one("#token").border_title = "Jira Access Token"
-
-    @on(Input.Blurred)
-    @on(Input.Changed)
-    def update_auth(self, _) -> None:
-        email = self.query_exactly_one("#email", Input).value
-        token = self.query_exactly_one("#token", Input).value
-
-        if email and token:
-            self.auth = JiraBasicAuth(email.strip(), token.strip())
-            self.query_exactly_one(Button).disabled = False
-        else:
-            self.auth = None
-            self.query_exactly_one(Button).disabled = True
-
-    @on(Button.Pressed, "#continue_button")
-    def exit_widget(self) -> None:
-        if not self.auth:
-            self.dismiss(None)
-        else:
-            self.dismiss((self.auth, self.query_exactly_one(Checkbox).value))
-
-
-@final
-class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
-    name = "jira_submitter"
-    display_name = "Jira Client"
+class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
+    name = "mock_jira_submitter"
+    display_name = "Mock Jira"
     steps = 4
     jira: JIRA | None = None
     auth_modal = JiraAuthModal
     auth: JiraBasicAuth | None = None
-    issue: Issue | None = None
+    allow_cache_credentials = False
 
     # map the severity value inside the app to the ones on Jira
     severity_name_map: Mapping[Severity, str] = {
@@ -166,7 +71,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
     @override
     def submit(
         self, bug_report: BugReport
-    ) -> Generator[str | AdvanceMessage | Exception, None, None]:
+    ) -> Generator[str | AdvanceMessage | Exception, None, str]:
         # final submit
         bug_dict = {
             "assignee": bug_report.assignee,
@@ -186,7 +91,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
 
             yield "Starting Jira authentication..."
             self.jira = JIRA(
-                server=jira_server_addr.rstrip("/"),
+                server=jira_server_addr,
                 basic_auth=(self.auth.email, self.auth.token),
                 validate=True,
             )
@@ -222,15 +127,18 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
                 yield AdvanceMessage(
                     "Assignee unspecified, marking the bug as unassigned"
                 )
+            print(bug_dict)
+            if os.getenv("MOCK_SUBMIT") == "random":
+                if random.random() > 0.5:
+                    raise RuntimeError("err during issue()")
 
-            self.issue = self.jira.create_issue(  # pyright: ignore[reportUnknownMemberType]
-                bug_dict
-            )
-            yield AdvanceMessage(f"Created {self.issue.id}")
+            time.sleep(2)
+            yield AdvanceMessage("OK! Created `issue id`")
+
+            return "issue id"
         except Exception as e:
             yield e
 
-        # the submission screen should stop as soon as an Exception is yielded
         raise RuntimeError("Intermediate exceptions were not caught")
 
     @override
@@ -246,15 +154,9 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
     def upload_attachments(
         self, attachment_dir: Path
     ) -> Generator[str | AdvanceMessage | Exception, None, None]:
-        assert self.jira
-        assert self.issue
-        for file_path in attachment_dir.iterdir():
-            self.jira.add_attachment(self.issue.id, str(file_path))
-            yield AdvanceMessage(file_path.name)
+        raise NotImplementedError()
 
     @property
     @override
     def bug_url(self) -> str:
-        assert self.jira
-        assert self.issue, "Nothing has been submitted to Jira yet"
-        return f"{self.jira.server_url}/browse/{self.issue.key}"
+        return "http://example.com/"

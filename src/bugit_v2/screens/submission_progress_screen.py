@@ -1,6 +1,6 @@
-import subprocess as sp
+import os
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import mkdtemp
 from typing import Generic, Literal, TypeVar, final
 
 from rich.pretty import Pretty
@@ -18,8 +18,8 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
 )
 from bugit_v2.components.confirm_dialog import ConfirmScreen
-from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR, LogName
-from bugit_v2.models.bug_report import BugReport
+from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
+from bugit_v2.models.bug_report import BugReport, LogName
 
 ReturnScreenChoice = Literal["job", "session", "quit", "report_editor"]
 RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
@@ -40,10 +40,12 @@ class SubmissionProgressScreen(
 
     bug_report: BugReport
     finished = var(False)
-    last_submitter_error = var[Exception | None](None)
+    submitter_sequence_status = var[
+        Exception | Literal["in_progress", "done"]
+    ]("in_progress")
 
-    log_workers: dict[LogName, Worker[sp.CompletedProcess[str]]]
-    log_dir: TemporaryDirectory[str]
+    attachment_workers: dict[str, Worker[str | None]]
+    log_dir: Path
     log_widget: RichLog | None = None  # late init in on_mount
 
     submitter: BugReportSubmitter[TAuth, TReturn]
@@ -76,8 +78,9 @@ class SubmissionProgressScreen(
     ) -> None:
         self.bug_report = bug_report
         self.submitter = submitter
-        self.log_dir = TemporaryDirectory()
-        self.log_workers = {}
+        self.log_dir = Path(mkdtemp()).expanduser().absolute()
+        self.attachment_workers = {}
+
         super().__init__(name, id, classes)
 
     @work
@@ -85,21 +88,29 @@ class SubmissionProgressScreen(
         self.log_widget = self.query_exactly_one("#submission_logs", RichLog)
         self.query_exactly_one("#menu_after_finish").display = False
         if self.submitter.auth_modal:
-            # this is a bit weird, right now it's basically letting the
-            # submission screen control how the credentials are assigned
-            cached_credentials = self.submitter.get_cached_credentials()
-            if cached_credentials is None:
-                self.submitter.auth, self.submitter.allow_cache_credentials = (
-                    await self.app.push_screen_wait(
+            # submission screen controls how the credentials are assigned
+            try:
+                cached_credentials = self.submitter.get_cached_credentials()
+                if cached_credentials is None:
+                    auth_rv = await self.app.push_screen_wait(
                         self.submitter.auth_modal()
                     )
-                )
-            else:
-                self.submitter.auth, self.submitter.allow_cache_credentials = (
-                    cached_credentials,
-                    True,  # if it was saved before,
-                    # then allow_cache_credentials is definitely true
-                )
+                    assert auth_rv
+                    (
+                        self.submitter.auth,
+                        self.submitter.allow_cache_credentials,
+                    ) = auth_rv
+                else:
+                    (
+                        self.submitter.auth,
+                        self.submitter.allow_cache_credentials,
+                    ) = (
+                        cached_credentials,
+                        True,  # if it was saved before,
+                        # then allow_cache_credentials is definitely true
+                    )
+            except AssertionError:
+                self.dismiss("report_editor")
 
         # auth ready, do the jira/lp steps
         self.call_after_refresh(self.main_submission_sequence)
@@ -110,28 +121,37 @@ class SubmissionProgressScreen(
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
 
         # get the log collectors running first
+        # all log collectors are allowed to fail. If they do, write a message
+        # to the screen to tell the user how to get the logs manually
         for log_name in self.bug_report.logs_to_include:
 
-            def run_collect(log: LogName):
+            def run_collect(log: LogName) -> str | None:
                 collector = LOG_NAME_TO_COLLECTOR[log]
-                rv = collector.collect(Path(self.log_dir.name))
-                progress_bar.advance()
-                if not self.log_widget:
-                    return rv
+                try:
+                    rv = collector.collect(self.log_dir, self.bug_report)
+                    if not self.log_widget:
+                        return rv
 
-                if rv.returncode == 0:
+                    if rv and rv.strip():
+                        # only show non-empty, non-null messages
+                        self.log_widget.write(
+                            f"[green]OK![/green] [b]{collector.display_name}[/b]: {rv.strip()}"
+                        )
+                    else:
+                        self.log_widget.write(
+                            f"[green]OK![/green] {collector.display_name} finished!"
+                        )
+                except Exception as e:
+                    if not self.log_widget:
+                        return
                     self.log_widget.write(
-                        f"[green]OK![/green] {collector.name} finished!"
+                        f"[red]FAILED![/red] {collector.name} failed!"
                     )
-                else:
-                    self.log_widget.write(
-                        f"[red]FAILED![/red] Collector {collector.name} failed"
-                    )
-                    self.log_widget.write(Pretty(rv))
+                    self.log_widget.write(Pretty(e))
+                finally:
+                    progress_bar.advance()
 
-                return rv
-
-            self.log_workers[log_name] = self.run_worker(
+            self.attachment_workers[log_name] = self.run_worker(
                 # closure workaround
                 # https://stackoverflow.com/a/1107260
                 # bind the value early
@@ -141,13 +161,15 @@ class SubmissionProgressScreen(
                 exit_on_error=False,  # hold onto the err, don't crash
             )
 
+            display_name = LOG_NAME_TO_COLLECTOR[log_name].display_name
             self.log_widget.write(
-                f"[green]OK![/green] Launched {log_name} log collector in the background!"
+                f"Launched collector: {display_name}!"
             )  # late write
 
         # then do the jira/lp stuff
         display_name = self.submitter.display_name or self.submitter.name
         for step_result in self.submitter.submit(self.bug_report):
+            print(step_result)
             match step_result:
                 case str():
                     # general logs
@@ -162,27 +184,27 @@ class SubmissionProgressScreen(
                     progress_bar.advance()
                 case Exception():
                     # errors
-                    self.last_submitter_error = step_result
+                    self.submitter_sequence_status = step_result
                     return  # exit early, don't mark self.finished = True
 
+        self.submitter_sequence_status = "done"
         # update state, there's another updater in on_worker_state_changed
         self.finished = self.is_finished()
 
     def is_finished(self) -> bool:
         """
-        Determines the "finished" criteria. The self.finished reactive should
-        always be assigned the value determined by this function.
+        Determines self.finished. It should always be assigned the value
+        returned by this function.
 
         - Did all the steps from the submitter finish successfully?
-        - last_submitter_error is None
+            - Errors from the submitter should be caught
+            - self.finished is False if submitter failed
         - Did all log collectors *finish*?
-        - errors are ok, just report them in the log window since the user can
-            likely just run the collector again
-        - all(w.is_finished for w in self.log_workers.values())
-        - Was the final tar ball created with the log files and checkbox session?
+            - errors are ok, just report them in the log window since the user
+              can likely just run the collector again
         """
-        return self.last_submitter_error is None and all(
-            log_worker.is_finished for log_worker in self.log_workers.values()
+        return self.submitter_sequence_status == "done" and all(
+            worker.is_finished for worker in self.attachment_workers.values()
         )
 
     @work
@@ -190,22 +212,33 @@ class SubmissionProgressScreen(
         if not self.finished:
             return
 
-        self.log_dir.cleanup()
+        if not os.getenv("DEBUG"):
+            os.rmdir(self.log_dir)
+        self.query_exactly_one("#finish_message", Label).update(
+            "\n".join(
+                [
+                    "Submission finished!",
+                    f"URL: {self.submitter.bug_url}",
+                    "You can go back to job/session selection or quit BugIt.",
+                ]
+            )
+        )
         self.query_exactly_one("#menu_after_finish").display = True
 
     @work
-    async def watch_last_submitter_error(self):
-        if self.last_submitter_error is None:
+    async def watch_submitter_sequence_status(self):
+        if self.submitter_sequence_status in ("in_progress", "done"):
             return
 
         # stop all log workers asap
-        for worker in self.log_workers.values():
+        for worker in self.attachment_workers.values():
             worker.cancel()
-        self.log_dir.cleanup()
+        if not os.getenv("DEBUG"):
+            os.rmdir(self.log_dir)
 
         await self.app.push_screen_wait(
             ConfirmScreen[ReturnScreenChoice](
-                f"Got the following error during submission: {str(self.last_submitter_error)}",
+                f"Got the following error during submission: {str(self.submitter_sequence_status)}",
                 choices=(("Return to Report Editor", "report_editor"),),
                 focus_id_on_mount="report_editor",
             ),
@@ -213,7 +246,10 @@ class SubmissionProgressScreen(
         self.dismiss("report_editor")
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
-        if not self.log_widget or event.worker.name not in self.log_workers:
+        if (
+            not self.log_widget
+            or event.worker.name not in self.attachment_workers
+        ):
             return
 
         if event.worker.state == WorkerState.CANCELLED:
@@ -247,12 +283,7 @@ class SubmissionProgressScreen(
             with VerticalGroup(
                 classes="w100 ha center tbm1", id="menu_after_finish"
             ):
-                yield Center(
-                    Label(
-                        "Submission finished! You can go back to job/session selection or quit BugIt.",
-                        classes="wa",
-                    )
-                )
+                yield Center(Label(classes="wa", id="finish_message"))
                 with Center():
                     with HorizontalGroup(classes="wa center"):
                         yield Button(

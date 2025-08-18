@@ -21,17 +21,19 @@ from textual.widgets import (
     SelectionList,
     TextArea,
 )
+from textual.widgets.selection_list import Selection
 from typing_extensions import override
 
 from bugit_v2.checkbox_utils import Session
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.selection_with_preview import SelectionWithPreview
 from bugit_v2.dut_utils.info_getters import get_standard_info
-from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR, LogName
+from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
 from bugit_v2.models.bug_report import (
     ISSUE_FILE_TIMES,
     SEVERITIES,
     BugReport,
+    LogName,
     pretty_issue_file_times,
     pretty_severities,
 )
@@ -109,7 +111,6 @@ class BugReportScreen(Screen[BugReport]):
 
     #submit_button {
         width: 100%;
-        /* border: heavy $primary; */
         padding: 0;
     }
 
@@ -259,10 +260,11 @@ class BugReportScreen(Screen[BugReport]):
                     )
                     yield SelectionList[str](
                         *(
-                            (
+                            Selection(
                                 collector.display_name,
                                 collector.name,
                                 collector.collect_by_default,
+                                id=collector.name,
                             )
                             for collector in LOG_NAME_TO_COLLECTOR.values()
                         ),
@@ -305,7 +307,9 @@ class BugReportScreen(Screen[BugReport]):
 
             match elem:
                 case Input():
-                    report_value = getattr(self.existing_report, elem_id)
+                    report_value = cast(
+                        list[str] | str, getattr(self.existing_report, elem_id)
+                    )
                     if isinstance(report_value, list):
                         elem.value = " ".join(map(str, report_value))
                     else:
@@ -342,6 +346,14 @@ class BugReportScreen(Screen[BugReport]):
                             pass
                 case _:
                     pass
+
+        if "NVIDIA" not in self.machine_info["GPU"]:
+            # disable the nvidia log collector if there's no nvidia card
+            log_selection_list = cast(
+                SelectionList[str],
+                self.query_exactly_one("#logs_to_include", SelectionList),
+            )
+            log_selection_list.remove_option("nvidia-bug-report")
 
         self.query_exactly_one("#title", Input).focus()
 
@@ -463,6 +475,7 @@ class BugReportScreen(Screen[BugReport]):
 
         return BugReport(
             title=self.query_exactly_one("#title", Input).value,
+            checkbox_session=self.session,
             description=self.query_exactly_one("#description", TextArea).text,
             assignee=self.query_exactly_one("#assignee", Input).value,
             project=self.query_exactly_one("#project", Input).value,
