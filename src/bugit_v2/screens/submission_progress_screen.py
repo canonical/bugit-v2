@@ -107,7 +107,7 @@ class SubmissionProgressScreen(
                         True,  # if it was saved before,
                         # then allow_cache_credentials is definitely true
                     )
-            except Exception:
+            except AssertionError:
                 self.dismiss("report_editor")
 
         # auth ready, do the jira/lp steps
