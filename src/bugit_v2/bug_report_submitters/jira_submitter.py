@@ -226,7 +226,6 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
             self.issue = self.jira.create_issue(  # pyright: ignore[reportUnknownMemberType]
                 bug_dict
             )
-            print(self.issue)
             yield AdvanceMessage(f"Created {self.issue.id}")
         except Exception as e:
             yield e

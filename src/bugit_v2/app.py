@@ -15,10 +15,10 @@ from typing_extensions import override
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
 )
+from bugit_v2.bug_report_submitters.jira_submitter import JiraSubmitter
 from bugit_v2.bug_report_submitters.launchpad_submitter import (
     LaunchpadSubmitter,
 )
-from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
 from bugit_v2.models.bug_report import BugReport
 from bugit_v2.screens.bug_report_screen import BugReportScreen
@@ -72,7 +72,7 @@ class BugitApp(App[None]):
 
         match args.submitter:
             case "jira":
-                self.submitter_class = MockJiraSubmitter
+                self.submitter_class = JiraSubmitter
             case "lp":
                 self.submitter_class = LaunchpadSubmitter
 
