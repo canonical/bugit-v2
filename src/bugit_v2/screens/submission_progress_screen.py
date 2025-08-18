@@ -90,12 +90,14 @@ class SubmissionProgressScreen(
             try:
                 cached_credentials = self.submitter.get_cached_credentials()
                 if cached_credentials is None:
+                    auth_rv = await self.app.push_screen_wait(
+                        self.submitter.auth_modal()
+                    )
+                    assert auth_rv
                     (
                         self.submitter.auth,
                         self.submitter.allow_cache_credentials,
-                    ) = await self.app.push_screen_wait(
-                        self.submitter.auth_modal()
-                    )
+                    ) = auth_rv
                 else:
                     (
                         self.submitter.auth,

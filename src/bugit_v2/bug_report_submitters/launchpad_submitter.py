@@ -25,8 +25,9 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 from bugit_v2.models.bug_report import BugReport
 
 LAUNCHPAD_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
-# staging and qastaging doesn't seem to work
-VALID_SERVICE_ROOTS = ("production", "staging", "qastaging")
+# 'staging' doesn't seem to work
+# only 'qastaging' and 'production' works
+VALID_SERVICE_ROOTS = ("production", "qastaging")
 
 
 @final
@@ -79,6 +80,7 @@ class GraphicalAuthorizeRequestTokenWithURL(RequestTokenAuthorizationEngine):
         basically we implement this method to specify how to get auth from the
         user
         """
+        self.log_widget.write("Initializing Launchpad authorization...")
         authorization_url = self.authorization_url(request_token)
         # self.notify_end_user_authorization_url(authorization_url)
         self.log_widget.write(authorization_url)
@@ -97,7 +99,7 @@ class GraphicalAuthorizeRequestTokenWithURL(RequestTokenAuthorizationEngine):
 
 
 @final
-class LaunchpadAuthModal(ModalScreen[tuple[Path, bool]]):
+class LaunchpadAuthModal(ModalScreen[tuple[Path, bool] | None]):
     auth: Path | None = None  # path to the launchpad auth file
     finished_browser_auth = False
 
@@ -165,7 +167,7 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool]]):
 
     @work(thread=True)
     def main_auth_sequence(self):
-        service_root = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "production")
+        service_root = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "qastaging")
         app_name = os.getenv("BUGIT_APP_NAME")
 
         assert service_root in VALID_SERVICE_ROOTS, (
@@ -210,8 +212,10 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool]]):
     @on(Button.Pressed, "#continue_button")
     def exit_widget(self) -> None:
         # should only be clickable when auth has been filled
-        assert self.auth
-        self.dismiss((self.auth, self.query_exactly_one(Checkbox).value))
+        if not self.auth:
+            self.dismiss(None)
+        else:
+            self.dismiss((self.auth, self.query_exactly_one(Checkbox).value))
 
 
 @final
@@ -246,7 +250,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         }
 
         try:
-            service_root = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "production")
+            service_root = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "qastaging")
             app_name = os.getenv("BUGIT_APP_NAME")
 
             assert service_root in VALID_SERVICE_ROOTS, (

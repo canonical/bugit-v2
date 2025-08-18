@@ -41,7 +41,7 @@ class BugReportSubmitter(Generic[TAuth, TReturn], abc.ABC):
     # that will wait until the auth is ready
     # this modal should return a pair of (authType, bool)
     # where authType is actual auth object, bool is whether to cache this
-    auth_modal: type[ModalScreen[tuple[TAuth, bool]]] | None = None
+    auth_modal: type[ModalScreen[tuple[TAuth, bool] | None]] | None = None
     # the actual auth object. Useful if the auth object needs to be reused
     # for every step in the submission process instead of just during init
     auth: TAuth | None = None
