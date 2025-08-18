@@ -1,7 +1,7 @@
 import argparse
 import os
 from dataclasses import dataclass
-from typing import Literal, final
+from typing import Any, Literal, final
 
 from textual import work
 from textual.app import App, ComposeResult
@@ -12,6 +12,12 @@ from textual.types import CSSPathType
 from textual.widgets import Footer, Header, LoadingIndicator
 from typing_extensions import override
 
+from bugit_v2.bug_report_submitters.bug_report_submitter import (
+    BugReportSubmitter,
+)
+from bugit_v2.bug_report_submitters.launchpad_submitter import (
+    LaunchpadSubmitter,
+)
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
 from bugit_v2.models.bug_report import BugReport
@@ -47,6 +53,10 @@ class AppArgs:
 @final
 class BugitApp(App[None]):
     state = var(AppState())
+    # Any doesn't matter here
+    submitter_class: type[
+        BugReportSubmitter[Any, Any]  # pyright: ignore[reportExplicitAny]
+    ]
     bug_report_backup: BugReport | None = None
     BINDINGS = [Binding("alt+left", "go_back", "Go Back")]
 
@@ -59,6 +69,13 @@ class BugitApp(App[None]):
         ansi_color: bool = False,
     ):
         self.args = args
+
+        match args.submitter:
+            case "jira":
+                self.submitter_class = MockJiraSubmitter
+            case "lp":
+                self.submitter_class = LaunchpadSubmitter
+
         super().__init__(driver_class, css_path, watch_css, ansi_color)
 
     @work
@@ -106,7 +123,7 @@ class BugitApp(App[None]):
         else:
             return_to = await self.push_screen_wait(
                 SubmissionProgressScreen(
-                    self.state.bug_report, MockJiraSubmitter()
+                    self.state.bug_report, self.submitter_class()
                 )
             )
             match return_to:
@@ -162,9 +179,7 @@ def main():
     args = parse_args()
     # vars() is very ugly, but it allows the AppArgs constructor to fail fast
     # before the app takes over the screen
-    args = AppArgs(*vars(args).values())
-    print(args)
-    app = BugitApp(args)
+    app = BugitApp(AppArgs(**vars(args)))
     app.run()
 
 
