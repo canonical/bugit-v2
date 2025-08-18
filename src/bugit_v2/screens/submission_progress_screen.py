@@ -40,7 +40,9 @@ class SubmissionProgressScreen(
 
     bug_report: BugReport
     finished = var(False)
-    last_submitter_error = var[Exception | None](None)
+    submitter_sequence_status = var[
+        Exception | Literal["in_progress", "done"]
+    ]("in_progress")
 
     attachment_workers: dict[str, Worker[str | None]]
     log_dir: Path
@@ -167,6 +169,7 @@ class SubmissionProgressScreen(
         # then do the jira/lp stuff
         display_name = self.submitter.display_name or self.submitter.name
         for step_result in self.submitter.submit(self.bug_report):
+            print(step_result)
             match step_result:
                 case str():
                     # general logs
@@ -181,9 +184,10 @@ class SubmissionProgressScreen(
                     progress_bar.advance()
                 case Exception():
                     # errors
-                    self.last_submitter_error = step_result
+                    self.submitter_sequence_status = step_result
                     return  # exit early, don't mark self.finished = True
 
+        self.submitter_sequence_status = "done"
         # update state, there's another updater in on_worker_state_changed
         self.finished = self.is_finished()
 
@@ -199,7 +203,7 @@ class SubmissionProgressScreen(
             - errors are ok, just report them in the log window since the user
               can likely just run the collector again
         """
-        return self.last_submitter_error is None and all(
+        return self.submitter_sequence_status == "done" and all(
             worker.is_finished for worker in self.attachment_workers.values()
         )
 
@@ -222,8 +226,8 @@ class SubmissionProgressScreen(
         self.query_exactly_one("#menu_after_finish").display = True
 
     @work
-    async def watch_last_submitter_error(self):
-        if self.last_submitter_error is None:
+    async def watch_submitter_sequence_status(self):
+        if self.submitter_sequence_status in ("in_progress", "done"):
             return
 
         # stop all log workers asap
@@ -234,7 +238,7 @@ class SubmissionProgressScreen(
 
         await self.app.push_screen_wait(
             ConfirmScreen[ReturnScreenChoice](
-                f"Got the following error during submission: {str(self.last_submitter_error)}",
+                f"Got the following error during submission: {str(self.submitter_sequence_status)}",
                 choices=(("Return to Report Editor", "report_editor"),),
                 focus_id_on_mount="report_editor",
             ),
