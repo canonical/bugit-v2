@@ -25,6 +25,8 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 from bugit_v2.models.bug_report import BugReport
 
 LAUNCHPAD_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
+# staging and qastaging doesn't seem to work
+VALID_SERVICE_ROOTS = ("production", "staging", "qastaging")
 
 
 @final
@@ -55,18 +57,18 @@ class GraphicalAuthorizeRequestTokenWithURL(RequestTokenAuthorizationEngine):
             credentials.exchange_request_token_for_access_token(self.web_root)
         except HTTPError as e:
             if e.response.status == 403:
-                # The user decided not to authorize this
-                # application.
+                # content is apparently a byte-string
                 raise EndUserDeclinedAuthorization(str(e.content))
             else:
-                if e.response.status != 401:
+                if e.response.status == 401:
+                    # The user has not made a decision yet.
+                    raise EndUserNoAuthorization(str(e.content))
+                else:
                     # There was an error accessing the server.
                     self.log_widget.write(
                         "Unexpected response from Launchpad:"
                     )
                     self.log_widget.write(e)
-                # The user has not made a decision yet.
-                raise EndUserNoAuthorization(str(e.content))
 
     @override
     def make_end_user_authorize_token(
@@ -83,6 +85,11 @@ class GraphicalAuthorizeRequestTokenWithURL(RequestTokenAuthorizationEngine):
         self.log_widget.write(
             "[b]Press the [blue]'Finish Browser Authentication'[/] button after you have authenticated in the browser"
         )
+        # this loop is an ugly workaround for the login method
+        # because it expects the auth to be ready by the end of this function
+        # so we have to block until auth is here
+        # NOTE: this cases the app to not exit cleanly when ^Q is pressed
+        # during the auth sequence
         while not self.check_finish_button_status():
             time.sleep(0.5)  # avoid busy-poll
         self.log_widget.write("Checking auth...")
@@ -116,6 +123,10 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool]]):
     #finish_button {
         margin-right: 1;
     }
+
+    .mb1 {
+        margin-bottom: 1;
+    }
     """
 
     @override
@@ -132,7 +143,7 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool]]):
                 ),
                 value=True,
             )
-            with Center():
+            with Center(classes="mb1"):
                 with HorizontalGroup(classes="wa"):
                     yield Button(
                         "Finish Browser Authentication",
@@ -154,17 +165,20 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool]]):
 
     @work(thread=True)
     def main_auth_sequence(self):
-
         service_root = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "production")
         app_name = os.getenv("BUGIT_APP_NAME")
-        assert service_root in ("production", "staging", "qastaging")
-        assert app_name
+
+        assert service_root in VALID_SERVICE_ROOTS, (
+            "Invalid APPORT_LAUNCHPAD_INSTANCE, "
+            f"expected one of {VALID_SERVICE_ROOTS}, but got {service_root}"
+        )
+        assert app_name, "BUGIT_APP_NAME was not specified"
 
         log_widget = self.query_exactly_one("#lp_login_stdout", RichLog)
         auth_engine = GraphicalAuthorizeRequestTokenWithURL(
             log_widget,
             lambda: self.finished_browser_auth,
-            "production",
+            service_root,
             app_name,
             allow_access_levels=["WRITE_PRIVATE"],
         )
@@ -235,19 +249,25 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
             service_root = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "production")
             app_name = os.getenv("BUGIT_APP_NAME")
 
-            assert service_root in ("production", "staging", "qastaging")
-            assert app_name
+            assert service_root in VALID_SERVICE_ROOTS, (
+                "Invalid APPORT_LAUNCHPAD_INSTANCE, "
+                f"expected one of {VALID_SERVICE_ROOTS}, but got {service_root}"
+            )
+            assert app_name, "BUGIT_APP_NAME was not specified"
             assert (
                 LAUNCHPAD_AUTH_FILE_PATH.exists()
             ), "At this point auth should already be valid"
             print(bug_dict)
 
             yield f"Logging into Launchpad: {service_root}"
-            Launchpad.login_with(
+            lp_client = Launchpad.login_with(
                 app_name,
                 service_root,
                 credentials_file=LAUNCHPAD_AUTH_FILE_PATH,
-            )
+            )  # this blocks until ready
+            print(lp_client.lp_attributes)
+            yield AdvanceMessage("Launchpad auth succeeded")
+
         except Exception as e:
             yield e
 
@@ -255,7 +275,6 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     def upload_attachments(
         self, attachment_dir: Path
     ) -> Generator[str | AdvanceMessage | Exception, None, None]:
-        # return super().upload_attachments(attachment_dir)
         yield "step 1"
         yield "step 2"
 
