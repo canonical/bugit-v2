@@ -4,7 +4,14 @@ from collections.abc import Generator
 from pathlib import Path
 from typing import Callable, final, override
 
-from launchpadlib.launchpad import AuthorizeRequestTokenWithURL, Launchpad
+from launchpadlib.credentials import (
+    Credentials,
+    EndUserDeclinedAuthorization,
+    EndUserNoAuthorization,
+    HTTPError,
+    RequestTokenAuthorizationEngine,
+)
+from launchpadlib.launchpad import Launchpad
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Center, HorizontalGroup, VerticalGroup
@@ -21,7 +28,7 @@ LAUNCHPAD_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
 
 
 @final
-class ModdedAuthorizeRequestTokenWithURL(AuthorizeRequestTokenWithURL):
+class GraphicalAuthorizeRequestTokenWithURL(RequestTokenAuthorizationEngine):
     """
     Override some of the handlers in AuthorizeRequestTokenWithURL
     to work with a graphical application
@@ -42,16 +49,37 @@ class ModdedAuthorizeRequestTokenWithURL(AuthorizeRequestTokenWithURL):
         self.log_widget = log_widget
         self.check_finish_button_status = check_finish_button_status
 
-    @override
-    def output(self, message: str):
-        self.log_widget.write(message)
+    def check_end_user_authorization(self, credentials: Credentials) -> None:
+        """This is the same as AuthorizeRequestTokenWithURL"""
+        try:
+            credentials.exchange_request_token_for_access_token(self.web_root)
+        except HTTPError as e:
+            if e.response.status == 403:
+                # The user decided not to authorize this
+                # application.
+                raise EndUserDeclinedAuthorization(str(e.content))
+            else:
+                if e.response.status != 401:
+                    # There was an error accessing the server.
+                    self.log_widget.write(
+                        "Unexpected response from Launchpad:"
+                    )
+                    self.log_widget.write(e)
+                # The user has not made a decision yet.
+                raise EndUserNoAuthorization(str(e.content))
 
     @override
-    def make_end_user_authorize_token(self, credentials, request_token):
-        print(credentials, request_token)
-        """Have the end-user authorize the token using a URL."""
+    def make_end_user_authorize_token(
+        self, credentials: Credentials, request_token: str
+    ):
+        """The 'entrypoint' of this auth engine, see the superclass for details
+
+        basically we implement this method to specify how to get auth from the
+        user
+        """
         authorization_url = self.authorization_url(request_token)
-        self.notify_end_user_authorization_url(authorization_url)
+        # self.notify_end_user_authorization_url(authorization_url)
+        self.log_widget.write(authorization_url)
         self.log_widget.write(
             "[b]Press the [blue]'Finish Browser Authentication'[/] button after you have authenticated in the browser"
         )
@@ -133,7 +161,7 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool]]):
         assert app_name
 
         log_widget = self.query_exactly_one("#lp_login_stdout", RichLog)
-        auth_engine = ModdedAuthorizeRequestTokenWithURL(
+        auth_engine = GraphicalAuthorizeRequestTokenWithURL(
             log_widget,
             lambda: self.finished_browser_auth,
             "production",
@@ -169,7 +197,6 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool]]):
     def exit_widget(self) -> None:
         # should only be clickable when auth has been filled
         assert self.auth
-        print(self.auth)
         self.dismiss((self.auth, self.query_exactly_one(Checkbox).value))
 
 
@@ -207,12 +234,20 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         try:
             service_root = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "production")
             app_name = os.getenv("BUGIT_APP_NAME")
+
             assert service_root in ("production", "staging", "qastaging")
             assert app_name
+            assert (
+                LAUNCHPAD_AUTH_FILE_PATH.exists()
+            ), "At this point auth should already be valid"
             print(bug_dict)
 
             yield f"Logging into Launchpad: {service_root}"
-            Launchpad.login_with(app_name, service_root)
+            Launchpad.login_with(
+                app_name,
+                service_root,
+                credentials_file=LAUNCHPAD_AUTH_FILE_PATH,
+            )
         except Exception as e:
             yield e
 
@@ -220,12 +255,14 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     def upload_attachments(
         self, attachment_dir: Path
     ) -> Generator[str | AdvanceMessage | Exception, None, None]:
-        return super().upload_attachments(attachment_dir)
+        # return super().upload_attachments(attachment_dir)
+        yield "step 1"
+        yield "step 2"
 
     @property
     @override
     def bug_url(self) -> str:
-        return super().bug_url
+        return "https://www.example.com"
 
     @override
     def get_cached_credentials(self) -> Path | None:
