@@ -30,7 +30,7 @@ class JiraBasicAuth:
 
 
 @final
-class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool]]):
+class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
     auth: JiraBasicAuth | None = None
 
     CSS = """
@@ -109,9 +109,10 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool]]):
 
     @on(Button.Pressed, "#continue_button")
     def exit_widget(self) -> None:
-        # should only be clickable when auth has been filled
-        assert self.auth
-        self.dismiss((self.auth, self.query_exactly_one(Checkbox).value))
+        if not self.auth:
+            self.dismiss(None)
+        else:
+            self.dismiss((self.auth, self.query_exactly_one(Checkbox).value))
 
 
 @final
