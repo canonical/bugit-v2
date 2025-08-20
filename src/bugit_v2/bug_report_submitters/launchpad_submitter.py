@@ -357,7 +357,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
             )
 
             task.lp_save()
-            yield AdvanceMessage("Saved bug settings")
+            yield "Saved bug settings"
 
             match service_root:
                 case "production":
@@ -365,7 +365,6 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 case "qastaging":
                     bug_url = f"{QASTAGING_WEB_ROOT}bugs/{bug.id}"
 
-            yield f"Bug report #{bug.id} updated."
             yield AdvanceMessage(f"Bug URL is: {bug_url}")
 
         except Exception as e:
