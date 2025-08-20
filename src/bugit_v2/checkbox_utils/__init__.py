@@ -142,7 +142,6 @@ class Session:
     def has_failed_jobs(self) -> bool:
         results: dict[str, Any] = self.session_json["session"]["results"]
         for job in results:
-            # print(results[job])
             # a job can be retried; picking the last retry.
             if results[job][-1]["outcome"] == "fail":
                 return True

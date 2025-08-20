@@ -169,7 +169,6 @@ class SubmissionProgressScreen(
         # then do the jira/lp stuff
         display_name = self.submitter.display_name or self.submitter.name
         for step_result in self.submitter.submit(self.bug_report):
-            print(step_result)
             match step_result:
                 case str():
                     # general logs
