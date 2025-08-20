@@ -331,7 +331,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
                     *bug_report.additional_tags,
                 ],  # length limit?
                 target=self.lp_client.projects[  # pyright: ignore[reportUnknownMemberType, reportIndexIssue, reportOptionalSubscript]
-                    bug_report.project
+                    bug_report.project  # index access also has a side effect
                 ],
             )
             # https://documentation.ubuntu.com/launchpad/user/explanation/launchpad-api/launchpadlib/#persistent-references-to-launchpad-objects
@@ -352,23 +352,20 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
 
             lp_importance = self.severity_name_map[bug_report.severity]
             yield f"Setting importance to {lp_importance}..."
-            task.importance = lp_importance
+            task.importance = (
+                lp_importance  # the update request is a side effect
+            )
 
             task.lp_save()
             yield AdvanceMessage("Saved bug settings")
 
-            # if service_root == "qastaging":
-            #     bug_url = QASTAGING_WEB_ROOT + f"bugs/{bug.id}"
-            # else:
-            #     bug_url = LPNET_WEB_ROOT + f"bugs/{bug.id}"
-
             match service_root:
                 case "production":
-                    bug_url = LPNET_WEB_ROOT + f"bugs/{bug.id}"
+                    bug_url = f"{LPNET_WEB_ROOT}bugs/{bug.id}"
                 case "qastaging":
-                    bug_url = QASTAGING_WEB_ROOT + f"bugs/{bug.id}"
+                    bug_url = f"{QASTAGING_WEB_ROOT}bugs/{bug.id}"
 
-            yield ("Bug report #{} updated.".format(bug.id))
+            yield f"Bug report #{bug.id} updated."
             yield AdvanceMessage(f"Bug URL is: {bug_url}")
 
         except Exception as e:
