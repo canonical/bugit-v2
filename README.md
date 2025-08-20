@@ -57,6 +57,13 @@ To uninstall, `pipx uninstall bugit-v2`
 
 For now you have to manually build the snap. Clone the repo and `snapcraft clean && snapcraft pack`.
 
+## SSH Colors
+
+If you ssh into a ubuntu machine and run bugit-v2, it might give you completely
+different colors than running locally. This can be fixed by specifying
+`COLORTERM=truecolor` in the ssh session. You shouldn't have to do this when using
+the snap version.
+
 ## Controlling submission behavior
 
 As of right now this app doesn't connect to the real Jira/Launchpad backend and uses a mock to simulate submission errors. To control what the mock does, specify an environment variable `MOCK_SUBMIT` with one of these values:

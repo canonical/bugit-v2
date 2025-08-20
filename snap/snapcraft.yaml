@@ -12,6 +12,9 @@ description: |
 version: "0.1"
 confinement: classic
 
+environment:
+  COLORTERM: truecolor
+
 apps:
   bugit-v2:
     # The final command must have this structure for classic confinement
