@@ -1,16 +1,9 @@
 import os
-import time
 from collections.abc import Generator
 from pathlib import Path
-from typing import Any, Callable, final, override
+from typing import Any, final, override
+from unittest.mock import MagicMock
 
-from launchpadlib.credentials import (
-    Credentials,
-    EndUserDeclinedAuthorization,
-    EndUserNoAuthorization,
-    HTTPError,
-    RequestTokenAuthorizationEngine,
-)
 from launchpadlib.launchpad import Launchpad
 from launchpadlib.uris import LPNET_WEB_ROOT, QASTAGING_WEB_ROOT
 from textual import on, work
@@ -23,80 +16,15 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
     BugReportSubmitter,
 )
+from bugit_v2.bug_report_submitters.launchpad_submitter import (
+    GraphicalAuthorizeRequestTokenWithURL,
+)
 from bugit_v2.models.bug_report import BugReport
 
 LAUNCHPAD_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
 # 'staging' doesn't seem to work
 # only 'qastaging' and 'production' works
 VALID_SERVICE_ROOTS = ("production", "qastaging")
-
-
-@final
-class GraphicalAuthorizeRequestTokenWithURL(RequestTokenAuthorizationEngine):
-    """
-    Override some of the handlers in AuthorizeRequestTokenWithURL
-    to work with a graphical application
-    """
-
-    def __init__(
-        self,
-        log_widget: RichLog,
-        check_finish_button_status: Callable[[], bool],
-        service_root: str,
-        application_name: str | None = None,
-        consumer_name: str | None = None,
-        allow_access_levels: list[str] | None = None,
-    ):
-        super().__init__(  # pyright: ignore[reportUnknownMemberType]
-            service_root, application_name, consumer_name, allow_access_levels
-        )
-        self.log_widget = log_widget
-        self.check_finish_button_status = check_finish_button_status
-
-    def check_end_user_authorization(self, credentials: Credentials) -> None:
-        """This is the same as AuthorizeRequestTokenWithURL"""
-        try:
-            credentials.exchange_request_token_for_access_token(self.web_root)
-        except HTTPError as e:
-            if e.response.status == 403:
-                # content is apparently a byte-string
-                raise EndUserDeclinedAuthorization(str(e.content))
-            else:
-                if e.response.status == 401:
-                    # The user has not made a decision yet.
-                    raise EndUserNoAuthorization(str(e.content))
-                else:
-                    # There was an error accessing the server.
-                    self.log_widget.write(
-                        "Unexpected response from Launchpad:"
-                    )
-                    self.log_widget.write(e)
-
-    @override
-    def make_end_user_authorize_token(
-        self, credentials: Credentials, request_token: str
-    ):
-        """The 'entrypoint' of this auth engine, see the superclass for details
-
-        basically we implement this method to specify how to get auth from the
-        user
-        """
-        self.log_widget.write("Initializing Launchpad authorization...")
-        authorization_url = self.authorization_url(request_token)
-        # self.notify_end_user_authorization_url(authorization_url)
-        self.log_widget.write(authorization_url)
-        self.log_widget.write(
-            "[b]Press the [blue]'Finish Browser Authentication'[/] button after you have authenticated in the browser"
-        )
-        # this loop is an ugly workaround for the login method
-        # because it expects the auth to be ready by the end of this function
-        # so we have to block until auth is here
-        # NOTE: this cases the app to not exit cleanly when ^Q is pressed
-        # during the auth sequence
-        while not self.check_finish_button_status():
-            time.sleep(0.5)  # avoid busy-poll
-        self.log_widget.write("Checking auth...")
-        self.check_end_user_authorization(credentials)
 
 
 @final
@@ -220,8 +148,9 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool] | None]):
 
 
 @final
-class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
-    name = "launchpad_submitter"
+class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
+    name = "mock_launchpad_submitter"
+    display_name = "Mock Launchpad"
     severity_name_map = {
         "highest": "Critical",
         "high": "High",
@@ -229,7 +158,6 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         "low": "Low",
         "lowest": "Wishlist",
     }
-    display_name = "Launchpad"
     steps = 7
     lp_client: Launchpad | None = None
     auth_modal = LaunchpadAuthModal
@@ -324,7 +252,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 yield AdvanceMessage("Series unspecified, skipping")
 
             # # actually create the bug
-            bug = self.lp_client.bugs.createBug(  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess]
+            bug = MagicMock(  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess]
                 title=bug_report.title,
                 description=bug_report.description,  # is there a length limit?
                 tags=[

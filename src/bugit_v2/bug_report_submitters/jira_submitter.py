@@ -118,7 +118,7 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
 @final
 class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
     name = "jira_submitter"
-    display_name = "Jira Client"
+    display_name = "Jira"
     steps = 4
     jira: JIRA | None = None
     auth_modal = JiraAuthModal

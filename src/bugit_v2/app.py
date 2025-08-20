@@ -20,6 +20,7 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
     LaunchpadSubmitter,
 )
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
+from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
 from bugit_v2.models.bug_report import BugReport
 from bugit_v2.screens.bug_report_screen import BugReportScreen
@@ -71,14 +72,18 @@ class BugitApp(App[None]):
         ansi_color: bool = False,
     ):
         self.args = args
+        debug_mode = os.getenv("DEBUG") == "1"
         match args.submitter:
             case "jira":
-                if os.getenv("DEBUG") == "1":
-                    self.submitter_class = MockJiraSubmitter
-                else:
-                    self.submitter_class = JiraSubmitter
+                self.submitter_class = (
+                    MockJiraSubmitter if debug_mode else JiraSubmitter
+                )
             case "lp":
-                self.submitter_class = LaunchpadSubmitter
+                self.submitter_class = (
+                    MockLaunchpadSubmitter
+                    if debug_mode
+                    else LaunchpadSubmitter
+                )
 
         super().__init__(driver_class, css_path, watch_css, ansi_color)
 
