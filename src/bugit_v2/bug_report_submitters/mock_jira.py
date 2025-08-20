@@ -5,9 +5,10 @@ import time
 from collections.abc import Generator, Mapping
 from dataclasses import asdict
 from pathlib import Path
-from typing import final, override
+from typing import final
 
 from jira import JIRA
+from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,

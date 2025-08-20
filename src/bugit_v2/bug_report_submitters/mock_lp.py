@@ -1,11 +1,12 @@
 import os
 from collections.abc import Generator
 from pathlib import Path
-from typing import Any, final, override
+from typing import Any, final
 from unittest.mock import MagicMock
 
 from launchpadlib.launchpad import Launchpad
 from launchpadlib.uris import LPNET_WEB_ROOT, QASTAGING_WEB_ROOT
+from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
