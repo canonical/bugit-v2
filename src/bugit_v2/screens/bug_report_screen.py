@@ -313,7 +313,7 @@ class BugReportScreen(Screen[BugReport]):
             )
 
             yield Button(
-                "Submit Bug Report",
+                "Bug Report Incomplete (check if bug title or project name is empty)",
                 id="submit_button",
                 variant="success",
                 disabled=True,
@@ -474,9 +474,12 @@ class BugReportScreen(Screen[BugReport]):
         }
 
     def watch_validation_status(self):
-        self.query_exactly_one("#submit_button", Button).disabled = not all(
-            self.validation_status.values()
-        )
+        btn = self.query_exactly_one("#submit_button", Button)
+        btn.disabled = not all(self.validation_status.values())
+        if btn.disabled:
+            btn.label = "Bug Report Incomplete (check if bug title or project name is empty)"
+        else:
+            btn.label = "Submit Bug Report"
 
     def action_toggle_metadata_display(self) -> None:
         old_state = self.query_exactly_one(

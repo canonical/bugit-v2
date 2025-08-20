@@ -26,6 +26,7 @@ from bugit_v2.screens.bug_report_screen import BugReportScreen
 from bugit_v2.screens.job_selection_screen import JobSelectionScreen
 from bugit_v2.screens.session_selection_screen import SessionSelectionScreen
 from bugit_v2.screens.submission_progress_screen import (
+    ReturnScreenChoice,
     SubmissionProgressScreen,
 )
 
@@ -100,49 +101,62 @@ class BugitApp(App[None]):
         else:
             raise SystemExit(error)
 
-    @work
-    async def watch_state(self) -> None:
-        # just update the state, let the library do the rendering
+    def watch_state(self) -> None:
+        """Push different screens based on the state"""
+
+        def _write_state(new_state: AppState):
+            self.state = new_state
 
         if self.state.session is None:
-            session_path = await self.push_screen_wait(
-                SessionSelectionScreen()
+            self.push_screen(
+                SessionSelectionScreen(),
+                lambda session_path: session_path
+                and _write_state(AppState(Session(session_path))),
             )
-            self.state = AppState(Session(session_path))
         elif self.state.job_id is None:
-            job_id = await self.push_screen_wait(
-                JobSelectionScreen(self.state.session)
+            self.push_screen(
+                JobSelectionScreen(self.state.session),
+                lambda job_id: _write_state(
+                    AppState(self.state.session, job_id)
+                ),
             )
-            self.state = AppState(self.state.session, job_id)
+
         elif self.state.bug_report is None:
-            bug_report = await self.push_screen_wait(
+            self.push_screen(
                 BugReportScreen(
                     self.state.session,
                     self.state.job_id,
                     self.bug_report_backup,
-                )
-            )
-            self.state = AppState(
-                self.state.session, self.state.job_id, bug_report
+                ),
+                lambda bug_report: _write_state(
+                    AppState(self.state.session, self.state.job_id, bug_report)
+                ),
             )
         else:
-            return_to = await self.push_screen_wait(
+
+            def handle_return(return_screen: ReturnScreenChoice):
+                match return_screen:
+                    case "quit":
+                        self.exit()
+                    case "session":
+                        self.bug_report_backup = None
+                        self.state = AppState(None, None)
+                    case "job":
+                        self.bug_report_backup = None
+                        self.state = AppState(self.state.session, None)
+                    case "report_editor":
+                        self.bug_report_backup = self.state.bug_report
+                        self.state = AppState(
+                            self.state.session, self.state.job_id, None
+                        )
+
+            self.push_screen(
                 SubmissionProgressScreen(
                     self.state.bug_report, self.submitter_class()
-                )
+                ),
+                lambda return_screen: return_screen
+                and handle_return(return_screen),
             )
-            match return_to:
-                case "quit":
-                    self.exit()
-                case "session":
-                    self.state = AppState(None, None)
-                case "job":
-                    self.state = AppState(self.state.session, None)
-                case "report_editor":
-                    self.bug_report_backup = self.state.bug_report
-                    self.state = AppState(
-                        self.state.session, self.state.job_id, None
-                    )
 
     def action_go_back(self) -> None:
         """Handles the `Go Back` button
