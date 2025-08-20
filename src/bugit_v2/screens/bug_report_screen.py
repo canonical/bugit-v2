@@ -170,15 +170,15 @@ class BugReportScreen(Screen[BugReport]):
 
         # add an empty string at the end for a new line
         lines: list[str] = ["Job ID", "------", job_id, ""]
-        for k in ("stdout", "stderr"):
-            lines.extend([k, "------", job_output[k], ""])
-
-        lines.extend(["comments", "------"])
-        if len(job_output["comments"]) == 0:
-            lines.append("No comments were found for this job")
-        else:
-            for comment_line in job_output["comments"]:
-                lines.append(comment_line)
+        for k in ("stdout", "stderr", "comments"):
+            lines.extend(
+                [
+                    k,
+                    "------",
+                    job_output[k] or f"No {k} were found for this job",
+                    "",
+                ]
+            )
 
         self.initial_report["Job Output"] = "\n".join(lines)
 

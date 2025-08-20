@@ -27,7 +27,7 @@ JobOutcome = Literal["pass", "fail", "skip"]
 class JobOutput(TypedDict):
     stdout: str
     stderr: str
-    comments: Sequence[str]
+    comments: str
 
 
 class JobResult(TypedDict):
@@ -105,14 +105,10 @@ class Session:
             io_log_filename: str | None = self.session_json["session"][
                 "results"
             ][job_id][-1].get("io_log_filename")
-            comments: list[str] = (
-                self.session_json["session"]["results"][job_id][-1].get(
-                    "comments"
-                )
-                or []  # this forces the comments to always be a list
-                # if the key exists but the value it null, get() will just give
-                # us None, but using or [] we always get a list
-            )
+            comments: str = self.session_json["session"]["results"][job_id][
+                -1
+            ].get("comments", "")
+            print(comments, type(comments))
 
             if io_log_filename:
                 stdout_filename = io_log_filename.replace(
