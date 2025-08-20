@@ -43,7 +43,6 @@ from bugit_v2.utils.constants import FEATURE_MAP, VENDOR_MAP
 class ValidSpaceSeparatedTags(Validator):
     @override
     def validate(self, value: str) -> ValidationResult:
-        """Check a string is equal to its reverse."""
         if self.is_valid_space_separated_string_tags(value):
             return self.success()
         else:
@@ -63,7 +62,6 @@ class ValidSpaceSeparatedTags(Validator):
 class NoSpaces(Validator):
     @override
     def validate(self, value: str) -> ValidationResult:
-        """Check a string is equal to its reverse."""
         if " " in value.strip():
             return self.failure("Can't have spaces here")
         else:
@@ -142,7 +140,7 @@ class BugReportScreen(Screen[BugReport]):
         self.session = session
         self.job_id = job_id
         self.existing_report = existing_report
-        self.machine_info = get_standard_info()  # slow
+        self.machine_info = get_standard_info()  # TODO: make this async
         self.initial_report = {
             "Summary": "",
             "Steps to reproduce": "",
@@ -154,6 +152,25 @@ class BugReportScreen(Screen[BugReport]):
                 f"{k}: {v}" for k, v in self.machine_info.items()
             ),
         }
+
+        job_output = session.get_job_output(job_id)
+        if job_output is None:
+            self.initial_report["Job Output"] = (
+                "No output was found for this job"
+            )
+            return
+
+        lines: list[str] = []
+        for k, v in job_output.items():
+            lines.append(f"{k}")  # stdout | stderr | comments
+            lines.append("------")
+            if type(v) is list:
+                for s in v:
+                    lines.append(s)
+            else:
+                lines.append(str(v))
+
+        self.initial_report["Job Output"] = "\n".join(lines)
 
     @override
     def compose(self) -> ComposeResult:
@@ -176,7 +193,7 @@ class BugReportScreen(Screen[BugReport]):
                 with VerticalGroup(id="bug_report_description"):
                     yield TextArea(
                         "\n".join(
-                            f"[{k}]\n" + v
+                            f"[{k}]\n" + v + ("\n" if v else "")
                             for k, v in self.initial_report.items()
                         ),
                         classes="default_box",

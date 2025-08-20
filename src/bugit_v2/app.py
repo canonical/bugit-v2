@@ -19,6 +19,7 @@ from bugit_v2.bug_report_submitters.jira_submitter import JiraSubmitter
 from bugit_v2.bug_report_submitters.launchpad_submitter import (
     LaunchpadSubmitter,
 )
+from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
 from bugit_v2.models.bug_report import BugReport
 from bugit_v2.screens.bug_report_screen import BugReportScreen
@@ -69,10 +70,12 @@ class BugitApp(App[None]):
         ansi_color: bool = False,
     ):
         self.args = args
-
         match args.submitter:
             case "jira":
-                self.submitter_class = JiraSubmitter
+                if os.getenv("DEBUG") == "1":
+                    self.submitter_class = MockJiraSubmitter
+                else:
+                    self.submitter_class = JiraSubmitter
             case "lp":
                 self.submitter_class = LaunchpadSubmitter
 
@@ -179,7 +182,8 @@ def main():
     args = parse_args()
     # vars() is very ugly, but it allows the AppArgs constructor to fail fast
     # before the app takes over the screen
-    app = BugitApp(AppArgs(**vars(args)))
+    # TODO: use a typed parser
+    app = BugitApp(AppArgs(**vars(args)))  # pyright: ignore[reportAny]
     app.run()
 
 

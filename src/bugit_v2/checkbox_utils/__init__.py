@@ -102,12 +102,12 @@ class Session:
         try:
             # A job can be retried but the io-logs filename is always the same,
             # so arbitrarily get data from last retry.
-            io_log_filename = self.session_json["session"]["results"][job_id][
-                -1
-            ].get("io_log_filename")
-            comments = self.session_json["session"]["results"][job_id][-1].get(
-                "comments"
-            )
+            io_log_filename: str | None = self.session_json["session"][
+                "results"
+            ][job_id][-1].get("io_log_filename")
+            comments: list[str] = self.session_json["session"]["results"][
+                job_id
+            ][-1].get("comments", [])
 
             if io_log_filename:
                 stdout_filename = io_log_filename.replace(
@@ -129,6 +129,9 @@ class Session:
 
         except KeyError:
             print(f"Current session does not have job `{job_id}`.")
+            return None
+        except FileNotFoundError as e:
+            print(f"Corrupted session with missing file {e}")
             return None
 
     def has_failed_jobs(self) -> bool:
