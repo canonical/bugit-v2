@@ -20,6 +20,7 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
 from bugit_v2.models.bug_report import BugReport, LogName
+from bugit_v2.utils import is_prod
 
 ReturnScreenChoice = Literal["job", "session", "quit", "report_editor"]
 RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
@@ -211,8 +212,9 @@ class SubmissionProgressScreen(
         if not self.finished:
             return
 
-        if not os.getenv("DEBUG"):
+        if is_prod():
             os.rmdir(self.log_dir)
+
         self.query_exactly_one("#finish_message", Label).update(
             "\n".join(
                 [
@@ -232,7 +234,8 @@ class SubmissionProgressScreen(
         # stop all log workers asap
         for worker in self.attachment_workers.values():
             worker.cancel()
-        if not os.getenv("DEBUG"):
+
+        if is_prod():
             os.rmdir(self.log_dir)
 
         await self.app.push_screen_wait(

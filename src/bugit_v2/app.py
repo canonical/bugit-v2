@@ -30,6 +30,7 @@ from bugit_v2.screens.submission_progress_screen import (
     ReturnScreenChoice,
     SubmissionProgressScreen,
 )
+from bugit_v2.utils import is_prod
 
 
 @dataclass(slots=True)
@@ -72,17 +73,14 @@ class BugitApp(App[None]):
         ansi_color: bool = False,
     ):
         self.args = args
-        debug_mode = os.getenv("DEBUG") == "1"
         match args.submitter:
             case "jira":
                 self.submitter_class = (
-                    MockJiraSubmitter if debug_mode else JiraSubmitter
+                    JiraSubmitter if is_prod() else MockJiraSubmitter
                 )
             case "lp":
                 self.submitter_class = (
-                    MockLaunchpadSubmitter
-                    if debug_mode
-                    else LaunchpadSubmitter
+                    LaunchpadSubmitter if is_prod() else MockLaunchpadSubmitter
                 )
 
         super().__init__(driver_class, css_path, watch_css, ansi_color)
@@ -99,12 +97,12 @@ class BugitApp(App[None]):
 
     @override
     def _handle_exception(self, error: Exception) -> None:
-        if os.getenv("DEBUG") == "1" and "SNAP" not in os.environ:
+        if is_prod() or "SNAP" in os.environ:
+            raise SystemExit(error)
+        else:
             # don't use pretty exception in prod, it shows local vars
             # if not in a snap the code is already in the system anyways
             super()._handle_exception(error)
-        else:
-            raise SystemExit(error)
 
     def watch_state(self) -> None:
         """Push different screens based on the state"""
