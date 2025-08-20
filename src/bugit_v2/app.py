@@ -84,7 +84,9 @@ class BugitApp(App[None]):
     @work
     async def on_mount(self) -> None:
         self.theme = "solarized-light"
-        self.title = "BugIt V2 👾"
+        self.title = (
+            f"BugIt V2 👾 {'DEBUG MODE' if os.getenv('DEBUG') else ''}"
+        )
 
         if (version := get_checkbox_version()) is not None:
             self.sub_title = f"Checkbox {version}"

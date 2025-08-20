@@ -9,7 +9,7 @@ from textual.binding import Binding
 from textual.containers import HorizontalGroup, VerticalGroup, VerticalScroll
 from textual.reactive import var
 from textual.screen import Screen
-from textual.validation import Length, ValidationResult, Validator
+from textual.validation import ValidationResult, Validator
 from textual.widgets import (
     Button,
     Footer,
@@ -64,6 +64,15 @@ class NoSpaces(Validator):
     def validate(self, value: str) -> ValidationResult:
         if " " in value.strip():
             return self.failure("Can't have spaces here")
+        else:
+            return self.success()
+
+
+class NonEmpty(Validator):
+    @override
+    def validate(self, value: str) -> ValidationResult:
+        if not value.strip():
+            return self.failure("Must be non-empty after trimming")
         else:
             return self.success()
 
@@ -148,9 +157,8 @@ class BugReportScreen(Screen[BugReport]):
             "Actual result": "",
             "Failure rate": "",
             "Affected test cases": "",
-            "Additional Information": "\n".join(
-                f"{k}: {v}" for k, v in self.machine_info.items()
-            ),
+            "Additional Information": "CID:\nSKU:\n"
+            + "\n".join(f"{k}: {v}" for k, v in self.machine_info.items()),
         }
 
         job_output = session.get_job_output(job_id)
@@ -160,15 +168,17 @@ class BugReportScreen(Screen[BugReport]):
             )
             return
 
-        lines: list[str] = []
-        for k, v in job_output.items():
-            lines.append(f"{k}")  # stdout | stderr | comments
-            lines.append("------")
-            if type(v) is list:
-                for s in v:
-                    lines.append(s)
-            else:
-                lines.append(str(v))
+        # add an empty string at the end for a new line
+        lines: list[str] = ["Job ID", "------", job_id, ""]
+        for k in ("stdout", "stderr"):
+            lines.extend([k, "------", job_output[k], ""])
+
+        lines.extend(["comments", "------"])
+        if len(job_output["comments"]) == 0:
+            lines.append("No comments were found for this job")
+        else:
+            for comment_line in job_output["comments"]:
+                lines.append(comment_line)
 
         self.initial_report["Job Output"] = "\n".join(lines)
 
@@ -186,7 +196,7 @@ class BugReportScreen(Screen[BugReport]):
                 placeholder="Short title for this bug",
                 id="title",
                 classes="default_box",
-                validators=[Length(1)],
+                validators=[NonEmpty()],
             )
 
             with HorizontalGroup():
@@ -243,7 +253,7 @@ class BugReportScreen(Screen[BugReport]):
                         id="project",
                         placeholder="SOMERVILLE, STELLA, ...",
                         classes="default_box",
-                        validators=[NoSpaces(), Length(1)],
+                        validators=[NoSpaces(), NonEmpty()],
                     )
                     yield Input(
                         id="platform_tags",

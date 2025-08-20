@@ -238,7 +238,8 @@ class SubmissionProgressScreen(
 
         await self.app.push_screen_wait(
             ConfirmScreen[ReturnScreenChoice](
-                f"Got the following error during submission: {str(self.submitter_sequence_status)}",
+                "Got the following error during submission",
+                sub_prompt=f"[red]{self.submitter_sequence_status}",
                 choices=(("Return to Report Editor", "report_editor"),),
                 focus_id_on_mount="report_editor",
             ),

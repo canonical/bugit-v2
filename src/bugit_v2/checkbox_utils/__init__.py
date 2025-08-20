@@ -105,9 +105,14 @@ class Session:
             io_log_filename: str | None = self.session_json["session"][
                 "results"
             ][job_id][-1].get("io_log_filename")
-            comments: list[str] = self.session_json["session"]["results"][
-                job_id
-            ][-1].get("comments", [])
+            comments: list[str] = (
+                self.session_json["session"]["results"][job_id][-1].get(
+                    "comments"
+                )
+                or []  # this forces the comments to always be a list
+                # if the key exists but the value it null, get() will just give
+                # us None, but using or [] we always get a list
+            )
 
             if io_log_filename:
                 stdout_filename = io_log_filename.replace(
@@ -117,9 +122,9 @@ class Session:
                     "record.gz", "stderr"
                 )
                 with open(self.session_path / stdout_filename) as f:
-                    stdout = f.read()
+                    stdout = f.read().strip()
                 with open(self.session_path / stderr_filename) as f:
-                    stderr = f.read()
+                    stderr = f.read().strip()
                 return JobOutput(
                     stdout=stdout, stderr=stderr, comments=comments
                 )
