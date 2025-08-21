@@ -2,12 +2,13 @@ import json
 import os
 import random
 import time
-from collections.abc import Generator, Mapping
+from collections.abc import Generator, Mapping, Sequence
 from dataclasses import asdict
 from pathlib import Path
-from typing import final
+from typing import cast, final
 
 from jira import JIRA
+from jira.resources import Component
 from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
@@ -17,6 +18,7 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 from bugit_v2.bug_report_submitters.jira_submitter import (
     JiraAuthModal,
     JiraBasicAuth,
+    JiraSubmitterError,
 )
 from bugit_v2.models.bug_report import BugReport, Severity
 
@@ -25,7 +27,7 @@ from bugit_v2.models.bug_report import BugReport, Severity
 class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
     name = "mock_jira_submitter"
     display_name = "Mock Jira"
-    steps = 4
+    steps = 5
     jira: JIRA | None = None
     auth_modal = JiraAuthModal
     auth: JiraBasicAuth | None = None
@@ -40,7 +42,7 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         "lowest": "Lowest",
     }
 
-    def project_exists(self, project_name: str) -> bool:
+    def project_exists(self, project_name: str) -> None:
         """Does the project exist?
 
         :param project_name:
@@ -52,22 +54,40 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         assert self.jira, "Jira object is not initialized"
         try:
             self.jira.project(id=project_name)
-            return True
         except Exception:
-            return False
+            raise JiraSubmitterError(f"{project_name} doesn't exist!")
 
-    def assignee_exists_and_unique(self, assignee: str) -> bool:
+    def assignee_exists_and_unique(self, assignee: str) -> None:
         """Does @param assignee exist and is it unique?
 
         :param assignee: the email of the assignee or some form of ID
         :return: exists and unique
         """
         assert self.jira, "Jira object is not initialized"
-        try:
-            query_result = self.jira.search_users(query=assignee)
-            return len(query_result) == 1
-        except Exception:
-            return False
+
+        query_result = self.jira.search_users(query=assignee)
+        if len(query_result) == 0:
+            raise JiraSubmitterError(f"{assignee} doesn't exist!")
+        elif len(query_result) > 1:
+            raise JiraSubmitterError(f"{assignee} isn't unique!")
+
+    def all_components_exist(
+        self, project: str, components: Sequence[str]
+    ) -> None:
+        assert self.jira, "Jira object is not initialized"
+        # the @translate_args decorator confuses the type checker
+        query_result = cast(
+            list[Component], self.jira.project_components(project)
+        )
+        for wanted_component in components:
+            if not any(
+                actual_component.name
+                == wanted_component  # apparently .name exists
+                for actual_component in query_result
+            ):
+                raise JiraSubmitterError(
+                    f"{wanted_component} doesn't exist in {project}!"
+                )
 
     @override
     def submit(
@@ -109,23 +129,29 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
             )
         )
 
-        assert self.project_exists(
-            bug_report.project
-        ), f"Project '{bug_report.project}' doesn't exist!"
+        self.project_exists(bug_report.project)
         yield AdvanceMessage(
             f"Project {bug_report.project} exists on {jira_server_addr}"
         )
 
         if bug_report.assignee:
-            assert self.assignee_exists_and_unique(
-                bug_report.assignee
-            ), f"Assignee {bug_report.assignee} doesn't exist or isn't unique!"
+            self.assignee_exists_and_unique(bug_report.assignee)
             yield AdvanceMessage(
                 f"Assignee [u]{bug_report.assignee}[/u] exists and is unique!"
             )
         else:
             yield AdvanceMessage(
                 "Assignee unspecified, marking the bug as unassigned"
+            )
+
+        if len(bug_report.platform_tags) > 0:
+            self.all_components_exist(
+                bug_report.project, bug_report.platform_tags
+            )
+            yield AdvanceMessage("All platform tags exist")
+        else:
+            yield AdvanceMessage(
+                "No platform tags were given, not assigning any tags"
             )
         print(bug_dict)
         if os.getenv("MOCK_SUBMIT") == "random":

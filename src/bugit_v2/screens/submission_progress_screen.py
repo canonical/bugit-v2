@@ -140,7 +140,7 @@ class SubmissionProgressScreen(
                         )
                     else:
                         self.log_widget.write(
-                            f"[green]OK![/green] {collector.display_name} finished!"
+                            f"[green]OK![/green] [b]{collector.display_name}[/b]: finished collection!"
                         )
                 except Exception as e:
                     if not self.log_widget:
