@@ -4,12 +4,13 @@ Implements the concrete Jira submitter that submits a bug report to Jira.
 
 import json
 import os
-from collections.abc import Generator, Mapping
+from collections.abc import Generator, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import final
+from typing import cast, final
 
 from jira import JIRA, Issue
+from jira.resources import Component
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import Center, VerticalGroup
@@ -116,11 +117,17 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
             self.dismiss((self.auth, self.query_exactly_one(Checkbox).value))
 
 
+class JiraSubmitterError(Exception):
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+
+
 @final
 class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
     name = "jira_submitter"
     display_name = "Jira"
     steps = 4
+
     jira: JIRA | None = None
     auth_modal = JiraAuthModal
     auth: JiraBasicAuth | None = None
@@ -135,7 +142,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         "lowest": "Lowest",
     }
 
-    def project_exists(self, project_name: str) -> bool:
+    def project_exists(self, project_name: str) -> None:
         """Does the project exist?
 
         :param project_name:
@@ -147,22 +154,40 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         assert self.jira, "Jira object is not initialized"
         try:
             self.jira.project(id=project_name)
-            return True
         except Exception:
-            return False
+            raise JiraSubmitterError(f"{project_name} doesn't exist!")
 
-    def assignee_exists_and_unique(self, assignee: str) -> bool:
+    def assignee_exists_and_unique(self, assignee: str) -> None:
         """Does @param assignee exist and is it unique?
 
         :param assignee: the email of the assignee or some form of ID
         :return: exists and unique
         """
         assert self.jira, "Jira object is not initialized"
-        try:
-            query_result = self.jira.search_users(query=assignee)
-            return len(query_result) == 1
-        except Exception:
-            return False
+
+        query_result = self.jira.search_users(query=assignee)
+        if len(query_result) == 0:
+            raise JiraSubmitterError(f"{assignee} doesn't exist!")
+        elif len(query_result) > 1:
+            raise JiraSubmitterError(f"{assignee} isn't unique!")
+
+    def all_components_exist(
+        self, project: str, components: Sequence[str]
+    ) -> None:
+        assert self.jira, "Jira object is not initialized"
+        # the @translate_args decorator confuses the type checker
+        query_result = cast(
+            list[Component], self.jira.project_components(project)
+        )
+        for wanted_component in components:
+            if not any(
+                actual_component.name
+                == wanted_component  # apparently .name exists
+                for actual_component in query_result
+            ):
+                raise JiraSubmitterError(
+                    f"{wanted_component} doesn't exist in {project}!"
+                )
 
     @override
     def submit(
@@ -174,7 +199,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
             "project": bug_report.project,
             "summary": bug_report.title,
             "description": bug_report.description,
-            "components": bug_report.platform_tags,
+            "components": [{"name": tag} for tag in bug_report.platform_tags],
             "labels": bug_report.additional_tags,
             "priority": {"name": self.severity_name_map[bug_report.severity]},
             "issuetype": {"name": "Bug"},
@@ -204,17 +229,13 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
             )
         )
 
-        assert self.project_exists(
-            bug_report.project
-        ), f"Project '{bug_report.project}' doesn't exist!"
+        self.project_exists(bug_report.project)
         yield AdvanceMessage(
             f"Project {bug_report.project} exists on {jira_server_addr}"
         )
 
         if bug_report.assignee:
-            assert self.assignee_exists_and_unique(
-                bug_report.assignee
-            ), f"Assignee {bug_report.assignee} doesn't exist or isn't unique!"
+            self.assignee_exists_and_unique(bug_report.assignee)
             yield AdvanceMessage(
                 f"Assignee [u]{bug_report.assignee}[/u] exists and is unique!"
             )
