@@ -138,14 +138,16 @@ mock_collectors: Sequence[LogCollector] = (
 real_collectors: Sequence[LogCollector] = (
     LogCollector(
         "sos-report",
-        lambda p, b: sp.check_output(["sleep", "4"], text=True),
+        # lambda p, b: sp.check_output(["sleep", "4"], text=True),
+        sos_report,
         "SOS Report",
         False,
         manual_collection_command="sudo sos report --batch",
     ),
     LogCollector(
         "oem-get-logs",
-        lambda p, b: sp.check_output(["sleep", "2"], text=True),
+        # lambda p, b: sp.check_output(["sleep", "2"], text=True),
+        oem_getlogs,
         "OEM Get Logs",
         manual_collection_command="sudo oem-getlogs",
     ),

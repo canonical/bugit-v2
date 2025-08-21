@@ -32,6 +32,7 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
     auth_modal = JiraAuthModal
     auth: JiraBasicAuth | None = None
     allow_cache_credentials = False
+    mock_issue: str | None = None
 
     # map the severity value inside the app to the ones on Jira
     severity_name_map: Mapping[Severity, str] = {
@@ -160,6 +161,7 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
 
         time.sleep(2)
         yield AdvanceMessage("OK! Created `issue id`")
+        self.mock_issue = "mock_issue"
 
     @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:
@@ -171,12 +173,12 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
             return None
 
     @override
-    def upload_attachments(
-        self, attachment_dir: Path
-    ) -> Generator[str | AdvanceMessage | Exception, None, None]:
-        raise NotImplementedError()
+    def upload_attachment(self, attachment_file: Path) -> str | None:
+        time.sleep(random.randint(1, 5))
+        print("uploaded", attachment_file)
 
     @property
     @override
     def bug_url(self) -> str:
+        assert self.mock_issue
         return "http://example.com/"

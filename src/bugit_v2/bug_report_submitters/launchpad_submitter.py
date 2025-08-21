@@ -366,11 +366,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         yield AdvanceMessage(f"Bug URL is: {bug_url}")
 
     @override
-    def upload_attachments(
-        self, attachment_dir: Path
-    ) -> Generator[str | AdvanceMessage | Exception, None, None]:
-        yield "step 1"
-        yield "step 2"
+    def upload_attachment(self, attachment_file: Path) -> str | None:
+        return super().upload_attachment(attachment_file)
 
     @property
     @override

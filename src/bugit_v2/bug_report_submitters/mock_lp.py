@@ -168,13 +168,6 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
 
         yield AdvanceMessage(f"Bug URL is: {bug_url}")
 
-    @override
-    def upload_attachments(
-        self, attachment_dir: Path
-    ) -> Generator[str | AdvanceMessage | Exception, None, None]:
-        yield "step 1"
-        yield "step 2"
-
     @property
     @override
     def bug_url(self) -> str:
@@ -185,3 +178,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
         if LAUNCHPAD_AUTH_FILE_PATH.exists():
             return LAUNCHPAD_AUTH_FILE_PATH
         return None
+
+    @override
+    def upload_attachment(self, attachment_file: Path) -> str | None:
+        return super().upload_attachment(attachment_file)

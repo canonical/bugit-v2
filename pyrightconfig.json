@@ -2,5 +2,7 @@
     "typeCheckingMode": "recommended",
     "analyzeUnannotatedFunctions": true,
     "reportUnusedCallResult": "none",
-    "reportImportCycles": "error"
+    "reportImportCycles": "error",
+    "reportDuplicateImport": "error",
+    "reportUnknownMemberType": "none"
 }

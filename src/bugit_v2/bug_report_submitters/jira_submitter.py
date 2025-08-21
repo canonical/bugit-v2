@@ -271,15 +271,14 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
             return None
 
     @override
-    def upload_attachments(
-        self, attachment_dir: Path
-    ) -> Generator[str | AdvanceMessage | Exception, None, None]:
+    def upload_attachment(self, attachment_file: Path) -> None:
         assert self.jira
         assert self.issue
-        yield f"Uploading these files {str(os.listdir(attachment_dir))}"
-        for file_path in attachment_dir.iterdir():
-            self.jira.add_attachment(self.issue.id, str(file_path))
-            yield AdvanceMessage(file_path.name)
+        # .add_attachment has a decorator that confuses the typechecker
+        # go to its definition to see the expected arguments
+        self.jira.add_attachment(  # pyright: ignore[reportUnknownMemberType]
+            self.issue.id, str(attachment_file)
+        )
 
     @property
     @override
