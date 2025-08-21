@@ -50,7 +50,7 @@ class BugReportSubmitter(Generic[TAuth, TReturn], abc.ABC):
     @abc.abstractmethod
     def submit(
         self, bug_report: BugReport
-    ) -> Generator[str | AdvanceMessage | Exception, None, TReturn]:
+    ) -> Generator[str | AdvanceMessage, None, TReturn]:
         """The main bug creation sequence
 
         :param bug_report: bug report to submit

@@ -22,7 +22,7 @@ from bugit_v2.models.bug_report import BugReport, Severity
 
 
 @final
-class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
+class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
     name = "mock_jira_submitter"
     display_name = "Mock Jira"
     steps = 4
@@ -72,7 +72,7 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
     @override
     def submit(
         self, bug_report: BugReport
-    ) -> Generator[str | AdvanceMessage | Exception, None, str]:
+    ) -> Generator[str | AdvanceMessage, None, None]:
         # final submit
         bug_dict = {
             "assignee": bug_report.assignee,
@@ -85,62 +85,55 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, str]):
             "issuetype": {"name": "Bug"},
         }
 
-        try:
-            jira_server_addr = os.getenv("JIRA_SERVER")
-            assert self.auth, "Missing auth credentials"
-            assert jira_server_addr, "JIRA_SERVER is not specified!"
+        jira_server_addr = os.getenv("JIRA_SERVER")
+        assert self.auth, "Missing auth credentials"
+        assert jira_server_addr, "JIRA_SERVER is not specified!"
 
-            yield "Starting Jira authentication..."
-            self.jira = JIRA(
-                server=jira_server_addr,
-                basic_auth=(self.auth.email, self.auth.token),
-                validate=True,
+        yield "Starting Jira authentication..."
+        self.jira = JIRA(
+            server=jira_server_addr,
+            basic_auth=(self.auth.email, self.auth.token),
+            validate=True,
+        )
+
+        # immediately cache
+        if self.allow_cache_credentials:
+            with open(f"/tmp/{self.name}-credentials.json", "w") as f:
+                json.dump(asdict(self.auth), f)
+        yield AdvanceMessage(
+            "Jira auth is valid"
+            + (
+                " and credentials have been cached!"
+                if self.allow_cache_credentials
+                else ""
             )
+        )
 
-            # immediately cache
-            if self.allow_cache_credentials:
-                with open(f"/tmp/{self.name}-credentials.json", "w") as f:
-                    json.dump(asdict(self.auth), f)
+        assert self.project_exists(
+            bug_report.project
+        ), f"Project '{bug_report.project}' doesn't exist!"
+        yield AdvanceMessage(
+            f"Project {bug_report.project} exists on {jira_server_addr}"
+        )
+
+        if bug_report.assignee:
+            assert self.assignee_exists_and_unique(
+                bug_report.assignee
+            ), f"Assignee {bug_report.assignee} doesn't exist or isn't unique!"
             yield AdvanceMessage(
-                "Jira auth is valid"
-                + (
-                    " and credentials have been cached!"
-                    if self.allow_cache_credentials
-                    else ""
-                )
+                f"Assignee [u]{bug_report.assignee}[/u] exists and is unique!"
             )
-
-            assert self.project_exists(
-                bug_report.project
-            ), f"Project '{bug_report.project}' doesn't exist!"
+        else:
             yield AdvanceMessage(
-                f"Project {bug_report.project} exists on {jira_server_addr}"
+                "Assignee unspecified, marking the bug as unassigned"
             )
+        print(bug_dict)
+        if os.getenv("MOCK_SUBMIT") == "random":
+            if random.random() > 0.5:
+                raise RuntimeError("err during issue()")
 
-            if bug_report.assignee:
-                assert self.assignee_exists_and_unique(
-                    bug_report.assignee
-                ), f"Assignee {bug_report.assignee} doesn't exist or isn't unique!"
-                yield AdvanceMessage(
-                    f"Assignee [u]{bug_report.assignee}[/u] exists and is unique!"
-                )
-            else:
-                yield AdvanceMessage(
-                    "Assignee unspecified, marking the bug as unassigned"
-                )
-            print(bug_dict)
-            if os.getenv("MOCK_SUBMIT") == "random":
-                if random.random() > 0.5:
-                    raise RuntimeError("err during issue()")
-
-            time.sleep(2)
-            yield AdvanceMessage("OK! Created `issue id`")
-
-            return "issue id"
-        except Exception as e:
-            yield e
-
-        raise RuntimeError("Intermediate exceptions were not caught")
+        time.sleep(2)
+        yield AdvanceMessage("OK! Created `issue id`")
 
     @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:

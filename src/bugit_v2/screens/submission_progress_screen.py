@@ -1,4 +1,4 @@
-import os
+import shutil
 from pathlib import Path
 from tempfile import mkdtemp
 from typing import Generic, Literal, TypeVar, final
@@ -169,23 +169,24 @@ class SubmissionProgressScreen(
 
         # then do the jira/lp stuff
         display_name = self.submitter.display_name or self.submitter.name
-        for step_result in self.submitter.submit(self.bug_report):
-            match step_result:
-                case str():
-                    # general logs
-                    self.log_widget.write(
-                        f"[b]{display_name}[/b]: {step_result}"
-                    )
-                case AdvanceMessage():
-                    # messages that will advance the progress bar
-                    self.log_widget.write(
-                        f"[green]OK![/green] [b]{display_name}[/b]: {step_result.message}"
-                    )
-                    progress_bar.advance()
-                case Exception():
-                    # errors
-                    self.submitter_sequence_status = step_result
-                    return  # exit early, don't mark self.finished = True
+        try:
+            for step_result in self.submitter.submit(self.bug_report):
+                match step_result:
+                    case str():
+                        # general logs
+                        self.log_widget.write(
+                            f"[b]{display_name}[/b]: {step_result}"
+                        )
+                    case AdvanceMessage():
+                        # messages that will advance the progress bar
+                        self.log_widget.write(
+                            f"[green]OK![/green] [b]{display_name}[/b]: "
+                            + step_result.message
+                        )
+                        progress_bar.advance()
+        except Exception as e:
+            self.submitter_sequence_status = e
+            return  # exit early, don't mark self.finished = True
 
         self.submitter_sequence_status = "done"
         # update state, there's another updater in on_worker_state_changed
@@ -213,7 +214,7 @@ class SubmissionProgressScreen(
             return
 
         if is_prod():
-            os.rmdir(self.log_dir)
+            shutil.rmtree(self.log_dir)
 
         self.query_exactly_one("#finish_message", Label).update(
             "\n".join(
@@ -236,7 +237,7 @@ class SubmissionProgressScreen(
             worker.cancel()
 
         if is_prod():
-            os.rmdir(self.log_dir)
+            shutil.rmtree(self.log_dir)
 
         await self.app.push_screen_wait(
             ConfirmScreen[ReturnScreenChoice](
