@@ -126,7 +126,7 @@ class JiraSubmitterError(Exception):
 class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
     name = "jira_submitter"
     display_name = "Jira"
-    steps = 4
+    steps = 5
 
     jira: JIRA | None = None
     auth_modal = JiraAuthModal
@@ -242,6 +242,16 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         else:
             yield AdvanceMessage(
                 "Assignee unspecified, marking the bug as unassigned"
+            )
+
+        if len(bug_report.platform_tags) > 0:
+            self.all_components_exist(
+                bug_report.project, bug_report.platform_tags
+            )
+            yield AdvanceMessage("All platform tags exist")
+        else:
+            yield AdvanceMessage(
+                "No platform tags were given, not assigning any tags"
             )
 
         self.issue = (
