@@ -146,9 +146,14 @@ class SubmissionProgressScreen(
                     if not self.log_widget:
                         return
                     self.log_widget.write(
-                        f"[red]FAILED![/red] {collector.name} failed!"
+                        f"[red]FAILED![/red] {collector.display_name} failed!"
                     )
                     self.log_widget.write(Pretty(e))
+                    if collector.manual_collection_command:
+                        self.log_widget.write(
+                            f"You can rerun [blue]{collector.display_name}[/] "
+                            + f"with {collector.manual_collection_command}"
+                        )
                 finally:
                     progress_bar.advance()
 
