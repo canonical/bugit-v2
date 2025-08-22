@@ -15,6 +15,7 @@ confinement: classic
 environment:
   COLORTERM: truecolor
   SSH_CONNECTION: $SSH_CONNECTION
+  a: 1
   # JIRA_SERVER: specify a link to the jira board before packing the snap
 
 apps:
@@ -43,6 +44,7 @@ parts:
     source: .
     build-packages:
       - pipx # poetry is distributed with pipx
+      - python3-venv
     # "pipx inject" is needed for the poetry plugin,
     # since the poetry plugin basically asks poetry to export all dependencies,
     # then calls the python plugin to package it
