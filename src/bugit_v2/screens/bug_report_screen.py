@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 from collections.abc import Mapping
@@ -396,6 +397,13 @@ class BugReportScreen(Screen[BugReport]):
                 self.query_exactly_one("#logs_to_include", SelectionList),
             )
             log_selection_list.remove_option("nvidia-bug-report")
+
+        if os.getenv("SSH_CONNECTION") is not None:
+            btn = self.query_exactly_one("#copy_to_clipboard", Button)
+            btn.disabled = True
+            btn.tooltip = (
+                "Copy to system clipboard is not available in an SSH session"
+            )
 
         self.query_exactly_one("#title", Input).focus()
 
