@@ -50,6 +50,7 @@ class SubmissionProgressScreen(
     log_widget: RichLog | None = None  # late init in on_mount
 
     submitter: Final[BugReportSubmitter[TAuth, TReturn]]
+    BUG_CREATION_WORKER_NAME = "bug_creation"
 
     CSS = """
     SubmissionProgressScreen {
@@ -120,7 +121,7 @@ class SubmissionProgressScreen(
         self.bug_creation_worker = self.run_worker(
             self.create_bug,
             thread=True,
-            name="bug_creation",
+            name=self.BUG_CREATION_WORKER_NAME,
             exit_on_error=False,
         )
 
@@ -317,7 +318,9 @@ class SubmissionProgressScreen(
             self.log_widget.write(f"{event.worker.name} was cancelled")
 
         match event.worker:
-            case Worker(name="bug_creation", state=WorkerState.ERROR):
+            case Worker(
+                name=self.BUG_CREATION_WORKER_NAME, state=WorkerState.ERROR
+            ):
                 for worker in self.attachment_workers.values():
                     worker.cancel()
 
@@ -343,7 +346,7 @@ class SubmissionProgressScreen(
 
             case Worker(state=WorkerState.SUCCESS):
                 if (
-                    event.worker.name == "bug_creation"
+                    event.worker.name == self.BUG_CREATION_WORKER_NAME
                     or event.worker.name in self.attachment_workers
                 ) and self.ready_to_upload_attachments():
                     self.start_parallel_attachment_upload()

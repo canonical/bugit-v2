@@ -181,8 +181,9 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         )
         for wanted_component in components:
             if not any(
-                actual_component.name
-                == wanted_component  # apparently .name exists
+                actual_component.name  # str
+                # apparently .name exists, but the library didn't declare it
+                == wanted_component
                 for actual_component in query_result
             ):
                 raise JiraSubmitterError(
@@ -200,7 +201,11 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
             "summary": bug_report.title,
             "description": bug_report.description,
             "components": [{"name": tag} for tag in bug_report.platform_tags],
-            "labels": bug_report.additional_tags,
+            "labels": [
+                *bug_report.additional_tags,
+                *bug_report.impacted_vendors,
+                *bug_report.impacted_features,
+            ],
             "priority": {"name": self.severity_name_map[bug_report.severity]},
             "issuetype": {"name": "Bug"},
         }
@@ -254,11 +259,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
                 "No platform tags were given, not assigning any tags"
             )
 
-        self.issue = (
-            self.jira.create_issue(  # pyright: ignore[reportUnknownMemberType]
-                bug_dict
-            )
-        )
+        self.issue = self.jira.create_issue(bug_dict)
         yield AdvanceMessage(f"Created {self.issue.id}")
 
     @override
@@ -276,9 +277,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         assert self.issue
         # .add_attachment has a decorator that confuses the typechecker
         # go to its definition to see the expected arguments
-        self.jira.add_attachment(  # pyright: ignore[reportUnknownMemberType]
-            self.issue.id, str(attachment_file)
-        )
+        self.jira.add_attachment(self.issue.id, str(attachment_file))
 
     @property
     @override
