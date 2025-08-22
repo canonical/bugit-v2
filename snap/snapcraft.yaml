@@ -15,7 +15,6 @@ confinement: classic
 environment:
   COLORTERM: truecolor
   SSH_CONNECTION: $SSH_CONNECTION
-  a: 1
   # JIRA_SERVER: specify a link to the jira board before packing the snap
 
 apps:
