@@ -156,9 +156,14 @@ class BugReportScreen(Screen[BugReport]):
             "Expected result": "",
             "Actual result": "",
             "Failure rate": "",
-            "Affected test cases": "",
-            "Additional Information": "CID:\nSKU:\n"
-            + "\n".join(f"{k}: {v}" for k, v in self.machine_info.items()),
+            "Affected test cases": job_id,
+            "Additional Information": "\n".join(
+                [
+                    "CID:",
+                    "SKU",
+                    *(f"{k}: {v}" for k, v in self.machine_info.items()),
+                ]
+            ),
         }
 
         job_output = session.get_job_output(job_id)
