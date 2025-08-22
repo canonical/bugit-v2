@@ -48,7 +48,7 @@ class GraphicalAuthorizeRequestTokenWithURL(RequestTokenAuthorizationEngine):
         consumer_name: str | None = None,
         allow_access_levels: list[str] | None = None,
     ):
-        super().__init__(  # pyright: ignore[reportUnknownMemberType]
+        super().__init__(
             service_root, application_name, consumer_name, allow_access_levels
         )
         self.log_widget = log_widget
@@ -188,7 +188,7 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool] | None]):
         )
 
         try:
-            Launchpad.login_with(  # pyright: ignore[reportUnknownMemberType]
+            Launchpad.login_with(
                 application_name=app_name,
                 service_root=service_root,
                 authorization_engine=auth_engine,
@@ -240,7 +240,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         try:
             # type checker freaks out here
             # since launchpad lib wants unknown member access + index access
-            return self.lp_client.projects[  # pyright: ignore[reportUnknownMemberType, reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
+            return self.lp_client.projects[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
                 project_name
             ]
         except Exception as e:
@@ -253,7 +253,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     def check_assignee_existence(self, assignee: str) -> Any:
         assert self.lp_client
         try:
-            return self.lp_client.people[  # pyright: ignore[reportUnknownMemberType, reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
+            return self.lp_client.people[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
                 assignee
             ]
         except Exception as e:
@@ -265,7 +265,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     def check_series_existence(self, series: str) -> Any:
         assert self.lp_client
         try:
-            return self.lp_client.project.getSeries(  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess, reportUnknownVariableType]
+            return self.lp_client.project.getSeries(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess, reportUnknownVariableType]
                 name=series
             )
         except Exception as e:
@@ -323,14 +323,14 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
             yield AdvanceMessage("Series unspecified, skipping")
 
         # # actually create the bug
-        bug = self.lp_client.bugs.createBug(  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess]
+        bug = self.lp_client.bugs.createBug(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
             title=bug_report.title,
             description=bug_report.description,  # is there a length limit?
             tags=[
                 *bug_report.platform_tags,
                 *bug_report.additional_tags,
             ],  # length limit?
-            target=self.lp_client.projects[  # pyright: ignore[reportUnknownMemberType, reportIndexIssue, reportOptionalSubscript]
+            target=self.lp_client.projects[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript]
                 bug_report.project  # index access also has a side effect
             ],
         )

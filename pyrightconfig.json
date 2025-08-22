@@ -4,5 +4,5 @@
     "reportUnusedCallResult": "none",
     "reportImportCycles": "error",
     "reportDuplicateImport": "error",
-    "reportUnknownMemberType": "none"
+    "reportUnknownMemberType": "none" // too many libraries have partially unknown types
 }
