@@ -5,13 +5,13 @@ from typing import Final, cast, final
 
 from textual import on, work
 from textual.app import ComposeResult
-from textual.binding import Binding
 from textual.containers import HorizontalGroup, VerticalGroup, VerticalScroll
 from textual.reactive import var
 from textual.screen import Screen
 from textual.validation import ValidationResult, Validator
 from textual.widgets import (
     Button,
+    Collapsible,
     Footer,
     Header,
     Input,
@@ -125,10 +125,19 @@ class BugReportScreen(Screen[BugReport]):
         height: auto;
         width: 60%;
     }
+
+    #bug_report_metadata_header {
+        background: $primary 10%;
+        padding: 0;
+    }
+
+    #bug_report_metadata_header Label:last-child {
+        margin-bottom: 1;
+    }
     """
     CSS_PATH = "styles.tcss"
     BINDINGS = [
-        Binding("m", "toggle_metadata_display", "Toggle Metadata Display")
+        # Binding("m", "toggle_metadata_display", "Toggle Metadata Display")
     ]
 
     # inputs that have validators
@@ -174,7 +183,7 @@ class BugReportScreen(Screen[BugReport]):
             return
 
         # add an empty string at the end for a new line
-        lines: list[str] = ["Job ID", "------", job_id, ""]
+        lines: list[str] = []
         for k in ("stdout", "stderr", "comments"):
             lines.extend(
                 [
@@ -190,9 +199,13 @@ class BugReportScreen(Screen[BugReport]):
     @override
     def compose(self) -> ComposeResult:
         yield Header()
-        with VerticalGroup(classes="lrp2 boxed lrm1", id="bug_metadata"):
+        with Collapsible(
+            title="[bold]Bug Report for...[/bold]",
+            collapsed=False,
+            classes="nb",
+            id="bug_report_metadata_header",
+        ):
             # stick to the top
-            yield Label("[bold]Bug Report for...[/bold]")
             yield Label(f"- Job ID: {self.job_id}")
             yield Label(f"- Test Plan: {self.session.testplan_id}")
 
@@ -486,13 +499,13 @@ class BugReportScreen(Screen[BugReport]):
         else:
             btn.label = "Submit Bug Report"
 
-    def action_toggle_metadata_display(self) -> None:
-        old_state = self.query_exactly_one(
-            "#bug_metadata", VerticalGroup
-        ).display
-        self.query_exactly_one("#bug_metadata", VerticalGroup).display = (
-            not old_state
-        )
+    # def action_toggle_metadata_display(self) -> None:
+    #     old_state = self.query_exactly_one(
+    #         "#bug_metadata", VerticalGroup
+    #     ).display
+    #     self.query_exactly_one("#bug_metadata", VerticalGroup).display = (
+    #         not old_state
+    #     )
 
     def _build_bug_report(self) -> BugReport:
         selected_severity_button = self.query_exactly_one(
