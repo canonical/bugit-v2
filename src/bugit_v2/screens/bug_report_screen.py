@@ -136,9 +136,6 @@ class BugReportScreen(Screen[BugReport]):
     }
     """
     CSS_PATH = "styles.tcss"
-    BINDINGS = [
-        # Binding("m", "toggle_metadata_display", "Toggle Metadata Display")
-    ]
 
     # inputs that have validators
     validation_status = var(
@@ -498,14 +495,6 @@ class BugReportScreen(Screen[BugReport]):
             btn.label = "Bug Report Incomplete (check if bug title or project name is empty)"
         else:
             btn.label = "Submit Bug Report"
-
-    # def action_toggle_metadata_display(self) -> None:
-    #     old_state = self.query_exactly_one(
-    #         "#bug_metadata", VerticalGroup
-    #     ).display
-    #     self.query_exactly_one("#bug_metadata", VerticalGroup).display = (
-    #         not old_state
-    #     )
 
     def _build_bug_report(self) -> BugReport:
         selected_severity_button = self.query_exactly_one(
