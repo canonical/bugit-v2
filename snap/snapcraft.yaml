@@ -14,7 +14,8 @@ confinement: classic
 
 environment:
   COLORTERM: truecolor
-  # JIRA_SERVER: specify a link to the jira board
+  SSH_CONNECTION: $SSH_CONNECTION
+  # JIRA_SERVER: specify a link to the jira board before packing the snap
 
 apps:
   bugit-v2:
