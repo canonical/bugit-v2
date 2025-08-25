@@ -329,10 +329,10 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         else:
             yield AdvanceMessage("Series unspecified, skipping")
 
-        # # actually create the bug
+        # actually create the bug
         bug = self.lp_client.bugs.createBug(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
             title=bug_report.title,
-            description=bug_report.description,  # is there a length limit?
+            description=bug_report.description,  # TODO: is there a length limit?
             tags=[
                 *bug_report.platform_tags,
                 *bug_report.additional_tags,
@@ -346,7 +346,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
             f"Created bug: {str(bug)}"  # pyright: ignore[reportUnknownArgumentType]
         )
 
-        task = bug.bug_tasks[0]
+        task = bug.bug_tasks[0]  # TODO: is it always non-empty?
         if assignee:
             yield f"Setting assignee to {assignee}..."
             task.assignee = assignee
@@ -357,6 +357,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         yield f"Setting status to {bug_report.status}..."
         task.status = bug_report.status
 
+        # TODO: skip this if severity doesn't exist?
         lp_importance = self.severity_name_map[bug_report.severity]
         yield f"Setting importance to {lp_importance}..."
         task.importance = lp_importance  # the update request is a side effect
