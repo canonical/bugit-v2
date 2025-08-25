@@ -188,6 +188,8 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool] | None]):
         )
 
         try:
+            # immediately write something so it doesn't look dead
+            log_widget.write("Waiting for launchpad to respond...")
             Launchpad.login_with(
                 application_name=app_name,
                 service_root=service_root,
@@ -195,16 +197,21 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool] | None]):
                 credentials_file=str(LAUNCHPAD_AUTH_FILE_PATH),
             )
             self.auth = LAUNCHPAD_AUTH_FILE_PATH
-            log_widget.write("[green]Auth seems ok!")
-            btn = self.query_exactly_one("#continue_button", Button)
-            btn.display = True
-            btn.variant = "success"
+            log_widget.write(
+                "[green]Auth is ready! Click the continue button to start submitting the bug report."
+            )
+            continue_btn = self.query_exactly_one("#continue_button", Button)
+            continue_btn.display = True
+            continue_btn.variant = "success"
         except Exception as e:
             log_widget.write("[red]Authentication failed![/]")
             log_widget.write(f"[red]Reason[/]: {e}")
-            btn = self.query_exactly_one("#continue_button", Button)
-            btn.display = True
-            btn.label = "Return to Editor"
+            continue_btn = self.query_exactly_one("#continue_button", Button)
+            continue_btn.display = True
+            continue_btn.label = "Return to Editor"
+
+            finish_auth_btn = self.query_exactly_one("#finish_button", Button)
+            finish_auth_btn.disabled = True
 
     @on(Button.Pressed, "#finish_button")
     def finish_browser_auth(self, event: Button.Pressed):
@@ -259,9 +266,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 assignee
             ]
         except Exception as e:
-            error_message = (
-                f"Assignee '{assignee}' doesn't exist. Original error: {e}"
-            )
+            error_message = f"Assignee '{assignee}' doesn't exist. Original error: {repr(e)}"
             raise ValueError(error_message)
 
     def check_series_existence(self, series: str) -> Any:

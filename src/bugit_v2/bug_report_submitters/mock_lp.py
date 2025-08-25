@@ -49,7 +49,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
         except Exception as e:
             error_message = (
                 f"Project '{project_name}' doesn't exist or you don't have access. "
-                + f"Original error: {e}"
+                + f"Original error: {repr(e)}"
             )
             raise ValueError(error_message)
 
