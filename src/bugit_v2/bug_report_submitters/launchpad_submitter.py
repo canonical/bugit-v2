@@ -61,17 +61,16 @@ class GraphicalAuthorizeRequestTokenWithURL(RequestTokenAuthorizationEngine):
         except HTTPError as e:
             if e.response.status == 403:
                 # content is apparently a byte-string
-                raise EndUserDeclinedAuthorization(str(e.content))
+                raise EndUserDeclinedAuthorization(bytes(e.content).decode())
             else:
                 if e.response.status == 401:
-                    # The user has not made a decision yet.
-                    raise EndUserNoAuthorization(str(e.content))
+                    raise EndUserNoAuthorization(bytes(e.content).decode())
                 else:
                     # There was an error accessing the server.
                     self.log_widget.write(
                         "Unexpected response from Launchpad:"
                     )
-                    self.log_widget.write(e)
+                    self.log_widget.write(repr(e))
 
     @override
     def make_end_user_authorize_token(
