@@ -370,7 +370,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
             case "qastaging":
                 self._bug_url = f"{QASTAGING_WEB_ROOT}bugs/{bug.id}"
 
-        yield AdvanceMessage(f"Bug URL is: {self._bug_url}")
+        # might as well do a null check
+        yield AdvanceMessage(f"Bug URL is: {self.bug_url}")
 
     @override
     def upload_attachment(self, attachment_file: Path) -> str | None:
