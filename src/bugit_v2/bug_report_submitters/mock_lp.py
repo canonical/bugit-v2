@@ -43,7 +43,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
         try:
             # type checker freaks out here
             # since launchpad lib wants unknown member access + index access
-            return self.lp_client.projects[  # pyright: ignore[reportUnknownMemberType, reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
+            return self.lp_client.projects[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
                 project_name
             ]
         except Exception as e:
@@ -56,7 +56,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
     def check_assignee_existence(self, assignee: str) -> Any:
         assert self.lp_client
         try:
-            return self.lp_client.people[  # pyright: ignore[reportUnknownMemberType, reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
+            return self.lp_client.people[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
                 assignee
             ]
         except Exception as e:
@@ -68,7 +68,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
     def check_series_existence(self, series: str) -> Any:
         assert self.lp_client
         try:
-            return self.lp_client.project.getSeries(  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess, reportUnknownVariableType]
+            return self.lp_client.project.getSeries(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess, reportUnknownVariableType]
                 name=series
             )
         except Exception as e:
@@ -126,21 +126,19 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
             yield AdvanceMessage("Series unspecified, skipping")
 
         # # actually create the bug
-        bug = MagicMock(  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess]
+        bug = MagicMock(
             title=bug_report.title,
             description=bug_report.description,  # is there a length limit?
             tags=[
                 *bug_report.platform_tags,
                 *bug_report.additional_tags,
             ],  # length limit?
-            target=self.lp_client.projects[  # pyright: ignore[reportUnknownMemberType, reportIndexIssue, reportOptionalSubscript]
+            target=self.lp_client.projects[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript]
                 bug_report.project  # index access also has a side effect
             ],
         )
         # https://documentation.ubuntu.com/launchpad/user/explanation/launchpad-api/launchpadlib/#persistent-references-to-launchpad-objects
-        yield AdvanceMessage(
-            f"Created bug: {str(bug)}"  # pyright: ignore[reportUnknownArgumentType]
-        )
+        yield AdvanceMessage(f"Created bug: {str(bug)}")
 
         task = bug.bug_tasks[0]
         if assignee:
