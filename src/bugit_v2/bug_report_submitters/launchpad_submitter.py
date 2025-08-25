@@ -235,6 +235,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     lp_client: Launchpad | None = None
     auth_modal = LaunchpadAuthModal
 
+    _bug_url: str | None = None
+
     def check_project_existence(self, project_name: str) -> Any:
         assert self.lp_client
         try:
@@ -359,11 +361,11 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
 
         match service_root:
             case "production":
-                bug_url = f"{LPNET_WEB_ROOT}bugs/{bug.id}"
+                self._bug_url = f"{LPNET_WEB_ROOT}bugs/{bug.id}"
             case "qastaging":
-                bug_url = f"{QASTAGING_WEB_ROOT}bugs/{bug.id}"
+                self._bug_url = f"{QASTAGING_WEB_ROOT}bugs/{bug.id}"
 
-        yield AdvanceMessage(f"Bug URL is: {bug_url}")
+        yield AdvanceMessage(f"Bug URL is: {self._bug_url}")
 
     @override
     def upload_attachment(self, attachment_file: Path) -> str | None:
@@ -372,7 +374,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     @property
     @override
     def bug_url(self) -> str:
-        return "https://www.example.com"
+        assert self._bug_url, "No launchpad bug has been created or fetched"
+        return self._bug_url
 
     @override
     def get_cached_credentials(self) -> Path | None:
