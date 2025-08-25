@@ -29,10 +29,12 @@ class LogCollector:
     ]  # actually collect the logs
     # right now the assumption is that all collectors are shell commands
     display_name: str  # the string to show in report collector
-    tooltip: str | None = None
     # should this log be collected by default?
     # (set to false for ones that are uncommon or very slow)
     collect_by_default: bool = True
+    # provide a way for the user to manually collect the logs if this collector
+    # failed at runtime
+    manual_collection_command: str | None = None
 
 
 def sos_report(target_dir: Path, _: BugReport):
@@ -82,11 +84,13 @@ mock_collectors: Sequence[LogCollector] = (
         "sos-report",
         lambda p, b: sp.check_output(["sleep", "4"], text=True),
         "SOS Report",
+        manual_collection_command="sudo sos report --batch",
     ),
     LogCollector(
         "oem-get-logs",
         lambda p, b: sp.check_output(["sleep", "2"], text=True),
         "OEM Get Logs",
+        manual_collection_command="sudo oem-getlogs",
     ),
     LogCollector(
         "immediate",
@@ -127,10 +131,6 @@ mock_collectors: Sequence[LogCollector] = (
         "nvidia-bug-report",
         nvidia_bug_report,
         "NVIDIA Bug Report",
-        (
-            "Runs the nvidia-bug-report.sh command. "
-            "Only available on DUTs with and Nvidia GPU."
-        ),
     ),
 )
 
@@ -138,16 +138,18 @@ mock_collectors: Sequence[LogCollector] = (
 real_collectors: Sequence[LogCollector] = (
     LogCollector(
         "sos-report",
+        # lambda p, b: sp.check_output(["sleep", "4"], text=True),
         sos_report,
         "SOS Report",
-        "Runs the 'sos report --batch' command",
         False,
+        manual_collection_command="sudo sos report --batch",
     ),
     LogCollector(
         "oem-get-logs",
+        # lambda p, b: sp.check_output(["sleep", "2"], text=True),
         oem_getlogs,
         "OEM Get Logs",
-        "Runs the oem-getlogs command",
+        manual_collection_command="sudo oem-getlogs",
     ),
     LogCollector(
         "checkbox-session",
@@ -158,6 +160,7 @@ real_collectors: Sequence[LogCollector] = (
         "nvidia-bug-report",
         nvidia_bug_report,
         "NVIDIA Bug Report",
+        manual_collection_command="nvidia-bug-report.sh --extra-system-data",
     ),
 )
 

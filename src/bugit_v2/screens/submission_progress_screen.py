@@ -1,7 +1,7 @@
-import os
+import shutil
 from pathlib import Path
 from tempfile import mkdtemp
-from typing import Generic, Literal, TypeVar, final
+from typing import Final, Generic, Literal, TypeVar, final
 
 from rich.pretty import Pretty
 from textual import on, work
@@ -20,6 +20,7 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
 from bugit_v2.models.bug_report import BugReport, LogName
+from bugit_v2.utils import is_prod
 
 ReturnScreenChoice = Literal["job", "session", "quit", "report_editor"]
 RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
@@ -40,15 +41,16 @@ class SubmissionProgressScreen(
 
     bug_report: BugReport
     finished = var(False)
-    submitter_sequence_status = var[
-        Exception | Literal["in_progress", "done"]
-    ]("in_progress")
 
     attachment_workers: dict[str, Worker[str | None]]
-    log_dir: Path
+    upload_workers: dict[str, Worker[str | None]]
+    bug_creation_worker: Worker[None] | None = None
+
+    attachment_dir: Path
     log_widget: RichLog | None = None  # late init in on_mount
 
-    submitter: BugReportSubmitter[TAuth, TReturn]
+    submitter: Final[BugReportSubmitter[TAuth, TReturn]]
+    BUG_CREATION_WORKER_NAME = "bug_creation"
 
     CSS = """
     SubmissionProgressScreen {
@@ -78,8 +80,9 @@ class SubmissionProgressScreen(
     ) -> None:
         self.bug_report = bug_report
         self.submitter = submitter
-        self.log_dir = Path(mkdtemp()).expanduser().absolute()
+        self.attachment_dir = Path(mkdtemp()).expanduser().absolute()
         self.attachment_workers = {}
+        self.upload_workers = {}
 
         super().__init__(name, id, classes)
 
@@ -87,6 +90,7 @@ class SubmissionProgressScreen(
     async def on_mount(self) -> None:
         self.log_widget = self.query_exactly_one("#submission_logs", RichLog)
         self.query_exactly_one("#menu_after_finish").display = False
+
         if self.submitter.auth_modal:
             # submission screen controls how the credentials are assigned
             try:
@@ -113,10 +117,19 @@ class SubmissionProgressScreen(
                 self.dismiss("report_editor")
 
         # auth ready, do the jira/lp steps
-        self.call_after_refresh(self.main_submission_sequence)
+        self.start_parallel_log_collection()
+        self.bug_creation_worker = self.run_worker(
+            self.create_bug,
+            thread=True,
+            name=self.BUG_CREATION_WORKER_NAME,
+            exit_on_error=False,
+        )
 
-    @work(thread=True)
-    def main_submission_sequence(self) -> None:
+    def start_parallel_log_collection(self) -> None:
+        """Launches all log collectors and keep the worker objects
+
+        This does NOT wait for them to finish, just launches them
+        """
         assert self.log_widget
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
 
@@ -128,7 +141,9 @@ class SubmissionProgressScreen(
             def run_collect(log: LogName) -> str | None:
                 collector = LOG_NAME_TO_COLLECTOR[log]
                 try:
-                    rv = collector.collect(self.log_dir, self.bug_report)
+                    rv = collector.collect(
+                        self.attachment_dir, self.bug_report
+                    )
                     if not self.log_widget:
                         return rv
 
@@ -139,15 +154,20 @@ class SubmissionProgressScreen(
                         )
                     else:
                         self.log_widget.write(
-                            f"[green]OK![/green] {collector.display_name} finished!"
+                            f"[green]OK![/green] [b]{collector.display_name}[/b]: finished collection!"
                         )
                 except Exception as e:
                     if not self.log_widget:
                         return
                     self.log_widget.write(
-                        f"[red]FAILED![/red] {collector.name} failed!"
+                        f"[red]FAILED![/red] {collector.display_name} failed!"
                     )
                     self.log_widget.write(Pretty(e))
+                    if collector.manual_collection_command:
+                        self.log_widget.write(
+                            f"You can rerun [blue]{collector.display_name}[/] "
+                            + f"with {collector.manual_collection_command}"
+                        )
                 finally:
                     progress_bar.advance()
 
@@ -166,10 +186,55 @@ class SubmissionProgressScreen(
                 f"Launched collector: {display_name}!"
             )  # late write
 
-        # then do the jira/lp stuff
+    def start_parallel_attachment_upload(self) -> None:
+        assert self.log_widget
+        progress_bar = self.query_exactly_one("#progress", ProgressBar)
+
+        for file_name in self.attachment_dir.iterdir():
+
+            def run_collect(f: Path) -> str | None:
+                try:
+                    rv = self.submitter.upload_attachment(f)
+                    if not self.log_widget:
+                        return rv
+
+                    if rv and rv.strip():
+                        # only show non-empty, non-null messages
+                        self.log_widget.write(
+                            f"[green]OK![/green] [b]Uploaded {f}[/b]: {rv.strip()}"
+                        )
+                    else:
+                        self.log_widget.write(
+                            f"[green]OK![/green] [b]Uploaded {f}[/b]"
+                        )
+                except Exception as e:
+                    if not self.log_widget:
+                        return
+                    self.log_widget.write(
+                        f"[red]FAILED![/red] failed to upload {f}"
+                    )
+                    self.log_widget.write(Pretty(e))
+                finally:
+                    progress_bar.advance()
+
+            self.attachment_workers[str(file_name)] = self.run_worker(
+                # closure workaround
+                # https://stackoverflow.com/a/1107260
+                # bind the value early
+                lambda f=file_name: run_collect(f),
+                thread=True,  # not async
+                exit_on_error=False,  # hold onto the err, don't crash
+            )
+
+            self.log_widget.write(f"Uploading: {file_name}")
+
+    def create_bug(self) -> None:
+        """Do the entire bug creation sequence. This should be run in a worker"""
+        assert self.log_widget
+        progress_bar = self.query_exactly_one("#progress", ProgressBar)
         display_name = self.submitter.display_name or self.submitter.name
+
         for step_result in self.submitter.submit(self.bug_report):
-            print(step_result)
             match step_result:
                 case str():
                     # general logs
@@ -179,17 +244,10 @@ class SubmissionProgressScreen(
                 case AdvanceMessage():
                     # messages that will advance the progress bar
                     self.log_widget.write(
-                        f"[green]OK![/green] [b]{display_name}[/b]: {step_result.message}"
+                        f"[green]OK![/green] [b]{display_name}[/b]: "
+                        + step_result.message
                     )
                     progress_bar.advance()
-                case Exception():
-                    # errors
-                    self.submitter_sequence_status = step_result
-                    return  # exit early, don't mark self.finished = True
-
-        self.submitter_sequence_status = "done"
-        # update state, there's another updater in on_worker_state_changed
-        self.finished = self.is_finished()
 
     def is_finished(self) -> bool:
         """
@@ -203,17 +261,44 @@ class SubmissionProgressScreen(
             - errors are ok, just report them in the log window since the user
               can likely just run the collector again
         """
-        return self.submitter_sequence_status == "done" and all(
-            worker.is_finished for worker in self.attachment_workers.values()
+        return (
+            self.bug_creation_worker is not None
+            and self.bug_creation_worker.state == WorkerState.SUCCESS
+            and all(
+                worker.is_finished
+                for worker in self.attachment_workers.values()
+            )
+            and all(
+                worker.is_finished for worker in self.upload_workers.values()
+            )
         )
+
+    def ready_to_upload_attachments(self) -> bool:
+        if self.bug_creation_worker is None:
+            print("no bug creation worker")
+            return False
+        if self.bug_creation_worker.state != WorkerState.SUCCESS:
+            print(
+                "bug creation worker didnt succeed",
+                self.bug_creation_worker.state,
+            )
+            return False
+        if any(w.is_running for w in self.upload_workers.values()):
+            print("already have upload worker")
+            return False
+        if not all(w.is_finished for w in self.attachment_workers.values()):
+            print("some attachment worker is not done")
+            return False
+        return True
 
     @work
     async def watch_finished(self):
         if not self.finished:
             return
 
-        if not os.getenv("DEBUG"):
-            os.rmdir(self.log_dir)
+        if is_prod():
+            shutil.rmtree(self.attachment_dir)
+
         self.query_exactly_one("#finish_message", Label).update(
             "\n".join(
                 [
@@ -225,35 +310,49 @@ class SubmissionProgressScreen(
         )
         self.query_exactly_one("#menu_after_finish").display = True
 
-    @work
-    async def watch_submitter_sequence_status(self):
-        if self.submitter_sequence_status in ("in_progress", "done"):
-            return
-
-        # stop all log workers asap
-        for worker in self.attachment_workers.values():
-            worker.cancel()
-        if not os.getenv("DEBUG"):
-            os.rmdir(self.log_dir)
-
-        await self.app.push_screen_wait(
-            ConfirmScreen[ReturnScreenChoice](
-                f"Got the following error during submission: {str(self.submitter_sequence_status)}",
-                choices=(("Return to Report Editor", "report_editor"),),
-                focus_id_on_mount="report_editor",
-            ),
-        )
-        self.dismiss("report_editor")
-
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
-        if (
-            not self.log_widget
-            or event.worker.name not in self.attachment_workers
-        ):
+        if not self.log_widget or self.finished:
             return
 
         if event.worker.state == WorkerState.CANCELLED:
             self.log_widget.write(f"{event.worker.name} was cancelled")
+
+        match event.worker:
+            case Worker(
+                name=self.BUG_CREATION_WORKER_NAME, state=WorkerState.ERROR
+            ):
+                for worker in self.attachment_workers.values():
+                    worker.cancel()
+
+                if is_prod():
+                    shutil.rmtree(self.attachment_dir)
+
+                def dismiss_wrapper(_: ReturnScreenChoice | None):
+                    # force a null return to avoid awaiting inside a msg handler
+                    self.dismiss("report_editor")
+                    return None
+
+                self.app.push_screen(
+                    ConfirmScreen[ReturnScreenChoice](
+                        "Got the following error during submission",
+                        sub_prompt=f"[red]{event.worker.error}",
+                        choices=(
+                            ("Return to Report Editor", "report_editor"),
+                        ),
+                        focus_id_on_mount="report_editor",
+                    ),
+                    dismiss_wrapper,
+                )
+
+            case Worker(state=WorkerState.SUCCESS):
+                if (
+                    event.worker.name == self.BUG_CREATION_WORKER_NAME
+                    or event.worker.name in self.attachment_workers
+                ) and self.ready_to_upload_attachments():
+                    self.start_parallel_attachment_upload()
+
+            case _:  # pyright: ignore[reportUnknownVariableType]
+                pass
 
         self.finished = self.is_finished()
 
@@ -273,7 +372,8 @@ class SubmissionProgressScreen(
                 yield Label("Submission Progress", classes="mr1")
                 yield ProgressBar(
                     total=self.submitter.steps
-                    + len(self.bug_report.logs_to_include),
+                    + len(self.bug_report.logs_to_include)
+                    * 2,  # collect + upload
                     id="progress",
                     show_eta=False,
                 )

@@ -19,14 +19,18 @@ from bugit_v2.bug_report_submitters.jira_submitter import JiraSubmitter
 from bugit_v2.bug_report_submitters.launchpad_submitter import (
     LaunchpadSubmitter,
 )
+from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
+from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
 from bugit_v2.models.bug_report import BugReport
 from bugit_v2.screens.bug_report_screen import BugReportScreen
 from bugit_v2.screens.job_selection_screen import JobSelectionScreen
 from bugit_v2.screens.session_selection_screen import SessionSelectionScreen
 from bugit_v2.screens.submission_progress_screen import (
+    ReturnScreenChoice,
     SubmissionProgressScreen,
 )
+from bugit_v2.utils import is_prod
 
 
 @dataclass(slots=True)
@@ -69,75 +73,93 @@ class BugitApp(App[None]):
         ansi_color: bool = False,
     ):
         self.args = args
-
         match args.submitter:
             case "jira":
-                self.submitter_class = JiraSubmitter
+                self.submitter_class = (
+                    JiraSubmitter if is_prod() else MockJiraSubmitter
+                )
             case "lp":
-                self.submitter_class = LaunchpadSubmitter
+                self.submitter_class = (
+                    LaunchpadSubmitter if is_prod() else MockLaunchpadSubmitter
+                )
 
         super().__init__(driver_class, css_path, watch_css, ansi_color)
 
     @work
     async def on_mount(self) -> None:
         self.theme = "solarized-light"
-        self.title = "BugIt V2 👾"
+        self.title = (
+            f"BugIt V2 👾 {'' if is_prod()  else 'DEBUG MODE'}"
+        ).strip()
 
         if (version := get_checkbox_version()) is not None:
             self.sub_title = f"Checkbox {version}"
 
     @override
     def _handle_exception(self, error: Exception) -> None:
-        if os.getenv("DEBUG") == "1" and "SNAP" not in os.environ:
+        if is_prod() or "SNAP" in os.environ:
+            raise SystemExit(error)
+        else:
             # don't use pretty exception in prod, it shows local vars
             # if not in a snap the code is already in the system anyways
             super()._handle_exception(error)
-        else:
-            raise SystemExit(error)
 
-    @work
-    async def watch_state(self) -> None:
-        # just update the state, let the library do the rendering
+    def watch_state(self) -> None:
+        """Push different screens based on the state"""
+
+        def _write_state(new_state: AppState):
+            self.state = new_state
 
         if self.state.session is None:
-            session_path = await self.push_screen_wait(
-                SessionSelectionScreen()
+            self.push_screen(
+                SessionSelectionScreen(),
+                lambda session_path: session_path
+                and _write_state(AppState(Session(session_path))),
             )
-            self.state = AppState(Session(session_path))
         elif self.state.job_id is None:
-            job_id = await self.push_screen_wait(
-                JobSelectionScreen(self.state.session)
+            self.push_screen(
+                JobSelectionScreen(self.state.session),
+                lambda job_id: _write_state(
+                    AppState(self.state.session, job_id)
+                ),
             )
-            self.state = AppState(self.state.session, job_id)
+
         elif self.state.bug_report is None:
-            bug_report = await self.push_screen_wait(
+            self.push_screen(
                 BugReportScreen(
                     self.state.session,
                     self.state.job_id,
                     self.bug_report_backup,
-                )
-            )
-            self.state = AppState(
-                self.state.session, self.state.job_id, bug_report
+                ),
+                lambda bug_report: _write_state(
+                    AppState(self.state.session, self.state.job_id, bug_report)
+                ),
             )
         else:
-            return_to = await self.push_screen_wait(
+
+            def handle_return(return_screen: ReturnScreenChoice):
+                match return_screen:
+                    case "quit":
+                        self.exit()
+                    case "session":
+                        self.bug_report_backup = None
+                        self.state = AppState(None, None)
+                    case "job":
+                        self.bug_report_backup = None
+                        self.state = AppState(self.state.session, None)
+                    case "report_editor":
+                        self.bug_report_backup = self.state.bug_report
+                        self.state = AppState(
+                            self.state.session, self.state.job_id, None
+                        )
+
+            self.push_screen(
                 SubmissionProgressScreen(
                     self.state.bug_report, self.submitter_class()
-                )
+                ),
+                lambda return_screen: return_screen
+                and handle_return(return_screen),
             )
-            match return_to:
-                case "quit":
-                    self.exit()
-                case "session":
-                    self.state = AppState(None, None)
-                case "job":
-                    self.state = AppState(self.state.session, None)
-                case "report_editor":
-                    self.bug_report_backup = self.state.bug_report
-                    self.state = AppState(
-                        self.state.session, self.state.job_id, None
-                    )
 
     def action_go_back(self) -> None:
         """Handles the `Go Back` button
@@ -179,7 +201,8 @@ def main():
     args = parse_args()
     # vars() is very ugly, but it allows the AppArgs constructor to fail fast
     # before the app takes over the screen
-    app = BugitApp(AppArgs(**vars(args)))
+    # TODO: use a typed parser
+    app = BugitApp(AppArgs(**vars(args)))  # pyright: ignore[reportAny]
     app.run()
 
 

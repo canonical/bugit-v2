@@ -27,7 +27,7 @@ JobOutcome = Literal["pass", "fail", "skip"]
 class JobOutput(TypedDict):
     stdout: str
     stderr: str
-    comments: Sequence[str]
+    comments: str
 
 
 class JobResult(TypedDict):
@@ -102,12 +102,13 @@ class Session:
         try:
             # A job can be retried but the io-logs filename is always the same,
             # so arbitrarily get data from last retry.
-            io_log_filename = self.session_json["session"]["results"][job_id][
+            io_log_filename: str | None = self.session_json["session"][
+                "results"
+            ][job_id][-1].get("io_log_filename")
+            comments: str = self.session_json["session"]["results"][job_id][
                 -1
-            ].get("io_log_filename")
-            comments = self.session_json["session"]["results"][job_id][-1].get(
-                "comments"
-            )
+            ].get("comments", "")
+            print(comments, type(comments))
 
             if io_log_filename:
                 stdout_filename = io_log_filename.replace(
@@ -117,9 +118,9 @@ class Session:
                     "record.gz", "stderr"
                 )
                 with open(self.session_path / stdout_filename) as f:
-                    stdout = f.read()
+                    stdout = f.read().strip()
                 with open(self.session_path / stderr_filename) as f:
-                    stderr = f.read()
+                    stderr = f.read().strip()
                 return JobOutput(
                     stdout=stdout, stderr=stderr, comments=comments
                 )
@@ -130,11 +131,13 @@ class Session:
         except KeyError:
             print(f"Current session does not have job `{job_id}`.")
             return None
+        except FileNotFoundError as e:
+            print(f"Corrupted session with missing file {e}")
+            return None
 
     def has_failed_jobs(self) -> bool:
         results: dict[str, Any] = self.session_json["session"]["results"]
         for job in results:
-            # print(results[job])
             # a job can be retried; picking the last retry.
             if results[job][-1]["outcome"] == "fail":
                 return True

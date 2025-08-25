@@ -50,7 +50,7 @@ class BugReportSubmitter(Generic[TAuth, TReturn], abc.ABC):
     @abc.abstractmethod
     def submit(
         self, bug_report: BugReport
-    ) -> Generator[str | AdvanceMessage | Exception, None, TReturn]:
+    ) -> Generator[str | AdvanceMessage, None, TReturn]:
         """The main bug creation sequence
 
         :param bug_report: bug report to submit
@@ -71,10 +71,8 @@ class BugReportSubmitter(Generic[TAuth, TReturn], abc.ABC):
         pass
 
     @abc.abstractmethod
-    def upload_attachments(
-        self, attachment_dir: Path
-    ) -> Generator[str | AdvanceMessage | Exception, None, None]:
-        """Uploads the attachments collected during submission
+    def upload_attachment(self, attachment_file: Path) -> str | None:
+        """Uploads a single attachment file
 
         :param attachment_dir: directory with ALL the files to upload.
                                The caller is responsible for collecting and

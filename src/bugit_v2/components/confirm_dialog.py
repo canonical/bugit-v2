@@ -24,12 +24,17 @@ class ConfirmScreen(Generic[T], ModalScreen[T]):
         self,
         prompt: str,
         choices: Sequence[tuple[str, T]],  # (display name, value)
+        sub_prompt: str = "",
         focus_id_on_mount: str | None = None,
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
     ) -> None:
+        # don't call these title and subtitle
+        # those are used by the library
+        # override them if you need special behaviors
         self.prompt = prompt
+        self.sub_prompt = sub_prompt
         self.choices = choices
         self.focus_id_on_mount = focus_id_on_mount
 
@@ -38,6 +43,8 @@ class ConfirmScreen(Generic[T], ModalScreen[T]):
     @override
     def compose(self) -> ComposeResult:
         yield Center(Label(self.prompt, classes="wa"))
+        if self.sub_prompt:
+            yield Center(Label(self.sub_prompt, classes="wa"))
         with Center():
             with HorizontalGroup(classes="center wa"):
                 for display_name, value in self.choices[:-1]:

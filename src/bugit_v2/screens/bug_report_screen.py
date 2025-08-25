@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 from collections.abc import Mapping
@@ -5,13 +6,13 @@ from typing import Final, cast, final
 
 from textual import on, work
 from textual.app import ComposeResult
-from textual.binding import Binding
 from textual.containers import HorizontalGroup, VerticalGroup, VerticalScroll
 from textual.reactive import var
 from textual.screen import Screen
-from textual.validation import Length, ValidationResult, Validator
+from textual.validation import ValidationResult, Validator
 from textual.widgets import (
     Button,
+    Collapsible,
     Footer,
     Header,
     Input,
@@ -43,7 +44,6 @@ from bugit_v2.utils.constants import FEATURE_MAP, VENDOR_MAP
 class ValidSpaceSeparatedTags(Validator):
     @override
     def validate(self, value: str) -> ValidationResult:
-        """Check a string is equal to its reverse."""
         if self.is_valid_space_separated_string_tags(value):
             return self.success()
         else:
@@ -63,9 +63,17 @@ class ValidSpaceSeparatedTags(Validator):
 class NoSpaces(Validator):
     @override
     def validate(self, value: str) -> ValidationResult:
-        """Check a string is equal to its reverse."""
         if " " in value.strip():
             return self.failure("Can't have spaces here")
+        else:
+            return self.success()
+
+
+class NonEmpty(Validator):
+    @override
+    def validate(self, value: str) -> ValidationResult:
+        if not value.strip():
+            return self.failure("Must be non-empty after trimming")
         else:
             return self.success()
 
@@ -118,11 +126,17 @@ class BugReportScreen(Screen[BugReport]):
         height: auto;
         width: 60%;
     }
+
+    #bug_report_metadata_header {
+        background: $primary 10%;
+        padding: 0;
+    }
+
+    #bug_report_metadata_header Label:last-child {
+        margin-bottom: 1;
+    }
     """
     CSS_PATH = "styles.tcss"
-    BINDINGS = [
-        Binding("m", "toggle_metadata_display", "Toggle Metadata Display")
-    ]
 
     # inputs that have validators
     validation_status = var(
@@ -142,25 +156,54 @@ class BugReportScreen(Screen[BugReport]):
         self.session = session
         self.job_id = job_id
         self.existing_report = existing_report
-        self.machine_info = get_standard_info()  # slow
+        self.machine_info = get_standard_info()  # TODO: make this async
         self.initial_report = {
             "Summary": "",
             "Steps to reproduce": "",
             "Expected result": "",
             "Actual result": "",
             "Failure rate": "",
-            "Affected test cases": "",
+            "Affected test cases": job_id,
             "Additional Information": "\n".join(
-                f"{k}: {v}" for k, v in self.machine_info.items()
+                [
+                    "CID:",
+                    "SKU",
+                    *(f"{k}: {v}" for k, v in self.machine_info.items()),
+                ]
             ),
         }
+
+        job_output = session.get_job_output(job_id)
+        if job_output is None:
+            self.initial_report["Job Output"] = (
+                "No output was found for this job"
+            )
+            return
+
+        # add an empty string at the end for a new line
+        lines: list[str] = []
+        for k in ("stdout", "stderr", "comments"):
+            lines.extend(
+                [
+                    k,
+                    "------",
+                    job_output[k] or f"No {k} were found for this job",
+                    "",
+                ]
+            )
+
+        self.initial_report["Job Output"] = "\n".join(lines)
 
     @override
     def compose(self) -> ComposeResult:
         yield Header()
-        with VerticalGroup(classes="lrp2 boxed lrm1", id="bug_metadata"):
+        with Collapsible(
+            title="[bold]Bug Report for...[/bold]",
+            collapsed=False,
+            classes="nb",
+            id="bug_report_metadata_header",
+        ):
             # stick to the top
-            yield Label("[bold]Bug Report for...[/bold]")
             yield Label(f"- Job ID: {self.job_id}")
             yield Label(f"- Test Plan: {self.session.testplan_id}")
 
@@ -169,14 +212,14 @@ class BugReportScreen(Screen[BugReport]):
                 placeholder="Short title for this bug",
                 id="title",
                 classes="default_box",
-                validators=[Length(1)],
+                validators=[NonEmpty()],
             )
 
             with HorizontalGroup():
                 with VerticalGroup(id="bug_report_description"):
                     yield TextArea(
                         "\n".join(
-                            f"[{k}]\n" + v
+                            f"[{k}]\n" + v + ("\n" if v else "")
                             for k, v in self.initial_report.items()
                         ),
                         classes="default_box",
@@ -226,7 +269,7 @@ class BugReportScreen(Screen[BugReport]):
                         id="project",
                         placeholder="SOMERVILLE, STELLA, ...",
                         classes="default_box",
-                        validators=[NoSpaces(), Length(1)],
+                        validators=[NoSpaces(), NonEmpty()],
                     )
                     yield Input(
                         id="platform_tags",
@@ -286,7 +329,7 @@ class BugReportScreen(Screen[BugReport]):
             )
 
             yield Button(
-                "Submit Bug Report",
+                "Bug Report Incomplete (check if bug title or project name is empty)",
                 id="submit_button",
                 variant="success",
                 disabled=True,
@@ -354,6 +397,13 @@ class BugReportScreen(Screen[BugReport]):
                 self.query_exactly_one("#logs_to_include", SelectionList),
             )
             log_selection_list.remove_option("nvidia-bug-report")
+
+        if os.getenv("SSH_CONNECTION") is not None:
+            btn = self.query_exactly_one("#copy_to_clipboard", Button)
+            btn.disabled = True
+            btn.tooltip = (
+                "Copy to system clipboard is not available in an SSH session"
+            )
 
         self.query_exactly_one("#title", Input).focus()
 
@@ -447,17 +497,12 @@ class BugReportScreen(Screen[BugReport]):
         }
 
     def watch_validation_status(self):
-        self.query_exactly_one("#submit_button", Button).disabled = not all(
-            self.validation_status.values()
-        )
-
-    def action_toggle_metadata_display(self) -> None:
-        old_state = self.query_exactly_one(
-            "#bug_metadata", VerticalGroup
-        ).display
-        self.query_exactly_one("#bug_metadata", VerticalGroup).display = (
-            not old_state
-        )
+        btn = self.query_exactly_one("#submit_button", Button)
+        btn.disabled = not all(self.validation_status.values())
+        if btn.disabled:
+            btn.label = "Bug Report Incomplete (check if bug title or project name is empty)"
+        else:
+            btn.label = "Submit Bug Report"
 
     def _build_bug_report(self) -> BugReport:
         selected_severity_button = self.query_exactly_one(

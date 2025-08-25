@@ -2,7 +2,7 @@ import os
 import time
 from collections.abc import Generator
 from pathlib import Path
-from typing import Any, Callable, final, override
+from typing import Any, Callable, final
 
 from launchpadlib.credentials import (
     Credentials,
@@ -18,6 +18,7 @@ from textual.app import ComposeResult
 from textual.containers import Center, HorizontalGroup, VerticalGroup
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Label, RichLog
+from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
@@ -47,7 +48,7 @@ class GraphicalAuthorizeRequestTokenWithURL(RequestTokenAuthorizationEngine):
         consumer_name: str | None = None,
         allow_access_levels: list[str] | None = None,
     ):
-        super().__init__(  # pyright: ignore[reportUnknownMemberType]
+        super().__init__(
             service_root, application_name, consumer_name, allow_access_levels
         )
         self.log_widget = log_widget
@@ -187,7 +188,7 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool] | None]):
         )
 
         try:
-            Launchpad.login_with(  # pyright: ignore[reportUnknownMemberType]
+            Launchpad.login_with(
                 application_name=app_name,
                 service_root=service_root,
                 authorization_engine=auth_engine,
@@ -229,6 +230,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         "low": "Low",
         "lowest": "Wishlist",
     }
+    display_name = "Launchpad"
     steps = 7
     lp_client: Launchpad | None = None
     auth_modal = LaunchpadAuthModal
@@ -238,7 +240,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         try:
             # type checker freaks out here
             # since launchpad lib wants unknown member access + index access
-            return self.lp_client.projects[  # pyright: ignore[reportUnknownMemberType, reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
+            return self.lp_client.projects[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
                 project_name
             ]
         except Exception as e:
@@ -251,7 +253,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     def check_assignee_existence(self, assignee: str) -> Any:
         assert self.lp_client
         try:
-            return self.lp_client.people[  # pyright: ignore[reportUnknownMemberType, reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
+            return self.lp_client.people[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
                 assignee
             ]
         except Exception as e:
@@ -263,7 +265,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     def check_series_existence(self, series: str) -> Any:
         assert self.lp_client
         try:
-            return self.lp_client.project.getSeries(  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess, reportUnknownVariableType]
+            return self.lp_client.project.getSeries(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess, reportUnknownVariableType]
                 name=series
             )
         except Exception as e:
@@ -275,111 +277,97 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     @override
     def submit(
         self, bug_report: BugReport
-    ) -> Generator[str | AdvanceMessage | Exception, None, None]:
-        try:
-            service_root = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "qastaging")
-            app_name = os.getenv("BUGIT_APP_NAME")
+    ) -> Generator[str | AdvanceMessage, None, None]:
 
-            assert service_root in VALID_SERVICE_ROOTS, (
-                "Invalid APPORT_LAUNCHPAD_INSTANCE, "
-                f"expected one of {VALID_SERVICE_ROOTS}, but got {service_root}"
-            )
-            assert app_name, "BUGIT_APP_NAME was not specified"
-            assert (
-                LAUNCHPAD_AUTH_FILE_PATH.exists()
-            ), "At this point auth should already be valid"
+        service_root = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "qastaging")
+        app_name = os.getenv("BUGIT_APP_NAME")
 
-            yield f"Logging into Launchpad: {service_root}"
-            self.lp_client = Launchpad.login_with(
-                app_name,
-                service_root,
-                credentials_file=LAUNCHPAD_AUTH_FILE_PATH,
-            )  # this blocks until ready
-            yield AdvanceMessage("Launchpad auth succeeded")
+        assert service_root in VALID_SERVICE_ROOTS, (
+            "Invalid APPORT_LAUNCHPAD_INSTANCE, "
+            f"expected one of {VALID_SERVICE_ROOTS}, but got {service_root}"
+        )
+        assert app_name, "BUGIT_APP_NAME was not specified"
+        assert (
+            LAUNCHPAD_AUTH_FILE_PATH.exists()
+        ), "At this point auth should already be valid"
 
-            assignee = None
-            series = None
-            project = self.check_project_existence(bug_report.project)
+        yield f"Logging into Launchpad: {service_root}"
+        self.lp_client = Launchpad.login_with(
+            app_name,
+            service_root,
+            credentials_file=LAUNCHPAD_AUTH_FILE_PATH,
+        )  # this blocks until ready
+        yield AdvanceMessage("Launchpad auth succeeded")
+
+        assignee = None
+        series = None
+        project = self.check_project_existence(bug_report.project)
+        yield AdvanceMessage(
+            f"Project '{bug_report.project}' exists at {project}"
+        )
+
+        if bug_report.assignee:
+            assignee = self.check_assignee_existence(bug_report.assignee)
             yield AdvanceMessage(
-                f"Project '{bug_report.project}' exists at {project}"
+                f"Assignee [u]{bug_report.assignee}[/u] exists"
             )
-
-            if bug_report.assignee:
-                assignee = self.check_assignee_existence(bug_report.assignee)
-                yield AdvanceMessage(
-                    f"Assignee [u]{bug_report.assignee}[/u] exists"
-                )
-            else:
-                yield AdvanceMessage(
-                    "Assignee unspecified, marking the bug as unassigned"
-                )
-
-            if bug_report.series:
-                series = self.check_series_existence(bug_report.series)
-                yield AdvanceMessage(
-                    f"Series [u]{bug_report.series} exists![/]"
-                )
-            else:
-                yield AdvanceMessage("Series unspecified, skipping")
-
-            # # actually create the bug
-            bug = self.lp_client.bugs.createBug(  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess]
-                title=bug_report.title,
-                description=bug_report.description,  # is there a length limit?
-                tags=[
-                    *bug_report.platform_tags,
-                    *bug_report.additional_tags,
-                ],  # length limit?
-                target=self.lp_client.projects[  # pyright: ignore[reportUnknownMemberType, reportIndexIssue, reportOptionalSubscript]
-                    bug_report.project
-                ],
-            )
-            # https://documentation.ubuntu.com/launchpad/user/explanation/launchpad-api/launchpadlib/#persistent-references-to-launchpad-objects
+        else:
             yield AdvanceMessage(
-                f"Created bug: {str(bug)}"  # pyright: ignore[reportUnknownArgumentType]
+                "Assignee unspecified, marking the bug as unassigned"
             )
 
-            task = bug.bug_tasks[0]
-            if assignee:
-                yield f"Setting assignee to {assignee}..."
-                task.assignee = assignee
-            if series:
-                yield f"Setting series to {series}"
-                bug.addNomination(target=series).approve()
+        if bug_report.series:
+            series = self.check_series_existence(bug_report.series)
+            yield AdvanceMessage(f"Series [u]{bug_report.series} exists![/]")
+        else:
+            yield AdvanceMessage("Series unspecified, skipping")
 
-            yield f"Setting status to {bug_report.status}..."
-            task.status = bug_report.status
+        # # actually create the bug
+        bug = self.lp_client.bugs.createBug(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+            title=bug_report.title,
+            description=bug_report.description,  # is there a length limit?
+            tags=[
+                *bug_report.platform_tags,
+                *bug_report.additional_tags,
+            ],  # length limit?
+            target=self.lp_client.projects[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript]
+                bug_report.project  # index access also has a side effect
+            ],
+        )
+        # https://documentation.ubuntu.com/launchpad/user/explanation/launchpad-api/launchpadlib/#persistent-references-to-launchpad-objects
+        yield AdvanceMessage(
+            f"Created bug: {str(bug)}"  # pyright: ignore[reportUnknownArgumentType]
+        )
 
-            lp_importance = self.severity_name_map[bug_report.severity]
-            yield f"Setting importance to {lp_importance}..."
-            task.importance = lp_importance
+        task = bug.bug_tasks[0]
+        if assignee:
+            yield f"Setting assignee to {assignee}..."
+            task.assignee = assignee
+        if series:
+            yield f"Setting series to {series}"
+            bug.addNomination(target=series).approve()
 
-            task.lp_save()
-            yield AdvanceMessage("Saved bug settings")
+        yield f"Setting status to {bug_report.status}..."
+        task.status = bug_report.status
 
-            # if service_root == "qastaging":
-            #     bug_url = QASTAGING_WEB_ROOT + f"bugs/{bug.id}"
-            # else:
-            #     bug_url = LPNET_WEB_ROOT + f"bugs/{bug.id}"
+        lp_importance = self.severity_name_map[bug_report.severity]
+        yield f"Setting importance to {lp_importance}..."
+        task.importance = lp_importance  # the update request is a side effect
 
-            match service_root:
-                case "production":
-                    bug_url = LPNET_WEB_ROOT + f"bugs/{bug.id}"
-                case "qastaging":
-                    bug_url = QASTAGING_WEB_ROOT + f"bugs/{bug.id}"
+        task.lp_save()
+        yield "Saved bug settings"
 
-            yield ("Bug report #{} updated.".format(bug.id))
-            yield AdvanceMessage(f"Bug URL is: {bug_url}")
+        match service_root:
+            case "production":
+                bug_url = f"{LPNET_WEB_ROOT}bugs/{bug.id}"
+            case "qastaging":
+                bug_url = f"{QASTAGING_WEB_ROOT}bugs/{bug.id}"
 
-        except Exception as e:
-            yield e
+        yield AdvanceMessage(f"Bug URL is: {bug_url}")
 
     @override
-    def upload_attachments(
-        self, attachment_dir: Path
-    ) -> Generator[str | AdvanceMessage | Exception, None, None]:
-        yield "step 1"
-        yield "step 2"
+    def upload_attachment(self, attachment_file: Path) -> str | None:
+        return super().upload_attachment(attachment_file)
 
     @property
     @override
