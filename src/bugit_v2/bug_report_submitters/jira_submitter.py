@@ -260,7 +260,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
             )
 
         self.issue = self.jira.create_issue(bug_dict)
-        yield AdvanceMessage(f"Created {self.issue.id}")
+        yield AdvanceMessage(f"Created {self.issue.key}")
 
     @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:

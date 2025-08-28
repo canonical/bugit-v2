@@ -1,6 +1,6 @@
 version = 1
 revision = 3
-requires-python = ">=3.12, <4.0.0"
+requires-python = ">=3.10, <4.0.0"
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -149,10 +149,8 @@ source = { editable = "." }
 dependencies = [
     { name = "jira" },
     { name = "launchpadlib" },
-    { name = "packaging" },
     { name = "pydantic" },
     { name = "pyyaml" },
-    { name = "setuptools" },
     { name = "textual" },
 ]
 
@@ -169,10 +167,8 @@ dev = [
 requires-dist = [
     { name = "jira", specifier = ">=3.10.5,<4.0.0" },
     { name = "launchpadlib", specifier = ">=2.1.0,<3.0.0" },
-    { name = "packaging", specifier = ">=25.0" },
     { name = "pydantic", specifier = ">=2.11.7,<3.0.0" },
     { name = "pyyaml", specifier = ">=6.0.2,<7.0.0" },
-    { name = "setuptools", specifier = ">=80.9.0" },
     { name = "textual", specifier = ">=5.0.1,<6.0.0" },
 ]
 
