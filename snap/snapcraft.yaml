@@ -33,27 +33,13 @@ parts:
     organize:
       "*": src/
 
-  run-poetry-plugin:
-    # finally run the plugin, see:
-    # https://documentation.ubuntu.com/snapcraft/stable/reference/plugins/python_plugin/
-    # https://documentation.ubuntu.com/snapcraft/stable/reference/plugins/poetry_plugin/
-    plugin: poetry
-    build-attributes:
-      - enable-patchelf
+  bugit-v2:
+    plugin: uv
     source: .
-    build-packages:
-      - pipx # poetry is distributed with pipx
-      - python3-venv
-    # "pipx inject" is needed for the poetry plugin,
-    # since the poetry plugin basically asks poetry to export all dependencies,
-    # then calls the python plugin to package it
-    # also symlink the new poetry we installed with pipx to /root/.local/bin
-    override-build: |
-      apt remove python3-poetry -y
-      pipx install poetry
-      pipx inject poetry poetry-plugin-export
-      ln -sf /root/.local/bin/poetry /usr/bin/poetry
-      craftctl default
+    build-snaps:
+      - astral-uv
+    build-environment:
+      - UV_NO_BINARY: "true"
     stage-packages:
       # These 3 packages are required for classic confinement
       # do NOT use "python3.10", it's not sufficient
