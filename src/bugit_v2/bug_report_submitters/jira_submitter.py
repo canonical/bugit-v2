@@ -157,7 +157,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         except Exception:
             raise JiraSubmitterError(f"{project_name} doesn't exist!")
 
-    def assignee_exists_and_unique(self, assignee: str) -> None:
+    def assignee_exists_and_unique(self, assignee: str) -> str:
         """Does @param assignee exist and is it unique?
 
         :param assignee: the email of the assignee or some form of ID
@@ -171,6 +171,9 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         elif len(query_result) > 1:
             raise JiraSubmitterError(f"{assignee} isn't unique!")
 
+        # this field exists, but not listed in the jira library
+        return query_result[0].accountId  # pyright: ignore[reportAny]
+
     def all_components_exist(
         self, project: str, components: Sequence[str]
     ) -> None:
@@ -181,7 +184,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         )
         for wanted_component in components:
             if not any(
-                actual_component.name  # str
+                actual_component.name  # str  # pyright: ignore[reportAny]
                 # apparently .name exists, but the library didn't declare it
                 == wanted_component
                 for actual_component in query_result
@@ -240,7 +243,8 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         )
 
         if bug_report.assignee:
-            self.assignee_exists_and_unique(bug_report.assignee)
+            user_id = self.assignee_exists_and_unique(bug_report.assignee)
+            bug_dict["assignee"] = {"id": user_id}
             yield AdvanceMessage(
                 f"Assignee [u]{bug_report.assignee}[/u] exists and is unique!"
             )

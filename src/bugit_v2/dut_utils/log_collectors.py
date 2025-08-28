@@ -6,6 +6,7 @@ here is that each log collectors is a (slow-running) function and is *independen
 from all other collectors.
 """
 
+import os
 import re
 import shutil
 import subprocess as sp
@@ -39,10 +40,16 @@ class LogCollector:
 
 def sos_report(target_dir: Path, _: BugReport):
     assert target_dir.is_dir()
-    return sp.check_output(
+    out = sp.check_output(
         ["sudo", "sos", "report", "--batch", f"--tmp-dir={target_dir}"],
         text=True,
+        timeout=600,  # just in case
     )
+    # remove the sha file
+    for file in target_dir.iterdir():
+        if file.name.startswith("sosreport") and file.name.endswith(".sha256"):
+            os.remove(file)
+    return out
 
 
 def oem_getlogs(target_dir: Path, _: BugReport):
@@ -138,7 +145,6 @@ mock_collectors: Sequence[LogCollector] = (
 real_collectors: Sequence[LogCollector] = (
     LogCollector(
         "sos-report",
-        # lambda p, b: sp.check_output(["sleep", "4"], text=True),
         sos_report,
         "SOS Report",
         False,
@@ -146,7 +152,6 @@ real_collectors: Sequence[LogCollector] = (
     ),
     LogCollector(
         "oem-get-logs",
-        # lambda p, b: sp.check_output(["sleep", "2"], text=True),
         oem_getlogs,
         "OEM Get Logs",
         manual_collection_command="sudo oem-getlogs",

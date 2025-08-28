@@ -249,6 +249,13 @@ class SubmissionProgressScreen(
                     )
                     progress_bar.advance()
 
+        num_running_collectors = sum(
+            1 for w in self.attachment_workers.values() if w.is_running
+        )
+        self.log_widget.write(
+            f"Finished bug creation. Waiting for {num_running_collectors} log collectors to finish"
+        )
+
     def is_finished(self) -> bool:
         """
         Determines self.finished. It should always be assigned the value
