@@ -25,6 +25,7 @@ dev = [
     "black>=25.1.0,<26",
     "basedpyright>=1.31.1,<2",
     "async-timeout>=5.0.1",
+    "ruff>=0.12.11",
 ]
 
 [tool.hatch.build.targets.sdist]
