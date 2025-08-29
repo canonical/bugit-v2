@@ -2,14 +2,10 @@ import abc
 from collections.abc import Generator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, TypeVar
 
 from textual.screen import ModalScreen
 
 from bugit_v2.models.bug_report import BugReport, Severity
-
-TAuth = TypeVar("TAuth")
-TReturn = TypeVar("TReturn")
 
 
 @dataclass(slots=True)
@@ -22,7 +18,7 @@ class AdvanceMessage:
     message: str
 
 
-class BugReportSubmitter(Generic[TAuth, TReturn], abc.ABC):
+class BugReportSubmitter[TAuth, TReturn](abc.ABC):
     """The bug report submitter interface"""
 
     # name of the submitter, used in the credential cache file name
