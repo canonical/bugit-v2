@@ -244,6 +244,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     display_name = "Launchpad"
     steps = 7
     auth_modal = LaunchpadAuthModal
+    # parallel upload will cause an irrecoverable segfault
+    # and completely kill the shell
     allow_parallel_upload = False
 
     lp_client: Launchpad | None = None
