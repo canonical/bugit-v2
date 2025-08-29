@@ -11,10 +11,11 @@ dependencies = [
     "jira (>=3.10.5,<4.0.0)",
     "launchpadlib (>=2.1.0,<3.0.0)",
     "pydantic (>=2.11.7,<3.0.0)",
+    "typer>=0.16.1",
 ]
 
 [project.scripts]
-bugit-v2 = "bugit_v2.app:main"
+bugit-v2 = "bugit_v2.app:cli_app"
 
 [dependency-groups]
 dev = [

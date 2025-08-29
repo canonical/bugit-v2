@@ -1,8 +1,8 @@
-import argparse
 import os
 from dataclasses import dataclass
 from typing import Any, Literal, final
 
+import typer
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -31,6 +31,11 @@ from bugit_v2.screens.submission_progress_screen import (
     SubmissionProgressScreen,
 )
 from bugit_v2.utils import is_prod
+
+cli_app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    pretty_exceptions_show_locals=False,
+)
 
 
 @dataclass(slots=True)
@@ -191,21 +196,17 @@ class BugitApp(App[None]):
         yield Footer()
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("submitter", choices=["lp", "jira"])
-    return parser.parse_args()
-    # parser.add_argument("--submitter", choices=["lp", "jira"])
+@cli_app.command("lp", help="Submit a bug to Launchpad")
+def launchpad_mode():
+    app = BugitApp(AppArgs("lp"))
+    app.run()
 
 
-def main():
-    args = parse_args()
-    # vars() is very ugly, but it allows the AppArgs constructor to fail fast
-    # before the app takes over the screen
-    # TODO: use a typed parser
-    app = BugitApp(AppArgs(**vars(args)))  # pyright: ignore[reportAny]
+@cli_app.command("jira", help="Submit a bug to Jira")
+def jira_mode():
+    app = BugitApp(AppArgs("jira"))
     app.run()
 
 
 if __name__ == "__main__":
-    main()
+    cli_app()
