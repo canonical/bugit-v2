@@ -22,6 +22,8 @@ from bugit_v2.bug_report_submitters.jira_submitter import (
 )
 from bugit_v2.models.bug_report import BugReport, Severity
 
+JIRA_SERVER_ADDRESS = os.getenv("JIRA_SERVER")
+
 
 @final
 class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
@@ -106,13 +108,12 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
             "issuetype": {"name": "Bug"},
         }
 
-        jira_server_addr = os.getenv("JIRA_SERVER")
         assert self.auth, "Missing auth credentials"
-        assert jira_server_addr, "JIRA_SERVER is not specified!"
+        assert JIRA_SERVER_ADDRESS, "JIRA_SERVER is not specified!"
 
         yield "Starting Jira authentication..."
         self.jira = JIRA(
-            server=jira_server_addr,
+            server=JIRA_SERVER_ADDRESS,
             basic_auth=(self.auth.email, self.auth.token),
             validate=True,
         )
