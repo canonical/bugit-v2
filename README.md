@@ -37,25 +37,22 @@ pipx install git+https://github.com/canonical/bugit-v2.git
 
 This should give you a new command called `bugit-v2`. If pipx is installed for the first time, it will prompt you about the app not being in `$PATH`. To fix this permanently, add `$HOME/.local/bin` to your $PATH.
 
-Run the app:
-```
-bugit-v2
-```
-
 Typically we need sudo for the log collectors. To run with sudo:
 
 ```
-sudo -E env PATH="$PATH" JIRA_SERVER=<jira_server_url> bugit-v2
+sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 BUGIT_APP_NAME=bugit-v2 bugit-v2 jira
 ```
 
-where jira_server_url is the base URL of your jira server.
+where jira_server_url is the base URL of your jira server, it should start with `https` and end with `atlassian.net`.
 
 
 To uninstall, `pipx uninstall bugit-v2`
 
 ### snap
 
-For now you have to manually build the snap. Clone the repo and `snapcraft clean && snapcraft pack`.
+For now you have to manually build the snap. Clone the repo and `snapcraft clean && snapcraft pack`. Once snapcraft produces a `.snap` file, use `sudo snap install ./bugit-v2_0.1_amd64.snap --dangerous --classic` (replace the filename with the real one) to install it. Then finally run the app with `sudo bugit jira`
+
+To uninstall `sudo snap remove bugit-v2`
 
 ## SSH Colors
 
@@ -100,7 +97,7 @@ If you are using vscode's git panel, it might show something like this when the 
 
 ![image](https://github.com/user-attachments/assets/1633d7e4-f8d4-4ffa-9386-9622b17ba8af)
 
-This basically says the automatic style fixes were not included. Do another `git add .` and you should be able to commit.
+This basically says the automatic style fixes were not included. Do another `git add .` and you should be able to commit. If it still doesn't work, then some of the checks actually failed. Do `pre-commit run --all-files` manually and check the output.
 
 ### Type Checks
 
