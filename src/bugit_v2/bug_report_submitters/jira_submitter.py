@@ -69,7 +69,9 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
     @override
     def compose(self) -> ComposeResult:
         with VerticalGroup(id="top_level_container"):
-            yield Label("[b][$primary]Jira Authentication")
+            yield Label(
+                f"[b][$primary]Jira Authentication for {os.environ['JIRA_SERVER']}"
+            )
             yield Input(placeholder="your.email@jira.com", id="email")
             yield Input(
                 placeholder="A token can be created at the link below if you don't already have one",

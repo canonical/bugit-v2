@@ -13,9 +13,14 @@ version: "0.1"
 confinement: classic
 
 environment:
-  COLORTERM: truecolor
-  SSH_CONNECTION: $SSH_CONNECTION
-  # JIRA_SERVER: specify a link to the jira board before packing the snap
+  COLORTERM: truecolor # required for proper color display
+  SSH_CONNECTION: $SSH_CONNECTION # detects if bugit is run through ssh
+  # Specify the following manually if you are using the pipx version
+  PROD: "1" # remove this to enable debug mode
+  APPORT_LAUNCHPAD_INSTANCE: production # production or qastaging
+  BUGIT_APP_NAME: bugit-v2 # only used for launchpad
+  # change this to the sandbox url for debug mode
+  JIRA_SERVER: https://warthogs.atlassian.net
 
 apps:
   bugit-v2:
