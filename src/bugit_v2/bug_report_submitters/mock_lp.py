@@ -1,4 +1,3 @@
-import os
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any, final
@@ -13,6 +12,8 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
 )
 from bugit_v2.bug_report_submitters.launchpad_submitter import (
+    LP_APP_NAME,
+    SERVICE_ROOT,
     LaunchpadAuthModal,
 )
 from bugit_v2.models.bug_report import BugReport
@@ -82,22 +83,19 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
         self, bug_report: BugReport
     ) -> Generator[str | AdvanceMessage, None, None]:
 
-        service_root = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "qastaging")
-        app_name = os.getenv("BUGIT_APP_NAME")
-
-        assert service_root in VALID_SERVICE_ROOTS, (
+        assert SERVICE_ROOT in VALID_SERVICE_ROOTS, (
             "Invalid APPORT_LAUNCHPAD_INSTANCE, "
-            f"expected one of {VALID_SERVICE_ROOTS}, but got {service_root}"
+            f"expected one of {VALID_SERVICE_ROOTS}, but got {SERVICE_ROOT}"
         )
-        assert app_name, "BUGIT_APP_NAME was not specified"
+        assert LP_APP_NAME, "BUGIT_APP_NAME was not specified"
         assert (
             LAUNCHPAD_AUTH_FILE_PATH.exists()
         ), "At this point auth should already be valid"
 
-        yield f"Logging into Launchpad: {service_root}"
+        yield f"Logging into Launchpad: {SERVICE_ROOT}"
         self.lp_client = Launchpad.login_with(
-            app_name,
-            service_root,
+            LP_APP_NAME,
+            SERVICE_ROOT,
             credentials_file=LAUNCHPAD_AUTH_FILE_PATH,
         )  # this blocks until ready
         yield AdvanceMessage("Launchpad auth succeeded")
@@ -158,7 +156,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
         task.lp_save()
         yield "Saved bug settings"
 
-        match service_root:
+        match SERVICE_ROOT:
             case "production":
                 bug_url = f"{LPNET_WEB_ROOT}bugs/{bug.id}"
             case "qastaging":
