@@ -5,8 +5,8 @@ This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [
 [Features](#features) | [Installation](#installation) | [Development](#development) | [Limitations](#limitations)
 
 > [!CAUTION]
-> This project is VERY EXPERIMENTAL as of Aug 11 2025. **DO NOT** connect to any of the real Jira/Launchpad backends for now.
-<img width="1019" height="806" alt="BugIt_V2_2025-08-13T10_30_18_8923072" src="https://github.com/user-attachments/assets/40c74a15-186d-4c74-b951-db0161b7142d" />
+> This project is VERY EXPERIMENTAL as of Aug 29,2025. Jira related logic has been tested but not the LP paths.  
+<img width="2000" height="2144" alt="image" src="https://github.com/user-attachments/assets/7901ef4a-7398-49dd-992d-dfefb448fe6a" />
 
 ## Features
 
@@ -60,13 +60,6 @@ If you ssh into a ubuntu machine and run bugit-v2, it might give you completely
 different colors than running locally. This can be fixed by specifying
 `COLORTERM=truecolor` in the ssh session. You shouldn't have to do this when using
 the snap version.
-
-## Controlling submission behavior
-
-As of right now this app doesn't connect to the real Jira/Launchpad backend and uses a mock to simulate submission errors. To control what the mock does, specify an environment variable `MOCK_SUBMIT` with one of these values:
-- `random` 50% chance of failing at each step (there are 5 steps total in this mock, hardcoded)
-- `all_pass` make every step pass. This will allow you to each the "successfully submitted" screen
-- `all_fail` force everything to fail
 
 ## Development
 
