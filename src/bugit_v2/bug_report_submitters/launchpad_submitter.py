@@ -366,7 +366,6 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
             case "qastaging":
                 self._bug_url = f"{QASTAGING_WEB_ROOT}bugs/{bug.id}"
 
-        # might as well do a null check
         yield AdvanceMessage(f"Bug URL is: {self.bug_url}")
 
     @override
