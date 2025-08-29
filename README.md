@@ -72,16 +72,16 @@ As of right now this app doesn't connect to the real Jira/Launchpad backend and 
 
 ### Dependencies
 
-Dependencies are managed by poetry. You can install poetry by `pipx install poetry`
+Dependencies are managed by uv. You can install uv by `pipx install uv` or use the official installer from uv's website.
 
 ### Get started
 
 ```bash
-git clone git@github.com:canonical/ceqa-jira-ops-automator.git
-cd ceqa-jira-ops-automator
-git checkout bugit-v2-main
-poetry install
-eval $(poetry env activate) # activates virtual env
+git clone git@github.com:canonical/bugit-v2.git
+cd bugit-v2
+uv sync
+source .venv/bin/activate
+python3 src/bugit_v2/app.py
 ```
 
 Optionally install pre commit hooks:
@@ -108,14 +108,16 @@ All the tools should pass `mypy`'s checks. Run `mypy .` at the project root with
 Since the app runs inside the terminal it covers up all the normal stdout and stderr outputs. Textual provides the `textual console` command to allows us to inspect what's going on in the app. To use this:
 
 ```sh
-eval $(poetry env activate)
+uv sync
+source .venv/bin/activate
 textual console
 ```
 
 Then in another terminal run the app:
 
 ```sh
-eval $(poetry env activate)
+uv sync
+source .venv/bin/activate
 textual run --dev src/bugit_v2/app.py
 ```
 
