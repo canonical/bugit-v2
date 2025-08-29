@@ -21,14 +21,15 @@ from bugit_v2.models.bug_report import BugReport, LogName
 
 @dataclass(slots=True)
 class LogCollector:
-    name: LogName  # internal name
+    # internal name, alphanumeric or dashes only
+    name: LogName
+    # the function that actually collects the logs
     collect: Callable[
         [Path, BugReport],
         str | None,  # (target_dir: Path) -> optional result string
         # if returns None, a generic success message is logged to the screen
         # errors should be raised as regular exceptions
-    ]  # actually collect the logs
-    # right now the assumption is that all collectors are shell commands
+    ]
     display_name: str  # the string to show in report collector
     # should this log be collected by default?
     # (set to false for ones that are uncommon or very slow)
