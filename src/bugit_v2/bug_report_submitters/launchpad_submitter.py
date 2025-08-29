@@ -26,10 +26,13 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 )
 from bugit_v2.models.bug_report import BugReport
 
-LAUNCHPAD_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
+LP_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
 # 'staging' doesn't seem to work
 # only 'qastaging' and 'production' works
 VALID_SERVICE_ROOTS = ("production", "qastaging")
+
+SERVICE_ROOT = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "qastaging")
+LP_APP_NAME = os.getenv("BUGIT_APP_NAME", "bugit")
 
 
 @final
@@ -61,17 +64,16 @@ class GraphicalAuthorizeRequestTokenWithURL(RequestTokenAuthorizationEngine):
         except HTTPError as e:
             if e.response.status == 403:
                 # content is apparently a byte-string
-                raise EndUserDeclinedAuthorization(str(e.content))
+                raise EndUserDeclinedAuthorization(bytes(e.content).decode())
             else:
                 if e.response.status == 401:
-                    # The user has not made a decision yet.
-                    raise EndUserNoAuthorization(str(e.content))
+                    raise EndUserNoAuthorization(bytes(e.content).decode())
                 else:
                     # There was an error accessing the server.
                     self.log_widget.write(
                         "Unexpected response from Launchpad:"
                     )
-                    self.log_widget.write(e)
+                    self.log_widget.write(repr(e))
 
     @override
     def make_end_user_authorize_token(
@@ -169,42 +171,46 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool] | None]):
 
     @work(thread=True)
     def main_auth_sequence(self):
-        service_root = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "qastaging")
-        app_name = os.getenv("BUGIT_APP_NAME")
-
-        assert service_root in VALID_SERVICE_ROOTS, (
+        assert SERVICE_ROOT in VALID_SERVICE_ROOTS, (
             "Invalid APPORT_LAUNCHPAD_INSTANCE, "
-            f"expected one of {VALID_SERVICE_ROOTS}, but got {service_root}"
+            f"expected one of {VALID_SERVICE_ROOTS}, but got {SERVICE_ROOT}"
         )
-        assert app_name, "BUGIT_APP_NAME was not specified"
+        assert LP_APP_NAME, "BUGIT_APP_NAME was not specified"
 
         log_widget = self.query_exactly_one("#lp_login_stdout", RichLog)
         auth_engine = GraphicalAuthorizeRequestTokenWithURL(
             log_widget,
             lambda: self.finished_browser_auth,
-            service_root,
-            app_name,
+            SERVICE_ROOT,
+            LP_APP_NAME,
             allow_access_levels=["WRITE_PRIVATE"],
         )
 
         try:
+            # immediately write something so it doesn't look dead
+            log_widget.write("Waiting for launchpad to respond...")
             Launchpad.login_with(
-                application_name=app_name,
-                service_root=service_root,
+                application_name=LP_APP_NAME,
+                service_root=SERVICE_ROOT,
                 authorization_engine=auth_engine,
-                credentials_file=str(LAUNCHPAD_AUTH_FILE_PATH),
+                credentials_file=str(LP_AUTH_FILE_PATH),
             )
-            self.auth = LAUNCHPAD_AUTH_FILE_PATH
-            log_widget.write("[green]Auth seems ok!")
-            btn = self.query_exactly_one("#continue_button", Button)
-            btn.display = True
-            btn.variant = "success"
+            self.auth = LP_AUTH_FILE_PATH
+            log_widget.write(
+                "[green]Auth is ready! Click the continue button to start submitting the bug report."
+            )
+            continue_btn = self.query_exactly_one("#continue_button", Button)
+            continue_btn.display = True
+            continue_btn.variant = "success"
         except Exception as e:
             log_widget.write("[red]Authentication failed![/]")
             log_widget.write(f"[red]Reason[/]: {e}")
-            btn = self.query_exactly_one("#continue_button", Button)
-            btn.display = True
-            btn.label = "Return to Editor"
+            continue_btn = self.query_exactly_one("#continue_button", Button)
+            continue_btn.display = True
+            continue_btn.label = "Return to Editor"
+
+            finish_auth_btn = self.query_exactly_one("#finish_button", Button)
+            finish_auth_btn.disabled = True
 
     @on(Button.Pressed, "#finish_button")
     def finish_browser_auth(self, event: Button.Pressed):
@@ -235,6 +241,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     lp_client: Launchpad | None = None
     auth_modal = LaunchpadAuthModal
 
+    _bug_url: str | None = None
+
     def check_project_existence(self, project_name: str) -> Any:
         assert self.lp_client
         try:
@@ -257,9 +265,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 assignee
             ]
         except Exception as e:
-            error_message = (
-                f"Assignee '{assignee}' doesn't exist. Original error: {e}"
-            )
+            error_message = f"Assignee '{assignee}' doesn't exist. Original error: {repr(e)}"
             raise ValueError(error_message)
 
     def check_series_existence(self, series: str) -> Any:
@@ -278,24 +284,20 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     def submit(
         self, bug_report: BugReport
     ) -> Generator[str | AdvanceMessage, None, None]:
-
-        service_root = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "qastaging")
-        app_name = os.getenv("BUGIT_APP_NAME")
-
-        assert service_root in VALID_SERVICE_ROOTS, (
+        assert SERVICE_ROOT in VALID_SERVICE_ROOTS, (
             "Invalid APPORT_LAUNCHPAD_INSTANCE, "
-            f"expected one of {VALID_SERVICE_ROOTS}, but got {service_root}"
+            f"expected one of {VALID_SERVICE_ROOTS}, but got {SERVICE_ROOT}"
         )
-        assert app_name, "BUGIT_APP_NAME was not specified"
+        assert LP_APP_NAME, "BUGIT_APP_NAME was not specified"
         assert (
-            LAUNCHPAD_AUTH_FILE_PATH.exists()
+            LP_AUTH_FILE_PATH.exists()
         ), "At this point auth should already be valid"
 
-        yield f"Logging into Launchpad: {service_root}"
+        yield f"Logging into Launchpad: {SERVICE_ROOT}"
         self.lp_client = Launchpad.login_with(
-            app_name,
-            service_root,
-            credentials_file=LAUNCHPAD_AUTH_FILE_PATH,
+            LP_APP_NAME,
+            SERVICE_ROOT,
+            credentials_file=LP_AUTH_FILE_PATH,
         )  # this blocks until ready
         yield AdvanceMessage("Launchpad auth succeeded")
 
@@ -322,10 +324,10 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         else:
             yield AdvanceMessage("Series unspecified, skipping")
 
-        # # actually create the bug
+        # actually create the bug
         bug = self.lp_client.bugs.createBug(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
             title=bug_report.title,
-            description=bug_report.description,  # is there a length limit?
+            description=bug_report.description,  # TODO: is there a length limit?
             tags=[
                 *bug_report.platform_tags,
                 *bug_report.additional_tags,
@@ -339,7 +341,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
             f"Created bug: {str(bug)}"  # pyright: ignore[reportUnknownArgumentType]
         )
 
-        task = bug.bug_tasks[0]
+        task = bug.bug_tasks[0]  # TODO: is it always non-empty?
         if assignee:
             yield f"Setting assignee to {assignee}..."
             task.assignee = assignee
@@ -350,6 +352,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         yield f"Setting status to {bug_report.status}..."
         task.status = bug_report.status
 
+        # TODO: skip this if severity doesn't exist?
         lp_importance = self.severity_name_map[bug_report.severity]
         yield f"Setting importance to {lp_importance}..."
         task.importance = lp_importance  # the update request is a side effect
@@ -357,13 +360,13 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         task.lp_save()
         yield "Saved bug settings"
 
-        match service_root:
+        match SERVICE_ROOT:
             case "production":
-                bug_url = f"{LPNET_WEB_ROOT}bugs/{bug.id}"
+                self._bug_url = f"{LPNET_WEB_ROOT}bugs/{bug.id}"
             case "qastaging":
-                bug_url = f"{QASTAGING_WEB_ROOT}bugs/{bug.id}"
+                self._bug_url = f"{QASTAGING_WEB_ROOT}bugs/{bug.id}"
 
-        yield AdvanceMessage(f"Bug URL is: {bug_url}")
+        yield AdvanceMessage(f"Bug URL is: {self.bug_url}")
 
     @override
     def upload_attachment(self, attachment_file: Path) -> str | None:
@@ -372,10 +375,11 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     @property
     @override
     def bug_url(self) -> str:
-        return "https://www.example.com"
+        assert self._bug_url, "No launchpad bug has been created or fetched"
+        return self._bug_url
 
     @override
     def get_cached_credentials(self) -> Path | None:
-        if LAUNCHPAD_AUTH_FILE_PATH.exists():
-            return LAUNCHPAD_AUTH_FILE_PATH
+        if LP_AUTH_FILE_PATH.exists():
+            return LP_AUTH_FILE_PATH
         return None

@@ -37,25 +37,22 @@ pipx install git+https://github.com/canonical/bugit-v2.git
 
 This should give you a new command called `bugit-v2`. If pipx is installed for the first time, it will prompt you about the app not being in `$PATH`. To fix this permanently, add `$HOME/.local/bin` to your $PATH.
 
-Run the app:
-```
-bugit-v2
-```
-
 Typically we need sudo for the log collectors. To run with sudo:
 
 ```
-sudo -E env PATH="$PATH" JIRA_SERVER=<jira_server_url> bugit-v2
+sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 BUGIT_APP_NAME=bugit-v2 bugit-v2 jira
 ```
 
-where jira_server_url is the base URL of your jira server.
+where jira_server_url is the base URL of your jira server, it should start with `https` and end with `atlassian.net`.
 
 
 To uninstall, `pipx uninstall bugit-v2`
 
 ### snap
 
-For now you have to manually build the snap. Clone the repo and `snapcraft clean && snapcraft pack`.
+For now you have to manually build the snap. Clone the repo and `snapcraft clean && snapcraft pack`. Once snapcraft produces a `.snap` file, use `sudo snap install ./bugit-v2_0.1_amd64.snap --dangerous --classic` (replace the filename with the real one) to install it. Then finally run the app with `sudo bugit jira`
+
+To uninstall `sudo snap remove bugit-v2`
 
 ## SSH Colors
 
@@ -75,16 +72,16 @@ As of right now this app doesn't connect to the real Jira/Launchpad backend and 
 
 ### Dependencies
 
-Dependencies are managed by poetry. You can install poetry by `pipx install poetry`
+Dependencies are managed by uv. You can install uv by `pipx install uv` or use the official installer from uv's website.
 
 ### Get started
 
 ```bash
-git clone git@github.com:canonical/ceqa-jira-ops-automator.git
-cd ceqa-jira-ops-automator
-git checkout bugit-v2-main
-poetry install
-eval $(poetry env activate) # activates virtual env
+git clone git@github.com:canonical/bugit-v2.git
+cd bugit-v2
+uv sync
+source .venv/bin/activate
+python3 src/bugit_v2/app.py
 ```
 
 Optionally install pre commit hooks:
@@ -100,7 +97,7 @@ If you are using vscode's git panel, it might show something like this when the 
 
 ![image](https://github.com/user-attachments/assets/1633d7e4-f8d4-4ffa-9386-9622b17ba8af)
 
-This basically says the automatic style fixes were not included. Do another `git add .` and you should be able to commit.
+This basically says the automatic style fixes were not included. Do another `git add .` and you should be able to commit. If it still doesn't work, then some of the checks actually failed. Do `pre-commit run --all-files` manually and check the output.
 
 ### Type Checks
 
@@ -111,14 +108,16 @@ All the tools should pass `mypy`'s checks. Run `mypy .` at the project root with
 Since the app runs inside the terminal it covers up all the normal stdout and stderr outputs. Textual provides the `textual console` command to allows us to inspect what's going on in the app. To use this:
 
 ```sh
-eval $(poetry env activate)
+uv sync
+source .venv/bin/activate
 textual console
 ```
 
 Then in another terminal run the app:
 
 ```sh
-eval $(poetry env activate)
+uv sync
+source .venv/bin/activate
 textual run --dev src/bugit_v2/app.py
 ```
 

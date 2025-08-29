@@ -24,6 +24,8 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 )
 from bugit_v2.models.bug_report import BugReport, Severity
 
+JIRA_SERVER_ADDRESS = os.getenv("JIRA_SERVER")
+
 
 @dataclass(slots=True)
 class JiraBasicAuth:
@@ -67,7 +69,9 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
     @override
     def compose(self) -> ComposeResult:
         with VerticalGroup(id="top_level_container"):
-            yield Label("[b][$primary]Jira Authentication")
+            yield Label(
+                f"[b][$primary]Jira Authentication for {os.environ['JIRA_SERVER']}"
+            )
             yield Input(placeholder="your.email@jira.com", id="email")
             yield Input(
                 placeholder="A token can be created at the link below if you don't already have one",
@@ -157,7 +161,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         except Exception:
             raise JiraSubmitterError(f"{project_name} doesn't exist!")
 
-    def assignee_exists_and_unique(self, assignee: str) -> None:
+    def assignee_exists_and_unique(self, assignee: str) -> str:
         """Does @param assignee exist and is it unique?
 
         :param assignee: the email of the assignee or some form of ID
@@ -171,6 +175,9 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         elif len(query_result) > 1:
             raise JiraSubmitterError(f"{assignee} isn't unique!")
 
+        # this field exists, but not listed in the jira library
+        return query_result[0].accountId  # pyright: ignore[reportAny]
+
     def all_components_exist(
         self, project: str, components: Sequence[str]
     ) -> None:
@@ -181,7 +188,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         )
         for wanted_component in components:
             if not any(
-                actual_component.name  # str
+                actual_component.name  # str  # pyright: ignore[reportAny]
                 # apparently .name exists, but the library didn't declare it
                 == wanted_component
                 for actual_component in query_result
@@ -210,13 +217,12 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
             "issuetype": {"name": "Bug"},
         }
 
-        jira_server_addr = os.getenv("JIRA_SERVER")
         assert self.auth, "Missing auth credentials"
-        assert jira_server_addr, "JIRA_SERVER is not specified!"
+        assert JIRA_SERVER_ADDRESS, "JIRA_SERVER is not specified!"
 
         yield "Starting Jira authentication..."
         self.jira = JIRA(
-            server=jira_server_addr.rstrip("/"),
+            server=JIRA_SERVER_ADDRESS.rstrip("/"),
             basic_auth=(self.auth.email, self.auth.token),
             validate=True,
         )
@@ -235,12 +241,11 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         )
 
         self.project_exists(bug_report.project)
-        yield AdvanceMessage(
-            f"Project {bug_report.project} exists on {jira_server_addr}"
-        )
+        yield AdvanceMessage(f"Project {bug_report.project} exists!")
 
         if bug_report.assignee:
-            self.assignee_exists_and_unique(bug_report.assignee)
+            user_id = self.assignee_exists_and_unique(bug_report.assignee)
+            bug_dict["assignee"] = {"id": user_id}
             yield AdvanceMessage(
                 f"Assignee [u]{bug_report.assignee}[/u] exists and is unique!"
             )
@@ -260,7 +265,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
             )
 
         self.issue = self.jira.create_issue(bug_dict)
-        yield AdvanceMessage(f"Created {self.issue.id}")
+        yield AdvanceMessage(f"Created {self.issue.key}")
 
     @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:

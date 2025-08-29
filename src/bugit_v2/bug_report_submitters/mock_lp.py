@@ -1,4 +1,3 @@
-import os
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any, final
@@ -13,6 +12,8 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
 )
 from bugit_v2.bug_report_submitters.launchpad_submitter import (
+    LP_APP_NAME,
+    SERVICE_ROOT,
     LaunchpadAuthModal,
 )
 from bugit_v2.models.bug_report import BugReport
@@ -43,20 +44,20 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
         try:
             # type checker freaks out here
             # since launchpad lib wants unknown member access + index access
-            return self.lp_client.projects[  # pyright: ignore[reportUnknownMemberType, reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
+            return self.lp_client.projects[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
                 project_name
             ]
         except Exception as e:
             error_message = (
                 f"Project '{project_name}' doesn't exist or you don't have access. "
-                + f"Original error: {e}"
+                + f"Original error: {repr(e)}"
             )
             raise ValueError(error_message)
 
     def check_assignee_existence(self, assignee: str) -> Any:
         assert self.lp_client
         try:
-            return self.lp_client.people[  # pyright: ignore[reportUnknownMemberType, reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
+            return self.lp_client.people[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
                 assignee
             ]
         except Exception as e:
@@ -68,7 +69,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
     def check_series_existence(self, series: str) -> Any:
         assert self.lp_client
         try:
-            return self.lp_client.project.getSeries(  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess, reportUnknownVariableType]
+            return self.lp_client.project.getSeries(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess, reportUnknownVariableType]
                 name=series
             )
         except Exception as e:
@@ -82,22 +83,19 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
         self, bug_report: BugReport
     ) -> Generator[str | AdvanceMessage, None, None]:
 
-        service_root = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "qastaging")
-        app_name = os.getenv("BUGIT_APP_NAME")
-
-        assert service_root in VALID_SERVICE_ROOTS, (
+        assert SERVICE_ROOT in VALID_SERVICE_ROOTS, (
             "Invalid APPORT_LAUNCHPAD_INSTANCE, "
-            f"expected one of {VALID_SERVICE_ROOTS}, but got {service_root}"
+            f"expected one of {VALID_SERVICE_ROOTS}, but got {SERVICE_ROOT}"
         )
-        assert app_name, "BUGIT_APP_NAME was not specified"
+        assert LP_APP_NAME, "BUGIT_APP_NAME was not specified"
         assert (
             LAUNCHPAD_AUTH_FILE_PATH.exists()
         ), "At this point auth should already be valid"
 
-        yield f"Logging into Launchpad: {service_root}"
+        yield f"Logging into Launchpad: {SERVICE_ROOT}"
         self.lp_client = Launchpad.login_with(
-            app_name,
-            service_root,
+            LP_APP_NAME,
+            SERVICE_ROOT,
             credentials_file=LAUNCHPAD_AUTH_FILE_PATH,
         )  # this blocks until ready
         yield AdvanceMessage("Launchpad auth succeeded")
@@ -126,21 +124,19 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
             yield AdvanceMessage("Series unspecified, skipping")
 
         # # actually create the bug
-        bug = MagicMock(  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess]
+        bug = MagicMock(
             title=bug_report.title,
             description=bug_report.description,  # is there a length limit?
             tags=[
                 *bug_report.platform_tags,
                 *bug_report.additional_tags,
             ],  # length limit?
-            target=self.lp_client.projects[  # pyright: ignore[reportUnknownMemberType, reportIndexIssue, reportOptionalSubscript]
+            target=self.lp_client.projects[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript]
                 bug_report.project  # index access also has a side effect
             ],
         )
         # https://documentation.ubuntu.com/launchpad/user/explanation/launchpad-api/launchpadlib/#persistent-references-to-launchpad-objects
-        yield AdvanceMessage(
-            f"Created bug: {str(bug)}"  # pyright: ignore[reportUnknownArgumentType]
-        )
+        yield AdvanceMessage(f"Created bug: {str(bug)}")
 
         task = bug.bug_tasks[0]
         if assignee:
@@ -160,7 +156,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
         task.lp_save()
         yield "Saved bug settings"
 
-        match service_root:
+        match SERVICE_ROOT:
             case "production":
                 bug_url = f"{LPNET_WEB_ROOT}bugs/{bug.id}"
             case "qastaging":

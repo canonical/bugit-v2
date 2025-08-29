@@ -4,5 +4,6 @@
     "reportUnusedCallResult": "none",
     "reportImportCycles": "error",
     "reportDuplicateImport": "error",
-    "reportUnknownMemberType": "none" // too many libraries have partially unknown types
+    "reportUnknownMemberType": "none", // too many libraries have partially unknown types
+    "reportMissingTypeStubs": "none" // launchpad lib doesn't have any type info
 }

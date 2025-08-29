@@ -249,6 +249,13 @@ class SubmissionProgressScreen(
                     )
                     progress_bar.advance()
 
+        num_running_collectors = sum(
+            1 for w in self.attachment_workers.values() if w.is_running
+        )
+        self.log_widget.write(
+            f"Finished bug creation. Waiting for {num_running_collectors} log collectors to finish"
+        )
+
     def is_finished(self) -> bool:
         """
         Determines self.finished. It should always be assigned the value
@@ -261,34 +268,40 @@ class SubmissionProgressScreen(
             - errors are ok, just report them in the log window since the user
               can likely just run the collector again
         """
-        return (
-            self.bug_creation_worker is not None
-            and self.bug_creation_worker.state == WorkerState.SUCCESS
-            and all(
-                worker.is_finished
-                for worker in self.attachment_workers.values()
-            )
-            and all(
-                worker.is_finished for worker in self.upload_workers.values()
-            )
-        )
+        if self.bug_creation_worker is None:
+            self.log.info("No bug creation worker")
+            return False
+        if self.bug_creation_worker.state != WorkerState.SUCCESS:
+            self.log.info("Bug creation worker not done")
+            return False
+        if not all(w.is_finished for w in self.attachment_workers.values()):
+            self.log.info("Some attachment collectors are still running")
+            return False
+        if not all(w.is_finished for w in self.upload_workers.values()):
+            self.log.info("Some attachment upload-ers are still running")
+            return False
+
+        return True
 
     def ready_to_upload_attachments(self) -> bool:
         if self.bug_creation_worker is None:
-            print("no bug creation worker")
+            self.log.error("No bug creation worker, logic error")
             return False
         if self.bug_creation_worker.state != WorkerState.SUCCESS:
-            print(
-                "bug creation worker didnt succeed",
+            self.log.warning(
+                "Bug creation worker didn't succeed",
                 self.bug_creation_worker.state,
             )
             return False
+
         if any(w.is_running for w in self.upload_workers.values()):
-            print("already have upload worker")
+            self.log.warning("An upload worker is already running")
             return False
+
         if not all(w.is_finished for w in self.attachment_workers.values()):
-            print("some attachment worker is not done")
+            self.log.warning("Some attachment workers are not done")
             return False
+
         return True
 
     @work

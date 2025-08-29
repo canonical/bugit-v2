@@ -13,9 +13,14 @@ version: "0.1"
 confinement: classic
 
 environment:
-  COLORTERM: truecolor
-  SSH_CONNECTION: $SSH_CONNECTION
-  # JIRA_SERVER: specify a link to the jira board before packing the snap
+  COLORTERM: truecolor # required for proper color display
+  SSH_CONNECTION: $SSH_CONNECTION # detects if bugit is run through ssh
+  # Specify the following manually if you are using the pipx version
+  PROD: "1" # remove this to enable debug mode
+  APPORT_LAUNCHPAD_INSTANCE: production # production or qastaging
+  BUGIT_APP_NAME: bugit-v2 # only used for launchpad
+  # change this to the sandbox url for debug mode
+  JIRA_SERVER: https://warthogs.atlassian.net
 
 apps:
   bugit-v2:
@@ -33,27 +38,15 @@ parts:
     organize:
       "*": src/
 
-  run-poetry-plugin:
-    # finally run the plugin, see:
-    # https://documentation.ubuntu.com/snapcraft/stable/reference/plugins/python_plugin/
-    # https://documentation.ubuntu.com/snapcraft/stable/reference/plugins/poetry_plugin/
-    plugin: poetry
+  bugit-v2:
+    plugin: uv
+    source: .
+    build-snaps:
+      - astral-uv
+    build-environment:
+      - UV_NO_BINARY: "true"
     build-attributes:
       - enable-patchelf
-    source: .
-    build-packages:
-      - pipx # poetry is distributed with pipx
-      - python3-venv
-    # "pipx inject" is needed for the poetry plugin,
-    # since the poetry plugin basically asks poetry to export all dependencies,
-    # then calls the python plugin to package it
-    # also symlink the new poetry we installed with pipx to /root/.local/bin
-    override-build: |
-      apt remove python3-poetry -y
-      pipx install poetry
-      pipx inject poetry poetry-plugin-export
-      ln -sf /root/.local/bin/poetry /usr/bin/poetry
-      craftctl default
     stage-packages:
       # These 3 packages are required for classic confinement
       # do NOT use "python3.10", it's not sufficient
