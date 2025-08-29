@@ -2,7 +2,7 @@ import os
 import time
 from collections.abc import Generator
 from pathlib import Path
-from typing import Any, Callable, final
+from typing import Any, Callable, Literal, cast, final
 
 from launchpadlib.credentials import (
     Credentials,
@@ -31,8 +31,13 @@ LP_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
 # only 'qastaging' and 'production' works
 VALID_SERVICE_ROOTS = ("production", "qastaging")
 
-SERVICE_ROOT = os.getenv("APPORT_LAUNCHPAD_INSTANCE", "qastaging")
+SERVICE_ROOT = cast(
+    Literal["production", "qastaging"],
+    os.getenv("APPORT_LAUNCHPAD_INSTANCE", "qastaging"),
+)
 LP_APP_NAME = os.getenv("BUGIT_APP_NAME", "bugit")
+
+assert SERVICE_ROOT in VALID_SERVICE_ROOTS
 
 
 @final
@@ -241,7 +246,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     lp_client: Launchpad | None = None
     auth_modal = LaunchpadAuthModal
 
-    _bug_url: str | None = None
+    # _bug_url: str | None = None
+    lp_bug_object: Any | None = None  # TODO: make a wrapper for this
 
     def check_project_existence(self, project_name: str) -> Any:
         assert self.lp_client
@@ -325,7 +331,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
             yield AdvanceMessage("Series unspecified, skipping")
 
         # actually create the bug
-        bug = self.lp_client.bugs.createBug(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+        self.lp_bug_object = self.lp_client.bugs.createBug(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
             title=bug_report.title,
             description=bug_report.description,  # TODO: is there a length limit?
             tags=[
@@ -336,18 +342,19 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 bug_report.project  # index access also has a side effect
             ],
         )
+        assert self.lp_bug_object, "Unexpected null bug"
         # https://documentation.ubuntu.com/launchpad/user/explanation/launchpad-api/launchpadlib/#persistent-references-to-launchpad-objects
         yield AdvanceMessage(
-            f"Created bug: {str(bug)}"  # pyright: ignore[reportUnknownArgumentType]
+            f"Created bug: {str(self.lp_bug_object)}"  # pyright: ignore[reportUnknownArgumentType]
         )
 
-        task = bug.bug_tasks[0]  # TODO: is it always non-empty?
+        task = self.lp_bug_object.bug_tasks[0]  # TODO: is it always non-empty?
         if assignee:
             yield f"Setting assignee to {assignee}..."
             task.assignee = assignee
         if series:
             yield f"Setting series to {series}"
-            bug.addNomination(target=series).approve()
+            self.lp_bug_object.addNomination(target=series).approve()
 
         yield f"Setting status to {bug_report.status}..."
         task.status = bug_report.status
@@ -360,23 +367,33 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         task.lp_save()
         yield "Saved bug settings"
 
-        match SERVICE_ROOT:
-            case "production":
-                self._bug_url = f"{LPNET_WEB_ROOT}bugs/{bug.id}"
-            case "qastaging":
-                self._bug_url = f"{QASTAGING_WEB_ROOT}bugs/{bug.id}"
-
         yield AdvanceMessage(f"Bug URL is: {self.bug_url}")
 
     @override
     def upload_attachment(self, attachment_file: Path) -> str | None:
-        return super().upload_attachment(attachment_file)
+        assert (
+            self.lp_bug_object
+        ), "No launchpad bug has been created or fetched"
+        with open(attachment_file, "rb") as f:
+            # this might explode on low memory systems
+            # but idk how to work around it
+            self.lp_bug_object.addAttachment(
+                comment="Automatically attached by bugit-v2",
+                filename=attachment_file.name,
+                data=f.read(),
+            )
 
     @property
     @override
     def bug_url(self) -> str:
-        assert self._bug_url, "No launchpad bug has been created or fetched"
-        return self._bug_url
+        assert (
+            self.lp_bug_object
+        ), "No launchpad bug has been created or fetched"
+        match SERVICE_ROOT:
+            case "production":
+                return f"{LPNET_WEB_ROOT}bugs/{self.lp_bug_object.id}"
+            case "qastaging":
+                return f"{QASTAGING_WEB_ROOT}bugs/{self.lp_bug_object.id}"
 
     @override
     def get_cached_credentials(self) -> Path | None:
