@@ -41,7 +41,12 @@ class BugReportSubmitter[TAuth, TReturn](abc.ABC):
     # the actual auth object. Useful if the auth object needs to be reused
     # for every step in the submission process instead of just during init
     auth: TAuth | None = None
+    # Should the credentials collected by auth_modal be cached?
+    # if auth_modal is None, this does nothing
     allow_cache_credentials: bool = False
+    # Whether this concrete submitter can safely upload all attachments in
+    # parallel. If false, attachments will be uploaded sequentially
+    allow_parallel_upload: bool = False
 
     @abc.abstractmethod
     def submit(
