@@ -146,6 +146,8 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         "lowest": "Lowest",
     }
 
+    allow_parallel_upload = True
+
     def project_exists(self, project_name: str) -> None:
         """Does the project exist?
 

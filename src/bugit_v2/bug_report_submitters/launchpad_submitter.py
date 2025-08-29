@@ -243,10 +243,10 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     }
     display_name = "Launchpad"
     steps = 7
-    lp_client: Launchpad | None = None
     auth_modal = LaunchpadAuthModal
+    allow_parallel_upload = False
 
-    # _bug_url: str | None = None
+    lp_client: Launchpad | None = None
     lp_bug_object: Any | None = None  # TODO: make a wrapper for this
 
     def check_project_existence(self, project_name: str) -> Any:
