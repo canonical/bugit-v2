@@ -40,6 +40,8 @@ parts:
       - astral-uv
     build-environment:
       - UV_NO_BINARY: "true"
+    build-attributes:
+      - enable-patchelf
     stage-packages:
       # These 3 packages are required for classic confinement
       # do NOT use "python3.10", it's not sufficient
