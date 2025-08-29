@@ -131,9 +131,7 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         )
 
         self.project_exists(bug_report.project)
-        yield AdvanceMessage(
-            f"Project {bug_report.project} exists on {jira_server_addr}"
-        )
+        yield AdvanceMessage(f"Project {bug_report.project} exists")
 
         if bug_report.assignee:
             self.assignee_exists_and_unique(bug_report.assignee)
