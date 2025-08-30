@@ -101,7 +101,7 @@ All the tools should pass `mypy`'s checks. Run `mypy .` at the project root with
 Since the app runs inside the terminal it covers up all the normal stdout and stderr outputs. Textual provides the `textual console` command to allows us to inspect what's going on in the app. To use this:
 
 ```sh
-uv sync
+uv sync --python 3.10
 source .venv/bin/activate
 textual console
 ```
@@ -109,7 +109,7 @@ textual console
 Then in another terminal run the app:
 
 ```sh
-uv sync
+uv sync --python 3.10
 source .venv/bin/activate
 textual run --dev src/bugit_v2/app.py
 ```
