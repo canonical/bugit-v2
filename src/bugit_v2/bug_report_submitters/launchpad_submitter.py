@@ -99,7 +99,7 @@ class GraphicalAuthorizeRequestTokenWithURL(RequestTokenAuthorizationEngine):
         # this loop is an ugly workaround for the login method
         # because it expects the auth to be ready by the end of this function
         # so we have to block until auth is here
-        # NOTE: this cases the app to not exit cleanly when ^Q is pressed
+        # NOTE: this causes the app to not exit cleanly when ^Q is pressed
         # during the auth sequence
         while not self.check_finish_button_status():
             time.sleep(0.5)  # avoid busy-poll
@@ -224,8 +224,9 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool] | None]):
 
     @on(Button.Pressed, "#continue_button")
     def exit_widget(self) -> None:
-        # should only be clickable when auth has been filled
         if not self.auth:
+            # this should go back to the editor
+            # see the except clause of the auth sequence
             self.dismiss(None)
         else:
             self.dismiss((self.auth, self.query_exactly_one(Checkbox).value))

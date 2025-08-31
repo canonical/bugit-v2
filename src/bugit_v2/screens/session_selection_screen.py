@@ -14,7 +14,7 @@ from typing_extensions import override
 @final
 class SessionSelectionScreen(Screen[Path]):
     session_dirs = reactive[list[Path]]([], recompose=True)
-    session_root = Path("/var/tmp/checkbox-ng/sessions")
+    SESSION_ROOT_DIR = Path("/var/tmp/checkbox-ng/sessions")
 
     BINDINGS = [
         Binding(
@@ -52,9 +52,9 @@ class SessionSelectionScreen(Screen[Path]):
         yield Footer()
 
     def on_mount(self) -> None:
-        if not self.session_root.exists():
+        if not self.SESSION_ROOT_DIR.exists():
             self.notify(
-                f"{self.session_root} doesn't exist!",
+                f"{self.SESSION_ROOT_DIR} doesn't exist!",
                 severity="error",
                 timeout=float("inf"),
             )
@@ -64,7 +64,7 @@ class SessionSelectionScreen(Screen[Path]):
         self.session_dirs = self._get_valid_sessions()
         self.notify(
             "Click this message to dismiss",
-            title=f"Finished reading {self.session_root}!",
+            title=f"Finished reading {self.SESSION_ROOT_DIR}!",
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -86,13 +86,13 @@ class SessionSelectionScreen(Screen[Path]):
         io-logs. If it's empty, it's either tossed by checkbox or didn't even
         reach the test case where it dumps the udev database, thus invalid
         """
-        if not self.session_root.exists():
+        if not self.SESSION_ROOT_DIR.exists():
             return []
         valid_session_dirs: list[Path] = []
-        for d in os.listdir(self.session_root):
+        for d in os.listdir(self.SESSION_ROOT_DIR):
             try:
-                if len(os.listdir(self.session_root / d / "io-logs")) != 0:
-                    valid_session_dirs.append(self.session_root / d)
+                if len(os.listdir(self.SESSION_ROOT_DIR / d / "io-logs")) != 0:
+                    valid_session_dirs.append(self.SESSION_ROOT_DIR / d)
             except FileNotFoundError:
                 continue
         return valid_session_dirs

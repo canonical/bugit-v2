@@ -367,7 +367,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
         if not all_upload_ok:
             finish_message_lines.insert(
-                1, "[red]But some filed failed to upload.[/]"
+                1, "[red]But some files failed to upload.[/]"
             )
             finish_message_lines.insert(
                 2,
