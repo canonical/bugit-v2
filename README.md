@@ -94,11 +94,13 @@ This basically says the automatic style fixes were not included. Do another `git
 
 ### Type Checks
 
-All the tools should pass `mypy`'s checks. Run `mypy .` at the project root with the virtual environment enabled. In vscode, there's the [mypy extension](https://marketplace.visualstudio.com/items?itemName=matangover.mypy) that lets you catch these errors in the editor.
+All the tools should pass `basedpyright`'s checks. Run the `basedpyright` command at the project root with the virtual environment enabled. In vscode, there's the [basedpyright extension](https://marketplace.visualstudio.com/items?itemName=detachhead.basedpyright) that lets you catch these errors in the editor.
+- Warnings are OK for now since some of the rules are very strict, but try to fix as many of them as possible
+- Errors must be fixed because they indicate either something is guaranteed to fail at runtime or the type annotations are too incomplete for the type checker to do any meaningful analysis. To just check for errors, run `basedpyright --level error`.
 
 ### Debugging
 
-Since the app runs inside the terminal it covers up all the normal stdout and stderr outputs. Textual provides the `textual console` command to allows us to inspect what's going on in the app. To use this:
+Since the app runs inside the terminal, it covers up all the normal stdout and stderr outputs. Textual provides the `textual console` command to allows us to inspect what's going on in the app. To use this:
 
 ```sh
 uv sync --python 3.12
@@ -106,7 +108,7 @@ source .venv/bin/activate
 textual console
 ```
 
-Then in another terminal run the app:
+Then in another terminal run the app with the `--dev` flag:
 
 ```sh
 uv sync --python 3.12
