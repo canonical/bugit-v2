@@ -177,9 +177,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             )
 
             display_name = LOG_NAME_TO_COLLECTOR[log_name].display_name
-            self.log_widget.write(
-                f"Launched collector: {display_name}!"
-            )  # late write
+            self.log_widget.write(f"Launched collector: {display_name}!")
 
     def start_parallel_attachment_upload(self) -> None:
         assert self.log_widget
@@ -187,7 +185,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
         for file_name in self.attachment_dir.iterdir():
 
-            def run_collect(f: Path) -> str | None:
+            def upload_one(f: Path) -> str | None:
                 try:
                     rv = self.submitter.upload_attachment(f)
                     if not self.log_widget:
@@ -209,6 +207,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                         f"[red]FAILED![/red] failed to upload {f}"
                     )
                     self.log_widget.write(Pretty(e))
+                    raise e  # mark the worker as failed
                 finally:
                     progress_bar.advance()
 
@@ -216,12 +215,56 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                 # closure workaround
                 # https://stackoverflow.com/a/1107260
                 # bind the value early
-                lambda f=file_name: run_collect(f),
+                lambda f=file_name: upload_one(f),
                 thread=True,  # not async
                 exit_on_error=False,  # hold onto the err, don't crash
             )
 
             self.log_widget.write(f"Uploading: {file_name}")
+
+    def start_sequential_attachment_upload(self) -> None:
+        assert self.log_widget
+        progress_bar = self.query_exactly_one("#progress", ProgressBar)
+
+        def upload_all() -> str | None:
+            for f in self.attachment_dir.iterdir():
+                try:
+                    if self.log_widget:
+                        self.log_widget.write(f"Uploading: {f}")
+
+                    rv = self.submitter.upload_attachment(f)
+
+                    if not self.log_widget:
+                        return rv
+
+                    if rv and rv.strip():
+                        # only show non-empty, non-null messages
+                        self.log_widget.write(
+                            f"[green]OK![/green] [b]Uploaded {f}[/b]: {rv.strip()}"
+                        )
+                    else:
+                        self.log_widget.write(
+                            f"[green]OK![/green] [b]Uploaded {f}[/b]"
+                        )
+                except Exception as e:
+                    if not self.log_widget:
+                        return
+                    self.log_widget.write(
+                        f"[red]FAILED![/red] failed to upload {f}"
+                    )
+                    self.log_widget.write(Pretty(e))
+                    raise e  # mark the worker as failed
+                finally:
+                    progress_bar.advance()
+
+        self.attachment_workers["sequential_all"] = self.run_worker(
+            # closure workaround
+            # https://stackoverflow.com/a/1107260
+            # bind the value early
+            upload_all,
+            thread=True,  # not async
+            exit_on_error=False,  # hold onto the err, don't crash
+        )
 
     def create_bug(self) -> None:
         """Do the entire bug creation sequence. This should be run in a worker"""
@@ -247,9 +290,14 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         num_running_collectors = sum(
             1 for w in self.attachment_workers.values() if w.is_running
         )
-        self.log_widget.write(
-            f"Finished bug creation. Waiting for {num_running_collectors} log collectors to finish"
-        )
+        if num_running_collectors > 0:
+            self.log_widget.write(
+                f"Finished bug creation. Waiting for {num_running_collectors} log collectors to finish"
+            )
+        else:
+            self.log_widget.write(
+                "Finished bug creation, starting to upload attachments..."
+            )
 
     def is_finished(self) -> bool:
         """
@@ -284,8 +332,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             return False
         if self.bug_creation_worker.state != WorkerState.SUCCESS:
             self.log.warning(
-                "Bug creation worker didn't succeed",
-                self.bug_creation_worker.state,
+                f"Bug creation worker hasn't finished: {self.bug_creation_worker.state}"
             )
             return False
 
@@ -304,17 +351,31 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         if not self.finished:
             return
 
-        if is_prod():
+        all_upload_ok = all(
+            w.state == WorkerState.SUCCESS
+            for w in self.upload_workers.values()
+        )
+        if is_prod() and all_upload_ok:
+            # only cleanup if everything was uploaded
             shutil.rmtree(self.attachment_dir)
 
-        self.query_exactly_one("#finish_message", Label).update(
-            "\n".join(
-                [
-                    "Submission finished!",
-                    f"URL: {self.submitter.bug_url}",
-                    "You can go back to job/session selection or quit BugIt.",
-                ]
+        finish_message_lines = [
+            "[green]Submission finished![/]",
+            f"URL: {self.submitter.bug_url}",
+            "You can go back to job/session selection or quit BugIt.",
+        ]
+
+        if not all_upload_ok:
+            finish_message_lines.insert(
+                1, "[red]But some files failed to upload.[/]"
             )
+            finish_message_lines.insert(
+                2,
+                f"[red]You can manually reupload the files at: {self.attachment_dir}[/]",
+            )
+
+        self.query_exactly_one("#finish_message", Label).update(
+            "\n".join(finish_message_lines)
         )
         self.query_exactly_one("#menu_after_finish").display = True
 
@@ -357,7 +418,10 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     event.worker.name == self.BUG_CREATION_WORKER_NAME
                     or event.worker.name in self.attachment_workers
                 ) and self.ready_to_upload_attachments():
-                    self.start_parallel_attachment_upload()
+                    if self.submitter.allow_parallel_upload:
+                        self.start_parallel_attachment_upload()
+                    else:
+                        self.start_sequential_attachment_upload()
 
             case _:  # pyright: ignore[reportUnknownVariableType]
                 pass

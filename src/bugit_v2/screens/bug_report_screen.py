@@ -512,7 +512,7 @@ class BugReportScreen(Screen[BugReport]):
             "#issue_file_time", RadioSet
         ).pressed_button
 
-        # shouldn't fail at runtime
+        # shouldn't fail at runtime, major logic error if they do
         assert selected_severity_button
         assert selected_severity_button.name in SEVERITIES
         assert selected_issue_file_time_button
