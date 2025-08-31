@@ -5,7 +5,7 @@ This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [
 [Features](#features) | [Installation](#installation) | [Development](#development) | [Limitations](#limitations)
 
 > [!CAUTION]
-> This project is VERY EXPERIMENTAL as of Aug 29,2025. Jira related logic has been tested but not the LP paths.  
+> This project is VERY EXPERIMENTAL as of Aug 29,2025. Although both Jira and LP logic have been manually tested (v0.2+), there will likely be undiscovered issues in prod. Please report them in [Issues](https://github.com/canonical/bugit-v2/issues) if you find any.
 <img width="2000" height="2144" alt="image" src="https://github.com/user-attachments/assets/7901ef4a-7398-49dd-992d-dfefb448fe6a" />
 
 ## Features
@@ -21,7 +21,7 @@ To see more about textual itself, [check out their docs](https://textual.textual
 
 ### pipx
 
-(works on 22.04+, requires python3.10)
+(works on 24.04+, requires python3.12)
 
 Install pipx first:
 
@@ -50,7 +50,7 @@ To uninstall, `pipx uninstall bugit-v2`
 
 ### snap
 
-For now you have to manually build the snap. Clone the repo and `snapcraft clean && snapcraft pack`. Once snapcraft produces a `.snap` file, use `sudo snap install ./bugit-v2_0.1_amd64.snap --dangerous --classic` (replace the filename with the real one) to install it. Then finally run the app with `sudo bugit jira`
+For now you have to manually build the snap. Clone the repo and `snapcraft clean && snapcraft pack`. Once snapcraft produces a `.snap` file, use `sudo snap install ./bugit-v2_0.1_amd64.snap --dangerous --devmode` (replace the filename with the real one) to install it. Then finally run the app with `sudo bugit jira`
 
 To uninstall `sudo snap remove bugit-v2`
 
@@ -65,7 +65,7 @@ the snap version.
 
 ### Dependencies
 
-Dependencies are managed by uv. You can install uv by `pipx install uv` or use the official installer from uv's website.
+Dependencies are managed by uv. You can install uv by `pipx install uv` or use the official installer from [uv's website](https://docs.astral.sh/uv).
 
 ### Get started
 
@@ -101,7 +101,7 @@ All the tools should pass `mypy`'s checks. Run `mypy .` at the project root with
 Since the app runs inside the terminal it covers up all the normal stdout and stderr outputs. Textual provides the `textual console` command to allows us to inspect what's going on in the app. To use this:
 
 ```sh
-uv sync --python 3.10
+uv sync --python 3.12
 source .venv/bin/activate
 textual console
 ```
@@ -109,7 +109,7 @@ textual console
 Then in another terminal run the app:
 
 ```sh
-uv sync --python 3.10
+uv sync --python 3.12
 source .venv/bin/activate
 textual run --dev src/bugit_v2/app.py
 ```
@@ -117,7 +117,7 @@ textual run --dev src/bugit_v2/app.py
 And the debug console should start printing events and `print()` messages:
 
 ```
-(bugit-v2-py3.13) ❯ textual console -x EVENT
+(.venv) ❯ textual console -x EVENT
 
 ▌Textual Development Console v5.0.1
 ▌Run a Textual app with textual run --dev my_app.py to connect.
