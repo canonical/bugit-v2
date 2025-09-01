@@ -17,6 +17,7 @@ environment:
   BUGIT_APP_NAME: bugit-v2 # only used for launchpad
   # change this to the sandbox url for debug mode
   JIRA_SERVER: https://warthogs.atlassian.net
+  PYTHONPATH: "$PYTHONPATH:$SNAP/usr/lib/python3/dist-packages"
 
 apps:
   bugit-v2:
@@ -26,16 +27,15 @@ apps:
     # 2. Anything after the first token must have the $SNAP var in their path
     # If there are more "apps" later, make sure their command follows this example
     command: bin/python3 $SNAP/src/bugit_v2/app.py
-    environment:
-      PYTHONPATH: "$PYTHONPATH:$SNAP/usr/lib/python3/dist-packages"
 
   command-existence:
     command: bin/python3 $SNAP/src/bugit_v2/check_command_existence.py
 
   oem-getlogs:
     command: usr/bin/oem-getlogs
-    environment:
-      PYTHONPATH: "$PYTHONPATH:$SNAP/usr/lib/python3/dist-packages"
+
+  sosreport:
+    command: usr/bin/sosreport
 
 parts:
   dump-files:
@@ -64,3 +64,8 @@ parts:
     plugin: nil
     stage-packages:
       - acpica-tools # provides "acpidump"
+
+  sosreport:
+    plugin: nil
+    stage-packages:
+      - sosreport
