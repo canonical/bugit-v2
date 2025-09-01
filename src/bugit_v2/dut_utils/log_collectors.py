@@ -87,6 +87,13 @@ def nvidia_bug_report(target_dir: Path, _: BugReport) -> str:
     )
 
 
+def acpidump(target_dir: Path, _: BugReport) -> str:
+    return sp.check_output(
+        ["acpidump", "-o", str(target_dir.absolute() / "acpidump.log")],
+        text=True,
+    )
+
+
 mock_collectors: Sequence[LogCollector] = (
     LogCollector(
         "sos-report",
@@ -156,6 +163,12 @@ real_collectors: Sequence[LogCollector] = (
         oem_getlogs,
         "OEM Get Logs",
         manual_collection_command="sudo oem-getlogs",
+    ),
+    LogCollector(
+        "acpidump",
+        acpidump,
+        "ACPI Dump",
+        manual_collection_command="sudo acpidump -o acpidump.log",
     ),
     LogCollector(
         "checkbox-session",
