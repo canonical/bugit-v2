@@ -35,6 +35,8 @@ apps:
     command: usr/bin/oem-getlogs
 
   sosreport:
+    # the patches from the original bugit
+    # doesn't seem to be required anymore
     command: usr/bin/sosreport
 
 parts:
