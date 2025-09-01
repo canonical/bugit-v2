@@ -27,6 +27,14 @@ apps:
     # If there are more "apps" later, make sure their command follows this example
     command: bin/python3 $SNAP/src/bugit_v2/app.py
 
+  command-existence:
+    command: bin/python3 $SNAP/src/bugit_v2/check_command_existence.py
+
+  oem-getlogs:
+    command: usr/bin/oem-getlogs
+    environment:
+      PYTHONPATH: "$PYTHONPATH:$SNAP/usr/lib/python3/dist-packages"
+
 parts:
   dump-files:
     plugin: dump
@@ -41,5 +49,13 @@ parts:
       - astral-uv
     build-environment:
       - UV_NO_BINARY: "true"
+    stage-packages:
+      - dmidecode
+      - pciutils
     after:
       - dump-files
+
+  apport:
+    plugin: nil
+    stage-packages:
+      - apport
