@@ -98,9 +98,7 @@ def get_standard_info() -> dict[str, str]:
     ):
         standard_info[
             " ".join(word.capitalize() for word in dmi_value.split("-"))
-        ] = sp.check_output(
-            ["sudo", "dmidecode", "-s", dmi_value], text=True
-        ).strip()
+        ] = sp.check_output(["dmidecode", "-s", dmi_value], text=True).strip()
 
     standard_info["CPU"] = get_cpu_info()
 

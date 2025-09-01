@@ -42,7 +42,7 @@ class LogCollector:
 def sos_report(target_dir: Path, _: BugReport):
     assert target_dir.is_dir()
     out = sp.check_output(
-        ["sudo", "sos", "report", "--batch", f"--tmp-dir={target_dir}"],
+        ["sos", "report", "--batch", f"--tmp-dir={target_dir}"],
         text=True,
         timeout=600,  # just in case
     )
@@ -55,7 +55,7 @@ def sos_report(target_dir: Path, _: BugReport):
 
 def oem_getlogs(target_dir: Path, _: BugReport):
     assert target_dir.is_dir()
-    out = sp.check_output(["sudo", "-E", "oem-getlogs"], text=True)
+    out = sp.check_output(["oem-getlogs"], text=True)
     if (
         log_file_match := re.search(r"oemlogs.*\.apport\.gz", out)
     ) is not None:
