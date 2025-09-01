@@ -1,3 +1,4 @@
+import os
 import shutil
 from pathlib import Path
 from tempfile import mkdtemp
@@ -370,12 +371,21 @@ class SubmissionProgressScreen(
         ]
 
         if not all_upload_ok:
+            if "SNAP" in os.environ:
+                attachment_dir = (
+                    "/tmp/snap-private-tmp/snap.bugit-v2/tmp"
+                    / self.attachment_dir
+                )
+            else:
+                attachment_dir = self.attachment_dir
             finish_message_lines.insert(
-                1, "[red]But some files failed to upload.[/]"
-            )
-            finish_message_lines.insert(
-                2,
-                f"[red]You can manually reupload the files at: {self.attachment_dir}[/]",
+                1,
+                "\n".join(
+                    [
+                        "[red]But some files failed to upload.[/]",
+                        f"[red]You can manually reupload the files at: {attachment_dir}[/]",
+                    ]
+                ),
             )
 
         self.query_exactly_one("#finish_message", Label).update(
