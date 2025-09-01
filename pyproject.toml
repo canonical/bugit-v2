@@ -1,6 +1,6 @@
 [project]
 name = "bugit-v2"
-version = "0.1.0"
+version = "0.2"
 description = ""
 authors = [{ name = "Zhongning Li", email = "zhongning.li@canonical.com" }]
 requires-python = ">=3.12,<4.0.0"

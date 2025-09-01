@@ -48,18 +48,43 @@ where jira_server_url is the base URL of your jira server, it should start with 
 
 To uninstall, `pipx uninstall bugit-v2`
 
-### snap
+### Try with uvx
 
-For now you have to manually build the snap. Clone the repo and `snapcraft clean && snapcraft pack`. Once snapcraft produces a `.snap` file, use `sudo snap install ./bugit-v2_0.1_amd64.snap --dangerous --devmode` (replace the filename with the real one) to install it. Then finally run the app with `sudo bugit jira`
+(works on versions that can run the python3.12 binary)
 
-To uninstall `sudo snap remove bugit-v2`
+Install uv:
+
+```
+sudo snap install astral-uv
+```
+
+Then use `uvx` to run the latest commit:
+
+```
+sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 BUGIT_APP_NAME=bugit-v2 uvx --from git+https://github.com/canonical/bugit-v2.git bugit-v2 jira
+```
+
+Or run a specific release:
+
+```
+sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 BUGIT_APP_NAME=bugit-v2 uvx --from git+https://github.com/canonical/bugit-v2.git@v0.2 bugit-v2 jira
+```
+
+### snap (recommended)
+
+For now you have to manually build the snap.
+1. Clone the repo
+2. Install snapcraft `sudo snap install snapcraft --edge --classic`
+3. `snapcraft clean && snapcraft pack`
+4. Once snapcraft produces a `.snap` file, `sudo snap install ./bugit-v2_0.1_amd64.snap --dangerous --devmode` (replace the filename with the real one) to install it.
+5. Run the app with `sudo bugit jira`
+
+To uninstall, `sudo snap remove bugit-v2`
 
 ## SSH Colors
 
-If you ssh into a ubuntu machine and run bugit-v2, it might give you completely
-different colors than running locally. This can be fixed by specifying
-`COLORTERM=truecolor` in the ssh session. You shouldn't have to do this when using
-the snap version.
+If you ssh into a ubuntu machine and run a non-snap version of bugit-v2, it might give you completely different colors than running locally. This can be fixed by specifying
+`COLORTERM=truecolor` in the ssh session.
 
 ## Development
 
@@ -86,7 +111,7 @@ pre-commit install
 
 This will run some basic formatting checks before allowing a commit. If you don't want this git behavior, `pre-commit run --all-files` will just run the checks.
 
-If you are using vscode's git panel, it might show something like this when the hooks didn't pass:
+If you are using VSCode's git panel, it might show something like this when the hooks didn't pass:
 
 ![image](https://github.com/user-attachments/assets/1633d7e4-f8d4-4ffa-9386-9622b17ba8af)
 
