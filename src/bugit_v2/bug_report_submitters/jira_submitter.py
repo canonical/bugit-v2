@@ -22,7 +22,11 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
     BugReportSubmitter,
 )
-from bugit_v2.models.bug_report import BugReport, Severity
+from bugit_v2.models.bug_report import (
+    BugReport,
+    Severity,
+    pretty_issue_file_times,
+)
 
 JIRA_SERVER_ADDRESS = os.getenv("JIRA_SERVER")
 
@@ -203,12 +207,18 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
     def submit(
         self, bug_report: BugReport
     ) -> Generator[str | AdvanceMessage, None, None]:
+        issue_file_time_block = (
+            f"[Stage]\n{pretty_issue_file_times[bug_report.issue_file_time]}"
+        )
+
         # final submit
         bug_dict = {
             "assignee": bug_report.assignee,
             "project": bug_report.project,
             "summary": bug_report.title,
-            "description": bug_report.description,
+            "description": bug_report.description
+            + "\n\n"
+            + issue_file_time_block,
             "components": [{"name": tag} for tag in bug_report.platform_tags],
             "labels": [
                 *bug_report.additional_tags,
