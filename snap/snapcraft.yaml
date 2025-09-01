@@ -49,11 +49,9 @@ parts:
     source: .
     build-snaps:
       - astral-uv
-    build-environment:
-      - UV_NO_BINARY: "true"
     stage-packages:
-      - dmidecode
-      - pciutils
+      - dmidecode # provides 'dmidecode'
+      - pciutils # provides 'lspci'
     after:
       - dump-files
 
@@ -61,3 +59,8 @@ parts:
     plugin: nil
     stage-packages:
       - apport # provides oem-getlogs, only works on core22
+
+  acpidump:
+    plugin: nil
+    stage-packages:
+      - acpica-tools # provides "acpidump"
