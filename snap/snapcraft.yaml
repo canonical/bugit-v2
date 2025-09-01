@@ -1,6 +1,6 @@
 name: bugit-v2
 type: app
-base: core24
+base: core22
 grade: devel
 summary: Cool new bugit
 description: |
@@ -58,4 +58,4 @@ parts:
   apport:
     plugin: nil
     stage-packages:
-      - apport
+      - apport # provides oem-getlogs, only works on core22
