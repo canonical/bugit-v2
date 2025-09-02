@@ -2,6 +2,8 @@
 
 This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [textual](https://textual.textualize.io/) library.
 
+[![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/bugit)
+
 [Features](#features) | [Installation](#installation) | [Development](#development) | [Limitations](#limitations)
 
 > [!CAUTION]
