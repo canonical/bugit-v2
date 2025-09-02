@@ -1,7 +1,7 @@
 import os
-import shutil
-import subprocess
+import time
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Final, cast, final
 
 from textual import on, work
@@ -242,8 +242,8 @@ class BugReportScreen(Screen[BugReport]):
                             tooltip="Wrap long lines around so you don't need to scroll to see them",
                         ),
                         Button(
-                            "Copy All",
-                            id="copy_to_clipboard",
+                            "Save as Text File",
+                            id="save_as_text_file",
                             compact=True,
                             classes="editor_button wa",
                             tooltip="Copy the entire description to the system clipboard",
@@ -406,45 +406,33 @@ class BugReportScreen(Screen[BugReport]):
             )
             log_selection_list.remove_option("nvidia-bug-report")
 
-        # inside a snap, this is '' when running locally
-        if not os.getenv("SSH_CONNECTION"):
-            btn = self.query_exactly_one("#copy_to_clipboard", Button)
-            btn.disabled = True
-            btn.tooltip = (
-                "Copy to system clipboard is not available in an SSH session"
-            )
-
         self.query_exactly_one("#title", Input).focus()
 
-    @on(Button.Pressed, "#copy_to_clipboard")
-    def copy_to_clipboard(self):
-        if not shutil.which("xclip"):
-            self.notify(
-                (
-                    "Run [bold]sudo apt install xclip[/bold] "
-                    "to enable copying to system clipboard "
-                    "(click this message to dismiss)"
-                ),
-                title="xclip is not installed.",
-                timeout=5,
-                severity="warning",
-            )
-            return
-
+    @on(Button.Pressed, "#save_as_text_file")
+    def save_as_text_file(self):
         content = self.query_exactly_one(TextArea).text
-        subprocess.run(
-            ["xclip", "-selection", "clipboard"],
-            check=False,
-            input=content.encode(),
-        )
-        btn = self.query_exactly_one("#copy_to_clipboard", Button)
+        btn = self.query_exactly_one("#save_as_text_file", Button)
         old_label = btn.label
-        btn.label = "Copied!"
 
-        def f():
-            btn.label = old_label
+        try:
+            file_path = (
+                Path(os.curdir) / f"bug-description-{int(time.time())}.txt"
+            )
+            with open(file_path, "w") as file:
+                file.write(content)
+                btn.label = "Saved!"
+                self.notify(
+                    title="Saved current bug description!",
+                    timeout=10,  # make it longer so users can see the path
+                    message=f"It's at {file_path.absolute().expanduser()}",
+                )
 
-        self.set_timer(3, f)
+                def f():
+                    btn.label = old_label
+
+                self.set_timer(3, f)
+        except Exception as e:
+            self.notify(f"Failed to save. Reason {repr(e)}")
 
     @on(Button.Pressed, "#wrap_text_toggle")
     def toggle_wrap(self):
