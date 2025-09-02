@@ -1,7 +1,8 @@
+import os
 import shutil
 from pathlib import Path
 from tempfile import mkdtemp
-from typing import Final, Literal, final
+from typing import Final, Generic, Literal, TypeVar, final
 
 from rich.pretty import Pretty
 from textual import on, work
@@ -26,10 +27,14 @@ ReturnScreenChoice = Literal["job", "session", "quit", "report_editor"]
 RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
     ReturnScreenChoice.__args__
 )
+TAuth = TypeVar("TAuth")
+TReturn = TypeVar("TReturn")
 
 
 @final
-class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
+class SubmissionProgressScreen(
+    Generic[TAuth, TReturn], Screen[ReturnScreenChoice]
+):
     """
     The progress screen shown while submission/log collection is happening
     """
@@ -366,12 +371,21 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         ]
 
         if not all_upload_ok:
+            if "SNAP" in os.environ:
+                attachment_dir = (
+                    "/tmp/snap-private-tmp/snap.bugit-v2/tmp"
+                    / self.attachment_dir
+                )
+            else:
+                attachment_dir = self.attachment_dir
             finish_message_lines.insert(
-                1, "[red]But some files failed to upload.[/]"
-            )
-            finish_message_lines.insert(
-                2,
-                f"[red]You can manually reupload the files at: {self.attachment_dir}[/]",
+                1,
+                "\n".join(
+                    [
+                        "[red]But some files failed to upload.[/]",
+                        f"[red]You can manually reupload the files at: {attachment_dir}[/]",
+                    ]
+                ),
             )
 
         self.query_exactly_one("#finish_message", Label).update(

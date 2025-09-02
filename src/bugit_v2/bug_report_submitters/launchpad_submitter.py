@@ -24,7 +24,7 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
     BugReportSubmitter,
 )
-from bugit_v2.models.bug_report import BugReport
+from bugit_v2.models.bug_report import BugReport, pretty_issue_file_times
 
 LP_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
 # 'staging' doesn't seem to work
@@ -333,10 +333,15 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         else:
             yield AdvanceMessage("Series unspecified, skipping")
 
+        issue_file_time_block = (
+            f"[Stage]\n{pretty_issue_file_times[bug_report.issue_file_time]}"
+        )
         # actually create the bug
         self.lp_bug_object = self.lp_client.bugs.createBug(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
             title=bug_report.title,
-            description=bug_report.description,  # TODO: is there a length limit?
+            description=bug_report.description
+            + "\n\n"
+            + issue_file_time_block,  # TODO: is there a length limit?
             tags=[
                 *bug_report.platform_tags,
                 *bug_report.additional_tags,

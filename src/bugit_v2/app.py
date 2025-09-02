@@ -34,7 +34,8 @@ from bugit_v2.utils import is_prod
 
 cli_app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
-    pretty_exceptions_show_locals=False,
+    pretty_exceptions_enable=not is_prod(),
+    pretty_exceptions_show_locals=not is_prod(),
 )
 
 
@@ -209,4 +210,6 @@ def jira_mode():
 
 
 if __name__ == "__main__":
-    cli_app()
+    if os.getuid() != 0:
+        raise SystemExit("Please run this app with `sudo bugit-v2`")
+    cli_app(prog_name="bugit-v2")

@@ -42,7 +42,7 @@ class LogCollector:
 def sos_report(target_dir: Path, _: BugReport):
     assert target_dir.is_dir()
     out = sp.check_output(
-        ["sudo", "sos", "report", "--batch", f"--tmp-dir={target_dir}"],
+        ["sos", "report", "--batch", f"--tmp-dir={target_dir}"],
         text=True,
         timeout=600,  # just in case
     )
@@ -55,7 +55,7 @@ def sos_report(target_dir: Path, _: BugReport):
 
 def oem_getlogs(target_dir: Path, _: BugReport):
     assert target_dir.is_dir()
-    out = sp.check_output(["sudo", "-E", "oem-getlogs"], text=True)
+    out = sp.check_output(["oem-getlogs"], text=True)
     if (
         log_file_match := re.search(r"oemlogs.*\.apport\.gz", out)
     ) is not None:
@@ -85,6 +85,21 @@ def nvidia_bug_report(target_dir: Path, _: BugReport) -> str:
         ],
         text=True,
     )
+
+
+def acpidump(target_dir: Path, _: BugReport) -> str:
+    return sp.check_output(
+        ["acpidump", "-o", str(target_dir.absolute() / "acpidump.log")],
+        text=True,
+    )
+
+
+def dmesg_of_current_boot(target_dir: Path, _: BugReport) -> str:
+    with open("/proc/sys/kernel/random/boot_id") as b:
+        boot_id = b.read().strip().replace("-", "")
+        with open(target_dir / f"dmesg-{boot_id}.log") as f:
+            sp.check_call(["dmesg"], stdout=f, stderr=sp.DEVNULL, text=True)
+            return f"Saved dmesg logs of boot {b}"
 
 
 mock_collectors: Sequence[LogCollector] = (
@@ -156,6 +171,19 @@ real_collectors: Sequence[LogCollector] = (
         oem_getlogs,
         "OEM Get Logs",
         manual_collection_command="sudo oem-getlogs",
+    ),
+    LogCollector(
+        "acpidump",
+        acpidump,
+        "ACPI Dump",
+        manual_collection_command="sudo acpidump -o acpidump.log",
+    ),
+    LogCollector(
+        "dmesg",
+        dmesg_of_current_boot,
+        "dmesg Logs of This Boot",
+        False,
+        manual_collection_command="sudo dmesg",
     ),
     LogCollector(
         "checkbox-session",

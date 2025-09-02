@@ -309,7 +309,15 @@ class BugReportScreen(Screen[BugReport]):
                                 collector.collect_by_default,
                                 id=collector.name,
                             )
-                            for collector in LOG_NAME_TO_COLLECTOR.values()
+                            for collector in sorted(
+                                LOG_NAME_TO_COLLECTOR.values(),
+                                key=lambda a: (
+                                    # prioritize collect_by_default ones
+                                    0
+                                    if a.collect_by_default
+                                    else 1
+                                ),
+                            )
                         ),
                         classes="default_box",
                         id="logs_to_include",
@@ -519,11 +527,13 @@ class BugReportScreen(Screen[BugReport]):
         assert selected_issue_file_time_button.name in ISSUE_FILE_TIMES
 
         return BugReport(
-            title=self.query_exactly_one("#title", Input).value,
+            title=self.query_exactly_one("#title", Input).value.strip(),
             checkbox_session=self.session,
-            description=self.query_exactly_one("#description", TextArea).text,
-            assignee=self.query_exactly_one("#assignee", Input).value,
-            project=self.query_exactly_one("#project", Input).value,
+            description=self.query_exactly_one(
+                "#description", TextArea
+            ).text.strip(),
+            assignee=self.query_exactly_one("#assignee", Input).value.strip(),
+            project=self.query_exactly_one("#project", Input).value.strip(),
             severity=selected_severity_button.name,
             issue_file_time=selected_issue_file_time_button.name,
             additional_tags=self.query_exactly_one("#additional_tags", Input)
