@@ -2,6 +2,8 @@
 
 This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [textual](https://textual.textualize.io/) library.
 
+[![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/bugit)
+
 [Features](#features) | [Installation](#installation) | [Development](#development) | [Limitations](#limitations)
 
 > [!CAUTION]
@@ -18,6 +20,25 @@ This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [
 To see more about textual itself, [check out their docs](https://textual.textualize.io/)
 
 ## Installation
+
+### Snap (recommended)
+
+#### Snap store
+
+`sudo snap install bugit --edge --devmode`
+
+Run the app with `sudo bugit.bugit-v2 jira` or `sudo bugit.bugit-v2 lp`
+
+
+#### Local Snap
+
+1. Clone the repo
+2. Install snapcraft `sudo snap install snapcraft --edge --classic`
+3. `snapcraft clean && snapcraft pack`
+4. Once snapcraft produces a `.snap` file, `sudo snap install ./bugit-v2_0.1_amd64.snap --dangerous --devmode` (replace the filename with the real one) to install it.
+5. Run the app with `sudo bugit jira`
+
+To uninstall, `sudo snap remove bugit`
 
 ### pipx
 
@@ -76,21 +97,12 @@ Or run a specific release:
 sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 uvx --from git+https://github.com/canonical/bugit-v2.git@v0.2 bugit-v2 jira
 ```
 
-### snap (recommended)
 
-For now you have to manually build the snap.
-1. Clone the repo
-2. Install snapcraft `sudo snap install snapcraft --edge --classic`
-3. `snapcraft clean && snapcraft pack`
-4. Once snapcraft produces a `.snap` file, `sudo snap install ./bugit-v2_0.1_amd64.snap --dangerous --devmode` (replace the filename with the real one) to install it.
-5. Run the app with `sudo bugit jira`
-
-To uninstall, `sudo snap remove bugit-v2`
 
 ## SSH Colors
 
-If you ssh into a ubuntu machine and run a non-snap version of bugit-v2, it might give you completely different colors than running locally. This can be fixed by specifying
-`COLORTERM=truecolor` in the ssh session.
+If you ssh into a ubuntu machine and run a **non-snap** version of bugit-v2, it might give you completely different colors than running locally. This can be fixed by running
+`export COLORTERM=truecolor` in the ssh session.
 
 ## Development
 
