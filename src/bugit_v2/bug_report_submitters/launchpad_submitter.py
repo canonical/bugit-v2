@@ -35,7 +35,7 @@ SERVICE_ROOT = cast(
     Literal["production", "qastaging"],
     os.getenv("APPORT_LAUNCHPAD_INSTANCE", "qastaging"),
 )
-LP_APP_NAME = os.getenv("BUGIT_APP_NAME", "bugit")
+LP_APP_NAME = os.getenv("BUGIT_APP_NAME", "bugit-v2")
 
 assert SERVICE_ROOT in VALID_SERVICE_ROOTS
 
