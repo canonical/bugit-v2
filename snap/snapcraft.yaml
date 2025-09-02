@@ -1,4 +1,4 @@
-name: bugit-v2
+name: bugit
 type: app
 base: core22
 grade: devel
