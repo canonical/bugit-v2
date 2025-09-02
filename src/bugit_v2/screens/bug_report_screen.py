@@ -246,7 +246,7 @@ class BugReportScreen(Screen[BugReport]):
                             id="save_as_text_file",
                             compact=True,
                             classes="editor_button wa",
-                            tooltip="Copy the entire description to the system clipboard",
+                            tooltip="Save the description to the current directory as a .txt file",
                         ),
                         classes="right",
                     )
