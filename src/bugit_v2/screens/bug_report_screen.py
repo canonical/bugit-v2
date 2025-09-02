@@ -406,7 +406,8 @@ class BugReportScreen(Screen[BugReport]):
             )
             log_selection_list.remove_option("nvidia-bug-report")
 
-        if os.getenv("SSH_CONNECTION") is not None:
+        # inside a snap, this is '' when running locally
+        if not os.getenv("SSH_CONNECTION"):
             btn = self.query_exactly_one("#copy_to_clipboard", Button)
             btn.disabled = True
             btn.tooltip = (
