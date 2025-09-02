@@ -309,7 +309,12 @@ class BugReportScreen(Screen[BugReport]):
                                 collector.collect_by_default,
                                 id=collector.name,
                             )
-                            for collector in LOG_NAME_TO_COLLECTOR.values()
+                            for collector in sorted(
+                                LOG_NAME_TO_COLLECTOR.values(),
+                                key=lambda a: (
+                                    1 if a.collect_by_default else 0
+                                ),
+                            )
                         ),
                         classes="default_box",
                         id="logs_to_include",

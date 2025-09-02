@@ -94,6 +94,14 @@ def acpidump(target_dir: Path, _: BugReport) -> str:
     )
 
 
+def dmesg_of_current_boot(target_dir: Path, _: BugReport) -> str:
+    with open("/proc/sys/kernel/random/boot_id") as b:
+        boot_id = b.read().strip().replace("-", "")
+        with open(target_dir / f"dmesg-{boot_id}.log") as f:
+            sp.check_call(["dmesg"], stdout=f, stderr=sp.DEVNULL, text=True)
+            return f"Saved dmesg logs of boot {b}"
+
+
 mock_collectors: Sequence[LogCollector] = (
     LogCollector(
         "sos-report",
@@ -169,6 +177,13 @@ real_collectors: Sequence[LogCollector] = (
         acpidump,
         "ACPI Dump",
         manual_collection_command="sudo acpidump -o acpidump.log",
+    ),
+    LogCollector(
+        "dmesg",
+        dmesg_of_current_boot,
+        "dmesg Logs of This Boot",
+        False,
+        manual_collection_command="sudo dmesg",
     ),
     LogCollector(
         "checkbox-session",
