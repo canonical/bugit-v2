@@ -21,7 +21,7 @@ To see more about textual itself, [check out their docs](https://textual.textual
 
 ### pipx
 
-(works on 24.04+, requires python3.12)
+(works on 22.04+, requires python3.10)
 
 Install pipx first:
 
@@ -29,10 +29,16 @@ Install pipx first:
 sudo apt install pipx
 ```
 
-Make sure you have access rights to this repository, then do:
+Then either install for the current user:
 
 ```sh
 pipx install git+https://github.com/canonical/bugit-v2.git
+```
+
+Or install globally:
+
+```sh
+sudo pipx install --global git+https://github.com/canonical/bugit-v2.git
 ```
 
 This should give you a new command called `bugit-v2`. If pipx is installed for the first time, it will prompt you about the app not being in `$PATH`. To fix this permanently, add `$HOME/.local/bin` to your $PATH.
@@ -40,7 +46,7 @@ This should give you a new command called `bugit-v2`. If pipx is installed for t
 Typically we need sudo for the log collectors. To run with sudo:
 
 ```
-sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 BUGIT_APP_NAME=bugit-v2 bugit-v2 jira
+sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 bugit-v2 jira
 ```
 
 where jira_server_url is the base URL of your jira server, it should start with `https` and end with `atlassian.net`.
@@ -50,7 +56,7 @@ To uninstall, `pipx uninstall bugit-v2`
 
 ### Try with uvx
 
-(works on versions that can run the python3.12 binary)
+(works on versions that can run the python3.10 binary)
 
 Install uv:
 
@@ -61,13 +67,13 @@ sudo snap install astral-uv
 Then use `uvx` to run the latest commit:
 
 ```
-sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 BUGIT_APP_NAME=bugit-v2 uvx --from git+https://github.com/canonical/bugit-v2.git bugit-v2 jira
+sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 uvx --from git+https://github.com/canonical/bugit-v2.git bugit-v2 jira
 ```
 
 Or run a specific release:
 
 ```
-sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 BUGIT_APP_NAME=bugit-v2 uvx --from git+https://github.com/canonical/bugit-v2.git@v0.2 bugit-v2 jira
+sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 uvx --from git+https://github.com/canonical/bugit-v2.git@v0.2 bugit-v2 jira
 ```
 
 ### snap (recommended)
@@ -97,7 +103,7 @@ Dependencies are managed by uv. You can install uv by `pipx install uv` or use t
 ```bash
 git clone git@github.com:canonical/bugit-v2.git
 cd bugit-v2
-uv sync
+uv sync --python 3.10 # will download another python if sys python != 3.10
 source .venv/bin/activate
 python3 src/bugit_v2/app.py
 ```
@@ -128,7 +134,7 @@ All the tools should pass `basedpyright`'s checks. Run the `basedpyright` comman
 Since the app runs inside the terminal, it covers up all the normal stdout and stderr outputs. Textual provides the `textual console` command to allows us to inspect what's going on in the app. To use this:
 
 ```sh
-uv sync --python 3.12
+uv sync --python 3.10
 source .venv/bin/activate
 textual console
 ```
@@ -136,7 +142,7 @@ textual console
 Then in another terminal run the app with the `--dev` flag:
 
 ```sh
-uv sync --python 3.12
+uv sync --python 3.10
 source .venv/bin/activate
 textual run --dev src/bugit_v2/app.py
 ```
