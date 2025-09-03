@@ -212,7 +212,7 @@ class BugReportScreen(Screen[BugReport]):
             yield Label(f"- Job ID: {self.job_id}")
             yield Label(f"- Test Plan: {self.session.testplan_id}")
 
-        with VerticalScroll(classes="center lrm1"):
+        with VerticalScroll(classes="center"):
             yield Input(
                 placeholder="Short title for this bug",
                 id="title",
