@@ -8,6 +8,19 @@ description: |
 version: "0.2.1"
 confinement: devmode # required for ubuntu core to collect logs
 
+
+platforms:
+  armhf:
+    build-on: [amd64]
+    build-for: [armhf]
+  arm64:
+    build-on: [amd64]
+    build-for: [arm64]
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+
+
 environment:
   COLORTERM: truecolor # required for proper color display
   SSH_CONNECTION: $SSH_CONNECTION # detects if bugit is run through ssh
