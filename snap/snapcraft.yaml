@@ -10,7 +10,11 @@ confinement: devmode # required for ubuntu core to collect logs
 
 architectures:
   - build-on: [amd64]
-    build-for: [amd64, arm64, armhf]
+    build-for: [amd64]
+  - build-on: [amd64]
+    build-for: [arm64]
+  - build-on: [amd64]
+    build-for: [armhf]
 
 environment:
   COLORTERM: truecolor # required for proper color display
