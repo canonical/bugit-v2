@@ -63,6 +63,7 @@ class AppArgs:
 @final
 class BugitApp(App[None]):
     state = var(AppState())
+    args: AppArgs
     # Any doesn't matter here
     submitter_class: type[
         BugReportSubmitter[Any, Any]  # pyright: ignore[reportExplicitAny]
@@ -136,6 +137,7 @@ class BugitApp(App[None]):
                 BugReportScreen(
                     self.state.session,
                     self.state.job_id,
+                    self.args.submitter,
                     self.bug_report_backup,
                 ),
                 lambda bug_report: _write_state(

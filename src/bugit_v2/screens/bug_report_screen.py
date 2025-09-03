@@ -2,7 +2,7 @@ import os
 import time
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Final, cast, final
+from typing import Final, Literal, cast, final
 
 from textual import on, work
 from textual.app import ComposeResult
@@ -83,25 +83,12 @@ class BugReportScreen(Screen[BugReport]):
     session: Final[Session]
     job_id: Final[str]
     initial_report: dict[str, str]
+    submitter: Literal["jira", "lp"]
+
     # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
     # id should match the property name in the BugReport object
     # TODO: rename this, it does more than just holding titles now
-    ELEM_ID_TO_BORDER_TITLE: Final[Mapping[str, tuple[str, str]]] = {
-        "title": ("[b]Bug Title", "This is the title in Jira/Launchpad"),
-        "description": (
-            "[b]Bug Description",
-            "Include all the details :)",
-        ),
-        "issue_file_time": ("[b]When was this issue filed?", ""),
-        "platform_tags": ("[b]Platform Tags", ""),
-        "assignee": ("[b]Assignee", ""),
-        "severity": ("[b]How bad is it?", ""),
-        "project": ("[b]Project Name", ""),
-        "additional_tags": ("[b]Additional Tags", ""),
-        "logs_to_include": ("[b]Select some logs to include", ""),
-        "impacted_features": ("[b]Impacted Features", ""),
-        "impacted_vendors": ("[b]Impacted Vendors", ""),
-    }
+    elem_id_to_border_title: Mapping[str, tuple[str, str]]
 
     CSS = """
     BugReportScreen {
@@ -139,6 +126,7 @@ class BugReportScreen(Screen[BugReport]):
     CSS_PATH = "styles.tcss"
 
     # inputs that have validators
+    # the keys should appear in elem_id_to_border_title
     validation_status = var(
         {"title": False, "platform_tags": True, "project": False}
     )
@@ -147,6 +135,7 @@ class BugReportScreen(Screen[BugReport]):
         self,
         session: Session,
         job_id: str,
+        submitter: Literal["jira", "lp"],
         existing_report: BugReport | None = None,
         name: str | None = None,
         id: str | None = None,
@@ -156,6 +145,28 @@ class BugReportScreen(Screen[BugReport]):
         self.session = session
         self.job_id = job_id
         self.existing_report = existing_report
+        self.submitter = submitter
+
+        self.elem_id_to_border_title = {
+            "title": (
+                "[b]Bug Title",
+                f"This is the title in {'Jira' if submitter == 'jira' else 'Launchpad'}",
+            ),
+            "description": (
+                "[b]Bug Description",
+                "Include all the details :)",
+            ),
+            "issue_file_time": ("[b]When was this issue filed?", ""),
+            "platform_tags": ("[b]Platform Tags", ""),
+            "assignee": ("[b]Assignee", ""),
+            "severity": ("[b]How bad is it?", ""),
+            "project": ("[b]Project Name", ""),
+            "additional_tags": ("[b]Additional Tags", ""),
+            "logs_to_include": ("[b]Select some logs to include", ""),
+            "impacted_features": ("[b]Impacted Features", ""),
+            "impacted_vendors": ("[b]Impacted Vendors", ""),
+        }
+
         self.machine_info = get_standard_info()  # TODO: make this async
         self.initial_report = {
             "Summary": "",
@@ -279,19 +290,33 @@ class BugReportScreen(Screen[BugReport]):
                     )
                     yield Input(
                         id="additional_tags",
-                        placeholder="Optional, extra Jira/LP tags specific to the project",
+                        placeholder=f"Optional, extra {'Jira' if self.submitter == 'jira' else 'LP'} tags specific to the project",
                         classes="default_box",
                         validators=[ValidSpaceSeparatedTags()],
                     )
                     yield Input(
                         id="assignee",
-                        placeholder="Email for Jira, Launchpad ID for Launchpad",
+                        placeholder=(
+                            "Assignee's Jira Email"
+                            if self.submitter == "jira"
+                            else "Assignee's Launchpad ID"
+                        ),
                         classes="default_box",
+                    )
+
+                    highest_display_name = (
+                        "Highest (Jira)"
+                        if self.submitter == "jira"
+                        else "Critical (LP)"
                     )
                     yield RadioSet(
                         *(
                             RadioButton(
-                                display_name,
+                                (
+                                    highest_display_name
+                                    if severity == "highest"
+                                    else display_name
+                                ),
                                 name=severity,
                                 value=severity
                                 == "highest",  # default to critical
@@ -345,7 +370,7 @@ class BugReportScreen(Screen[BugReport]):
         yield Footer()
 
     def on_mount(self):
-        for elem_id, border_titles in self.ELEM_ID_TO_BORDER_TITLE.items():
+        for elem_id, border_titles in self.elem_id_to_border_title.items():
             elem = self.query_exactly_one(f"#{elem_id}")
             elem.border_title, elem.border_subtitle = border_titles
             # restore existing report
@@ -479,7 +504,7 @@ class BugReportScreen(Screen[BugReport]):
             return
 
         if event.validation_result.is_valid:
-            event.input.border_subtitle = self.ELEM_ID_TO_BORDER_TITLE.get(
+            event.input.border_subtitle = self.elem_id_to_border_title.get(
                 event.input.id, ("", "")
             )[1]
 

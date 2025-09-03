@@ -74,7 +74,10 @@ def get_amdgpu_info() -> str | None:
 
 
 def get_standard_info() -> dict[str, str]:
-    """Gather standard information that should be present in all bugs."""
+    """
+    Gather standard information that should be present in all bugs.
+    This can be very slow so run it asynchronously
+    """
     standard_info: dict[str, str] = {}
 
     build_stamp_paths = [
