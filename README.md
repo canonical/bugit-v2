@@ -131,7 +131,7 @@ This will run some basic formatting checks before allowing a commit. If you don'
 
 If you are using VSCode's git panel, it might show something like this when the hooks didn't pass:
 
-![image](https://github.com/user-attachments/assets/1633d7e4-f8d4-4ffa-9386-9622b17ba8af)
+<img width="1466" height="350" alt="image" src="https://github.com/user-attachments/assets/4c5e91f8-719b-4da8-81c9-5b953f25eb2e" />
 
 This basically says the automatic style fixes were not included. Do another `git add .` and you should be able to commit. If it still doesn't work, then some of the checks actually failed. Do `pre-commit run --all-files` manually and check the output.
 
