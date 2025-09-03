@@ -21,11 +21,6 @@ environment:
 
 apps:
   bugit-v2:
-    # The final command must have this structure for classic confinement
-    # 1. Must run `bin/python3 <python file>` and NOT directly invoking the script.
-    #   Otherwise system python is used and won't have the libs
-    # 2. Anything after the first token must have the $SNAP var in their path
-    # If there are more "apps" later, make sure their command follows this example
     command: bin/python3 $SNAP/src/bugit_v2/app.py
 
   command-existence:
