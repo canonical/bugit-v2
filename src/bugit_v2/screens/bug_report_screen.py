@@ -23,6 +23,7 @@ from textual.widgets import (
     TextArea,
 )
 from textual.widgets.selection_list import Selection
+from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
 from bugit_v2.checkbox_utils import Session
@@ -167,7 +168,6 @@ class BugReportScreen(Screen[BugReport]):
             "impacted_vendors": ("[b]Impacted Vendors", ""),
         }
 
-        self.machine_info = get_standard_info()  # TODO: make this async
         self.initial_report = {
             "Summary": "",
             "Steps to reproduce": "",
@@ -175,13 +175,7 @@ class BugReportScreen(Screen[BugReport]):
             "Actual result": "",
             "Failure rate": "",
             "Affected test cases": job_id,
-            "Additional Information": "\n".join(
-                [
-                    "CID:",
-                    "SKU",
-                    *(f"{k}: {v}" for k, v in self.machine_info.items()),
-                ]
-            ),
+            "Additional Information": "",
         }
 
         job_output = session.get_job_output(job_id)
@@ -229,14 +223,12 @@ class BugReportScreen(Screen[BugReport]):
             with HorizontalGroup():
                 with VerticalGroup(id="bug_report_description"):
                     yield TextArea(
-                        "\n".join(
-                            f"[{k}]\n" + v + ("\n" if v else "")
-                            for k, v in self.initial_report.items()
-                        ),
+                        "Waiting for basic machine info to be collected (30 second timeout)...",
                         classes="default_box",
                         show_line_numbers=True,
                         soft_wrap=False,
                         id="description",
+                        disabled=True,
                     )
                     yield HorizontalGroup(
                         Button(
@@ -256,6 +248,7 @@ class BugReportScreen(Screen[BugReport]):
                             "Save as Text File",
                             id="save_as_text_file",
                             compact=True,
+                            disabled=True,
                             classes="editor_button wa",
                             tooltip="Save the description to the current directory as a .txt file",
                         ),
@@ -362,7 +355,7 @@ class BugReportScreen(Screen[BugReport]):
             )
 
             yield Button(
-                "Bug Report Incomplete (check if bug title or project name is empty)",
+                "Waiting for basic machine info to be collected...",
                 id="submit_button",
                 variant="success",
                 disabled=True,
@@ -423,14 +416,12 @@ class BugReportScreen(Screen[BugReport]):
                 case _:
                     pass
 
-        if "NVIDIA" not in self.machine_info["GPU"]:
-            # disable the nvidia log collector if there's no nvidia card
-            log_selection_list = cast(
-                SelectionList[str],
-                self.query_exactly_one("#logs_to_include", SelectionList),
-            )
-            log_selection_list.remove_option("nvidia-bug-report")
-
+        self.run_worker(
+            get_standard_info,
+            name="get_standard_info",
+            thread=True,
+            exit_on_error=False,  # still allow editing
+        )
         self.query_exactly_one("#title", Input).focus()
 
     @on(Button.Pressed, "#save_as_text_file")
@@ -517,6 +508,48 @@ class BugReportScreen(Screen[BugReport]):
             **self.validation_status,
             event.input.id: event.validation_result.is_valid,
         }
+
+    def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
+        if (
+            not event.worker.is_finished
+            or event.worker.name != "get_standard_info"
+        ):
+            return
+
+        textarea = self.query_exactly_one("#description", TextArea)
+        textarea.disabled = False
+        self.query_exactly_one("#save_as_text_file").disabled = False
+
+        if event.worker.state != WorkerState.SUCCESS:
+            self.notify(
+                title="Failed to collect basic machine info",
+                message=repr(event.worker.error),
+            )
+            return
+
+        # only if basic info collection succeeded
+
+        machine_info = cast(dict[str, str], event.worker.result)
+        self.initial_report["Additional Information"] = "\n".join(
+            [
+                "CID:",
+                "SKU",
+                *(f"{k}: {v}" for k, v in machine_info.items()),
+            ]
+        )
+
+        textarea.text = "\n".join(
+            f"[{k}]\n" + v + ("\n" if v else "")
+            for k, v in self.initial_report.items()
+        )
+
+        if "NVIDIA" not in machine_info["GPU"]:
+            # disable the nvidia log collector if there's no nvidia card
+            log_selection_list = cast(
+                SelectionList[str],
+                self.query_exactly_one("#logs_to_include", SelectionList),
+            )
+            log_selection_list.remove_option("nvidia-bug-report")
 
     def watch_validation_status(self):
         btn = self.query_exactly_one("#submit_button", Button)

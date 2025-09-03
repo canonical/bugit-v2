@@ -1,5 +1,8 @@
 """
 A collection of simple functions that gets various information from the DUT
+
+These are carried over from the original bugit
+https://git.launchpad.net/bugit/tree/bugit/bug_assistant.py
 """
 
 import os
@@ -73,7 +76,7 @@ def get_amdgpu_info() -> str | None:
     return vbios
 
 
-def get_standard_info() -> dict[str, str]:
+def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
     """
     Gather standard information that should be present in all bugs.
     This can be very slow so run it asynchronously
