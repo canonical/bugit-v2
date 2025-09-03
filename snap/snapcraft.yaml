@@ -1,13 +1,15 @@
 name: bugit
 type: app
 base: core22
-grade: devel
+grade: stable
 summary: Cool new bugit
 description: |
   This snap is a fresh new UI for bugit
 version: "0.2.1"
 confinement: devmode # required for ubuntu core to collect logs
+license: GPL-3.0+
 
+# cross builds are significantly faster on launchpad
 architectures:
   - build-on: [amd64]
     build-for: [amd64]
@@ -17,14 +19,20 @@ architectures:
     build-for: [armhf]
 
 environment:
-  COLORTERM: truecolor # required for proper color display
-  SSH_CONNECTION: $SSH_CONNECTION # detects if bugit is run through ssh
-  # Specify the following manually if you are using the pipx version
-  PROD: "1" # remove this to enable debug mode
-  APPORT_LAUNCHPAD_INSTANCE: production # production or qastaging
-  BUGIT_APP_NAME: bugit-v2 # only used for launchpad
+  # required for proper color display
+  COLORTERM: truecolor
+  # detects if bugit is run through ssh
+  SSH_CONNECTION: $SSH_CONNECTION
+  # Specify all the following vars manually if you are using the pipx version
+  # remove this to enable debug mode
+  PROD: "1"
+  # production or qastaging
+  APPORT_LAUNCHPAD_INSTANCE: production
+  # only used for launchpad
+  BUGIT_APP_NAME: bugit-v2
   # change this to the sandbox url for debug mode
   JIRA_SERVER: https://warthogs.atlassian.net
+  # let sosreport and oem-getlogs find their libraries
   PYTHONPATH: "$PYTHONPATH:$SNAP/usr/lib/python3/dist-packages"
 
 apps:
@@ -35,8 +43,7 @@ apps:
     command: usr/bin/oem-getlogs
 
   sosreport:
-    # the patches from the original bugit
-    # doesn't seem to be required anymore
+    # the patches from the original bugit seem to have been merged
     command: usr/bin/sosreport
 
 parts:
