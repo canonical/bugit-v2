@@ -2,7 +2,7 @@ import os
 import time
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Final, cast, final
+from typing import Final, Literal, cast, final
 
 from textual import on, work
 from textual.app import ComposeResult
@@ -23,6 +23,7 @@ from textual.widgets import (
     TextArea,
 )
 from textual.widgets.selection_list import Selection
+from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
 from bugit_v2.checkbox_utils import Session
@@ -83,25 +84,12 @@ class BugReportScreen(Screen[BugReport]):
     session: Final[Session]
     job_id: Final[str]
     initial_report: dict[str, str]
+    submitter: Literal["jira", "lp"]
+
     # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
     # id should match the property name in the BugReport object
     # TODO: rename this, it does more than just holding titles now
-    ELEM_ID_TO_BORDER_TITLE: Final[Mapping[str, tuple[str, str]]] = {
-        "title": ("[b]Bug Title", "This is the title in Jira/Launchpad"),
-        "description": (
-            "[b]Bug Description",
-            "Include all the details :)",
-        ),
-        "issue_file_time": ("[b]When was this issue filed?", ""),
-        "platform_tags": ("[b]Platform Tags", ""),
-        "assignee": ("[b]Assignee", ""),
-        "severity": ("[b]How bad is it?", ""),
-        "project": ("[b]Project Name", ""),
-        "additional_tags": ("[b]Additional Tags", ""),
-        "logs_to_include": ("[b]Select some logs to include", ""),
-        "impacted_features": ("[b]Impacted Features", ""),
-        "impacted_vendors": ("[b]Impacted Vendors", ""),
-    }
+    elem_id_to_border_title: Mapping[str, tuple[str, str]]
 
     CSS = """
     BugReportScreen {
@@ -139,6 +127,7 @@ class BugReportScreen(Screen[BugReport]):
     CSS_PATH = "styles.tcss"
 
     # inputs that have validators
+    # the keys should appear in elem_id_to_border_title
     validation_status = var(
         {"title": False, "platform_tags": True, "project": False}
     )
@@ -147,6 +136,7 @@ class BugReportScreen(Screen[BugReport]):
         self,
         session: Session,
         job_id: str,
+        submitter: Literal["jira", "lp"],
         existing_report: BugReport | None = None,
         name: str | None = None,
         id: str | None = None,
@@ -156,7 +146,28 @@ class BugReportScreen(Screen[BugReport]):
         self.session = session
         self.job_id = job_id
         self.existing_report = existing_report
-        self.machine_info = get_standard_info()  # TODO: make this async
+        self.submitter = submitter
+
+        self.elem_id_to_border_title = {
+            "title": (
+                "[b]Bug Title",
+                f"This is the title in {'Jira' if submitter == 'jira' else 'Launchpad'}",
+            ),
+            "description": (
+                "[b]Bug Description",
+                "Include all the details :)",
+            ),
+            "issue_file_time": ("[b]When was this issue filed?", ""),
+            "platform_tags": ("[b]Platform Tags", ""),
+            "assignee": ("[b]Assignee", ""),
+            "severity": ("[b]How bad is it?", ""),
+            "project": ("[b]Project Name", ""),
+            "additional_tags": ("[b]Additional Tags", ""),
+            "logs_to_include": ("[b]Select some logs to include", ""),
+            "impacted_features": ("[b]Impacted Features", ""),
+            "impacted_vendors": ("[b]Impacted Vendors", ""),
+        }
+
         self.initial_report = {
             "Summary": "",
             "Steps to reproduce": "",
@@ -164,13 +175,7 @@ class BugReportScreen(Screen[BugReport]):
             "Actual result": "",
             "Failure rate": "",
             "Affected test cases": job_id,
-            "Additional Information": "\n".join(
-                [
-                    "CID:",
-                    "SKU",
-                    *(f"{k}: {v}" for k, v in self.machine_info.items()),
-                ]
-            ),
+            "Additional Information": "",
         }
 
         job_output = session.get_job_output(job_id)
@@ -207,7 +212,7 @@ class BugReportScreen(Screen[BugReport]):
             yield Label(f"- Job ID: {self.job_id}")
             yield Label(f"- Test Plan: {self.session.testplan_id}")
 
-        with VerticalScroll(classes="center lrm1"):
+        with VerticalScroll(classes="center"):
             yield Input(
                 placeholder="Short title for this bug",
                 id="title",
@@ -218,14 +223,12 @@ class BugReportScreen(Screen[BugReport]):
             with HorizontalGroup():
                 with VerticalGroup(id="bug_report_description"):
                     yield TextArea(
-                        "\n".join(
-                            f"[{k}]\n" + v + ("\n" if v else "")
-                            for k, v in self.initial_report.items()
-                        ),
+                        "Waiting for basic machine info to be collected (30 second timeout)...",
                         classes="default_box",
                         show_line_numbers=True,
                         soft_wrap=False,
                         id="description",
+                        disabled=True,
                     )
                     yield HorizontalGroup(
                         Button(
@@ -245,6 +248,7 @@ class BugReportScreen(Screen[BugReport]):
                             "Save as Text File",
                             id="save_as_text_file",
                             compact=True,
+                            disabled=True,
                             classes="editor_button wa",
                             tooltip="Save the description to the current directory as a .txt file",
                         ),
@@ -279,19 +283,33 @@ class BugReportScreen(Screen[BugReport]):
                     )
                     yield Input(
                         id="additional_tags",
-                        placeholder="Optional, extra Jira/LP tags specific to the project",
+                        placeholder=f"Optional, extra {'Jira' if self.submitter == 'jira' else 'LP'} tags specific to the project",
                         classes="default_box",
                         validators=[ValidSpaceSeparatedTags()],
                     )
                     yield Input(
                         id="assignee",
-                        placeholder="Email for Jira, Launchpad ID for Launchpad",
+                        placeholder=(
+                            "Assignee's Jira Email"
+                            if self.submitter == "jira"
+                            else "Assignee's Launchpad ID"
+                        ),
                         classes="default_box",
+                    )
+
+                    highest_display_name = (
+                        "Highest (Jira)"
+                        if self.submitter == "jira"
+                        else "Critical (LP)"
                     )
                     yield RadioSet(
                         *(
                             RadioButton(
-                                display_name,
+                                (
+                                    highest_display_name
+                                    if severity == "highest"
+                                    else display_name
+                                ),
                                 name=severity,
                                 value=severity
                                 == "highest",  # default to critical
@@ -337,7 +355,7 @@ class BugReportScreen(Screen[BugReport]):
             )
 
             yield Button(
-                "Bug Report Incomplete (check if bug title or project name is empty)",
+                "Waiting for basic machine info to be collected...",
                 id="submit_button",
                 variant="success",
                 disabled=True,
@@ -345,7 +363,7 @@ class BugReportScreen(Screen[BugReport]):
         yield Footer()
 
     def on_mount(self):
-        for elem_id, border_titles in self.ELEM_ID_TO_BORDER_TITLE.items():
+        for elem_id, border_titles in self.elem_id_to_border_title.items():
             elem = self.query_exactly_one(f"#{elem_id}")
             elem.border_title, elem.border_subtitle = border_titles
             # restore existing report
@@ -398,14 +416,12 @@ class BugReportScreen(Screen[BugReport]):
                 case _:
                     pass
 
-        if "NVIDIA" not in self.machine_info["GPU"]:
-            # disable the nvidia log collector if there's no nvidia card
-            log_selection_list = cast(
-                SelectionList[str],
-                self.query_exactly_one("#logs_to_include", SelectionList),
-            )
-            log_selection_list.remove_option("nvidia-bug-report")
-
+        self.run_worker(
+            get_standard_info,
+            name="get_standard_info",
+            thread=True,
+            exit_on_error=False,  # still allow editing
+        )
         self.query_exactly_one("#title", Input).focus()
 
     @on(Button.Pressed, "#save_as_text_file")
@@ -479,7 +495,7 @@ class BugReportScreen(Screen[BugReport]):
             return
 
         if event.validation_result.is_valid:
-            event.input.border_subtitle = self.ELEM_ID_TO_BORDER_TITLE.get(
+            event.input.border_subtitle = self.elem_id_to_border_title.get(
                 event.input.id, ("", "")
             )[1]
 
@@ -492,6 +508,48 @@ class BugReportScreen(Screen[BugReport]):
             **self.validation_status,
             event.input.id: event.validation_result.is_valid,
         }
+
+    def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
+        if (
+            not event.worker.is_finished
+            or event.worker.name != "get_standard_info"
+        ):
+            return
+
+        textarea = self.query_exactly_one("#description", TextArea)
+        textarea.disabled = False
+        self.query_exactly_one("#save_as_text_file").disabled = False
+
+        if event.worker.state != WorkerState.SUCCESS:
+            self.notify(
+                title="Failed to collect basic machine info",
+                message=repr(event.worker.error),
+            )
+            return
+
+        # only if basic info collection succeeded
+
+        machine_info = cast(dict[str, str], event.worker.result)
+        self.initial_report["Additional Information"] = "\n".join(
+            [
+                "CID:",
+                "SKU",
+                *(f"{k}: {v}" for k, v in machine_info.items()),
+            ]
+        )
+
+        textarea.text = "\n".join(
+            f"[{k}]\n" + v + ("\n" if v else "")
+            for k, v in self.initial_report.items()
+        )
+
+        if "NVIDIA" not in machine_info["GPU"]:
+            # disable the nvidia log collector if there's no nvidia card
+            log_selection_list = cast(
+                SelectionList[str],
+                self.query_exactly_one("#logs_to_include", SelectionList),
+            )
+            log_selection_list.remove_option("nvidia-bug-report")
 
     def watch_validation_status(self):
         btn = self.query_exactly_one("#submit_button", Button)

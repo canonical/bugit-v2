@@ -1,5 +1,8 @@
 """
 A collection of simple functions that gets various information from the DUT
+
+These are carried over from the original bugit
+https://git.launchpad.net/bugit/tree/bugit/bug_assistant.py
 """
 
 import os
@@ -73,8 +76,11 @@ def get_amdgpu_info() -> str | None:
     return vbios
 
 
-def get_standard_info() -> dict[str, str]:
-    """Gather standard information that should be present in all bugs."""
+def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
+    """
+    Gather standard information that should be present in all bugs.
+    This can be very slow so run it asynchronously
+    """
     standard_info: dict[str, str] = {}
 
     build_stamp_paths = [
@@ -84,7 +90,9 @@ def get_standard_info() -> dict[str, str]:
     ]
     for path in build_stamp_paths:
         if os.path.isfile(path):
-            log = sp.check_output(["tail", "-n", "1", path], text=True).strip()
+            log = sp.check_output(
+                ["tail", "-n", "1", path], text=True, timeout=command_timeout
+            ).strip()
             standard_info["Image"] = log
             break
 
@@ -98,11 +106,15 @@ def get_standard_info() -> dict[str, str]:
     ):
         standard_info[
             " ".join(word.capitalize() for word in dmi_value.split("-"))
-        ] = sp.check_output(["dmidecode", "-s", dmi_value], text=True).strip()
+        ] = sp.check_output(
+            ["dmidecode", "-s", dmi_value], text=True, timeout=command_timeout
+        ).strip()
 
     standard_info["CPU"] = get_cpu_info()
 
-    lspci_log = sp.check_output(["lspci", "-nn"], text=True).strip()
+    lspci_log = sp.check_output(
+        ["lspci", "-nn"], text=True, timeout=command_timeout
+    ).strip()
     lspci_output = lspci_log.splitlines()
     # '03' is the PCI class for display controllers
     standard_info["GPU"] = "\n".join(
@@ -111,7 +123,11 @@ def get_standard_info() -> dict[str, str]:
 
     if "NVIDIA" in standard_info["GPU"] and shutil.which("nvidia-smi"):
         nvidia_err = "Cannot capture driver or VBIOS version"
-        nvidia_log = sp.run(["nvidia-smi", "-q"], check=False, text=True)
+        nvidia_log = sp.run(
+            ["nvidia-smi", "-q"],
+            text=True,
+            timeout=command_timeout,
+        )
 
         if nvidia_log.returncode == 0:
             if (
@@ -144,7 +160,7 @@ def get_standard_info() -> dict[str, str]:
             standard_info["amd-vbios"] = "Cannot capture VBIOS version"
 
     standard_info["Kernel Version"] = sp.check_output(
-        ["uname", "-r"], text=True
+        ["uname", "-r"], text=True, timeout=command_timeout
     ).strip()
 
     return standard_info

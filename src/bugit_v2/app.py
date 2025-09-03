@@ -1,4 +1,5 @@
 import os
+import subprocess as sp
 from dataclasses import dataclass
 from typing import Any, Literal, final
 
@@ -63,6 +64,7 @@ class AppArgs:
 @final
 class BugitApp(App[None]):
     state = var(AppState())
+    args: AppArgs
     # Any doesn't matter here
     submitter_class: type[
         BugReportSubmitter[Any, Any]  # pyright: ignore[reportExplicitAny]
@@ -136,6 +138,7 @@ class BugitApp(App[None]):
                 BugReportScreen(
                     self.state.session,
                     self.state.job_id,
+                    self.args.submitter,
                     self.bug_report_backup,
                 ),
                 lambda bug_report: _write_state(
@@ -209,7 +212,34 @@ def jira_mode():
     app.run()
 
 
+def bugit_is_in_devmode() -> bool:
+    # technically bugit won't even install if --devmode is not specified
+    # because of the sudoer hook
+    # but it's possible to go from devmode (with sudoer hook succeeded)
+    # into strict mode and this check will kick in
+    try:
+        snap_list = sp.check_output(
+            ["snap", "list"], text=True
+        )  # do not use snap info, it needs the internet
+    except PermissionError:
+        return False  # can't call the snap command in strict confinement
+
+    for line in snap_list.splitlines():
+        if "bugit" in line and "devmode" in line:
+            return True
+
+    return False
+
+
 if __name__ == "__main__":
     if os.getuid() != 0:
-        raise SystemExit("Please run this app with `sudo bugit-v2`")
+        raise SystemExit(
+            "Please run this app with \033[4msudo bugit-v2\033[0m"
+        )
+
+    if "SNAP" in os.environ and not bugit_is_in_devmode():
+        raise SystemExit(
+            "Bugit is not installed in devmode. Please reinstall with --devmode specified."
+        )
+
     cli_app(prog_name="bugit-v2")
