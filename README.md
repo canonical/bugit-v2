@@ -25,10 +25,15 @@ To see more about textual itself, [check out their docs](https://textual.textual
 
 #### Snap store
 
+Use the edge channel for the latest commit on the main branch
 `sudo snap install bugit --edge --devmode`
 
-Run the app with `sudo bugit.bugit-v2 jira` or `sudo bugit.bugit-v2 lp`
+Or use the beta channel for point version releases
+`sudo snap install bugit --beta --devmode`
 
+The `stable` channel is reserved for the original bugit at the moment
+
+Run the app with `sudo bugit.bugit-v2 jira` or `sudo bugit.bugit-v2 lp`
 
 #### Local Snap
 
