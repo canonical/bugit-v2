@@ -6,7 +6,7 @@ summary: Cool new bugit
 description: |
   This snap is a fresh new UI for bugit
 version: "0.2"
-confinement: strict # required for ubuntu core to collect logs
+confinement: devmode # required for ubuntu core to collect logs
 
 environment:
   COLORTERM: truecolor # required for proper color display
