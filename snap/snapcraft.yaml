@@ -23,9 +23,6 @@ apps:
   bugit-v2:
     command: bin/python3 $SNAP/src/bugit_v2/app.py
 
-  command-existence:
-    command: bin/python3 $SNAP/src/bugit_v2/check_command_existence.py
-
   oem-getlogs:
     command: usr/bin/oem-getlogs
 
