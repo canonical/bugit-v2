@@ -1,4 +1,5 @@
 import os
+import subprocess as sp
 from dataclasses import dataclass
 from typing import Any, Literal, final
 
@@ -211,7 +212,27 @@ def jira_mode():
     app.run()
 
 
+def bugit_is_in_devmode() -> bool:
+    snap_list = sp.check_output(
+        ["snap", "list"], text=True
+    )  # do not use snap info, it needs the internet
+
+    for line in snap_list.splitlines():
+        if "bugit" in line and "devmode" in line:
+            return True
+
+    return False
+
+
 if __name__ == "__main__":
     if os.getuid() != 0:
-        raise SystemExit("Please run this app with `sudo bugit-v2`")
+        raise SystemExit(
+            "Please run this app with \033[1msudo bugit-v2\033[0m"
+        )
+
+    if "SNAP" in os.environ and not bugit_is_in_devmode():
+        raise SystemExit(
+            "Bugit is not installed in devmode. Please reinstall with --devmode specified."
+        )
+
     cli_app(prog_name="bugit-v2")
