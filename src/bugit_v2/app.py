@@ -213,6 +213,10 @@ def jira_mode():
 
 
 def bugit_is_in_devmode() -> bool:
+    # technically bugit won't even install if --devmode is not specified
+    # because of the sudoer hook
+    # but it's possible to go from devmode (with sudoer hook succeeded)
+    # into strict mode and this check will kick in
     try:
         snap_list = sp.check_output(
             ["snap", "list"], text=True
