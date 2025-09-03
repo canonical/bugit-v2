@@ -213,9 +213,12 @@ def jira_mode():
 
 
 def bugit_is_in_devmode() -> bool:
-    snap_list = sp.check_output(
-        ["snap", "list"], text=True
-    )  # do not use snap info, it needs the internet
+    try:
+        snap_list = sp.check_output(
+            ["snap", "list"], text=True
+        )  # do not use snap info, it needs the internet
+    except PermissionError:
+        return False  # can't call the snap command in strict confinement
 
     for line in snap_list.splitlines():
         if "bugit" in line and "devmode" in line:
@@ -227,7 +230,7 @@ def bugit_is_in_devmode() -> bool:
 if __name__ == "__main__":
     if os.getuid() != 0:
         raise SystemExit(
-            "Please run this app with \033[1msudo bugit-v2\033[0m"
+            "Please run this app with \033[4msudo bugit-v2\033[0m"
         )
 
     if "SNAP" in os.environ and not bugit_is_in_devmode():
