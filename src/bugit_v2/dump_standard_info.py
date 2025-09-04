@@ -19,13 +19,13 @@ app = Typer(
 )
 
 
-@app.command("json")
+@app.command("json", help="Print the info in JSON format")
 def print_json():
     info = get_standard_info()
     print(json.dumps(info))
 
 
-@app.command("pretty")
+@app.command("pretty", help="Print the info in a human-friendly format")
 def print_text():
     info = get_standard_info()
     for k, v in info.items():
