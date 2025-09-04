@@ -42,6 +42,7 @@ environment:
 apps:
   bugit-v2:
     command: bin/python3 $SNAP/src/bugit_v2/app.py
+    completer: src/bugit_v2/bugit-completer2.sh
 
   dump-standard-info:
     # redirect stderr to suppress errors

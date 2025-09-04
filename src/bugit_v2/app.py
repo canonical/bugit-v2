@@ -37,7 +37,6 @@ cli_app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
     pretty_exceptions_enable=not is_prod(),
     pretty_exceptions_show_locals=not is_prod(),
-    add_completion=False,
 )
 
 
@@ -203,16 +202,17 @@ class BugitApp(App[None]):
 
 @cli_app.command("lp", help="Submit a bug to Launchpad")
 def launchpad_mode():
+    before_entry_check()
     app = BugitApp(AppArgs("lp"))
     app.run()
 
 
 @cli_app.command("jira", help="Submit a bug to Jira")
 def jira_mode():
+    before_entry_check()
     app = BugitApp(AppArgs("jira"))
     app.run()
 
 
 if __name__ == "__main__":
-    before_entry_check()
     cli_app(prog_name="bugit-v2")
