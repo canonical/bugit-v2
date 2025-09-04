@@ -97,7 +97,7 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
             break
 
     if "Image" not in standard_info:
-        print("WARNING: Failed to get build stamp")
+        standard_info["Image"] = "Failed to get build stamp"
 
     for dmi_value in (
         "system-manufacturer",
