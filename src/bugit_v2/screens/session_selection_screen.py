@@ -28,7 +28,7 @@ class SessionSelectionScreen(Screen[Path]):
 
     @override
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield Header(icon="〇")
         with Vertical(classes="w100 h100 center", id="after_load_container"):
             if len(self.session_dirs) > 0:
                 yield Label("[b][$primary]Select a Session")

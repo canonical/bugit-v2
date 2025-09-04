@@ -195,7 +195,7 @@ class BugitApp(App[None]):
 
     @override
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield Header(icon="〇")
         yield LoadingIndicator()
         yield Footer()
 

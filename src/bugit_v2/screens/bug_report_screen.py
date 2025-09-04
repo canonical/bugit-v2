@@ -201,7 +201,7 @@ class BugReportScreen(Screen[BugReport]):
 
     @override
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield Header(icon="〇")
         with Collapsible(
             title="[bold]Bug Report for...[/bold]",
             collapsed=False,
