@@ -9,7 +9,7 @@ grade: stable
 summary: Cool new bugit
 description: |
   This snap is a fresh new UI for bugit
-version: "0.2.1"
+version: "0.2.2"
 confinement: devmode # required for ubuntu core to collect logs
 license: GPL-3.0+
 
@@ -42,6 +42,7 @@ environment:
 apps:
   bugit-v2:
     command: bin/python3 $SNAP/src/bugit_v2/app.py
+    completer: src/bugit_v2/bugit-completer.sh
 
   dump-standard-info:
     # redirect stderr to suppress errors
