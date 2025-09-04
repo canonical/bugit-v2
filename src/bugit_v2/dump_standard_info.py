@@ -15,6 +15,7 @@ app = Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
     pretty_exceptions_enable=not is_prod(),
     pretty_exceptions_show_locals=not is_prod(),
+    add_completion=False,  # the built-in ones doesn't work in snap
 )
 
 
@@ -33,4 +34,4 @@ def print_text():
 
 if __name__ == "__main__":
     before_entry_check()
-    app()
+    app(prog_name="dump_standard_info")

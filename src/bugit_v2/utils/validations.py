@@ -28,9 +28,7 @@ def before_entry_check():
     :raises SystemExit: Not installed with --devmode
     """
     if os.getuid() != 0:
-        raise SystemExit(
-            "Please run this app with \033[4msudo bugit-v2\033[0m"
-        )
+        raise SystemExit("Please run this app with \033[4msudo\033[0m")
 
     if "SNAP" in os.environ and not bugit_is_in_devmode():
         raise SystemExit(
