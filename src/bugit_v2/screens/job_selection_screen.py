@@ -51,7 +51,7 @@ class JobSelectionScreen(Screen[str]):
     @override
     def compose(self) -> ComposeResult:
         with VerticalGroup(classes="dt"):
-            yield Header()
+            yield Header(icon="〇")
             yield Label(
                 (
                     "[bold][$primary]Select a job in [$secondary]"
