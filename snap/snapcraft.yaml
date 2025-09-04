@@ -43,6 +43,10 @@ apps:
   bugit-v2:
     command: bin/python3 $SNAP/src/bugit_v2/app.py
 
+  dump-standard-info:
+    # redirect stderr to suppress errors
+    command: bin/python3 $SNAP/src/bugit_v2/dump_standard_info.py
+
   oem-getlogs:
     command: usr/bin/oem-getlogs
 

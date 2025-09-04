@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess as sp
 from collections import Counter
+from sys import stderr
 
 
 def get_cpu_info() -> str:
@@ -97,7 +98,7 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
             break
 
     if "Image" not in standard_info:
-        print("WARNING: Failed to get build stamp")
+        print("WARNING: Failed to get build stamp", file=stderr)
 
     for dmi_value in (
         "system-manufacturer",
