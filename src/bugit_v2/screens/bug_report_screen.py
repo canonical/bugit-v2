@@ -83,6 +83,7 @@ class NonEmpty(Validator):
 class BugReportScreen(Screen[BugReport]):
     session: Final[Session]
     job_id: Final[str]
+    existing_report: Final[BugReport | None]
     initial_report: dict[str, str]
     submitter: Literal["jira", "lp"]
 
