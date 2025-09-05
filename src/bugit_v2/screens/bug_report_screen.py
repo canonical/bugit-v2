@@ -320,13 +320,16 @@ class BugReportScreen(Screen[BugReport]):
                         id="severity",
                         classes="default_box",
                     )
-                    yield SelectionList[str](
+                    yield SelectionList[LogName](
                         *(
-                            Selection(
+                            Selection[LogName](
                                 collector.display_name,
                                 collector.name,
                                 collector.collect_by_default,
                                 id=collector.name,
+                                # disable nvidia collector
+                                # unless get_standard_info finds an nvidia card
+                                disabled=collector.name == "nvidia-bug-report",
                             )
                             for collector in sorted(
                                 LOG_NAME_TO_COLLECTOR.values(),
@@ -387,6 +390,12 @@ class BugReportScreen(Screen[BugReport]):
                 case TextArea():
                     elem.text = self.existing_report.get_with_type(
                         elem_id, str
+                    )
+                    # don't wait for the info collector, immediately enable
+                    # and allow editing
+                    elem.disabled = False
+                    self.query_exactly_one("#save_as_text_file").disabled = (
+                        False
                     )
                 case RadioSet():
                     selected_name = self.existing_report.get_with_type(
@@ -546,12 +555,17 @@ class BugReportScreen(Screen[BugReport]):
                 for k, v in self.initial_report.items()
             )
 
-        if "NVIDIA" not in machine_info["GPU"]:
+        log_selection_list = cast(
+            SelectionList[LogName],
+            self.query_exactly_one("#logs_to_include", SelectionList),
+        )
+        # do not directly query the option by id, they don't exist in the DOM
+        if "NVIDIA" in machine_info["GPU"]:
+            # include nvidia logs by default IF we actually have it
+            log_selection_list.enable_option("nvidia-bug-report")
+            log_selection_list.select("nvidia-bug-report")
+        else:
             # disable the nvidia log collector if there's no nvidia card
-            log_selection_list = cast(
-                SelectionList[str],
-                self.query_exactly_one("#logs_to_include", SelectionList),
-            )
             log_selection_list.remove_option("nvidia-bug-report")
 
     def watch_validation_status(self):

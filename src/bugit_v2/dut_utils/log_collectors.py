@@ -194,6 +194,7 @@ real_collectors: Sequence[LogCollector] = (
         "nvidia-bug-report",
         nvidia_bug_report,
         "NVIDIA Bug Report",
+        False,
         manual_collection_command="nvidia-bug-report.sh --extra-system-data",
     ),
 )
