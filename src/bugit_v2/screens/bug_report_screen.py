@@ -538,10 +538,12 @@ class BugReportScreen(Screen[BugReport]):
             ]
         )
 
-        textarea.text = "\n".join(
-            f"[{k}]\n" + v + ("\n" if v else "")
-            for k, v in self.initial_report.items()
-        )
+        if self.existing_report is None:
+            # only overwrite the textarea if there's no existing report
+            textarea.text = "\n".join(
+                f"[{k}]\n" + v + ("\n" if v else "")
+                for k, v in self.initial_report.items()
+            )
 
         if "NVIDIA" not in machine_info["GPU"]:
             # disable the nvidia log collector if there's no nvidia card
