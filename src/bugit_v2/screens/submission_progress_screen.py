@@ -297,14 +297,15 @@ class SubmissionProgressScreen(
         ]
         if len(running_collectors) > 0:
             self.log_widget.write(
-                f"Finished bug creation. Waiting for these {len(running_collectors)} log collectors to finish"
+                f"Finished bug creation. Waiting for {len(running_collectors)} log collector(s) to finish"
             )
             for c in running_collectors:
                 if c.name in LOG_NAME_TO_COLLECTOR:
+                    display_name = LOG_NAME_TO_COLLECTOR[
+                        c.name  # pyright can't infer this yet
+                    ].display_name  # pyright: ignore[reportArgumentType]
                     self.log_widget.write(
-                        LOG_NAME_TO_COLLECTOR[
-                            c.name  # pyright can't infer this yet
-                        ].display_name  # pyright: ignore[reportArgumentType]
+                        f"- {display_name}",
                     )
         else:
             self.log_widget.write(
