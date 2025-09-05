@@ -1,10 +1,10 @@
 import os
 import shutil
+import time
 from pathlib import Path
 from tempfile import mkdtemp
 from typing import Final, Generic, Literal, TypeVar, final
 
-from rich.pretty import Pretty
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Center, HorizontalGroup, VerticalGroup
@@ -83,6 +83,7 @@ class SubmissionProgressScreen(
         self.attachment_dir = Path(mkdtemp()).expanduser().absolute()
         self.attachment_workers = {}
         self.upload_workers = {}
+        self.progress_start_time = time.time()  # doesn't have to precise
 
         super().__init__(name, id, classes)
 
@@ -150,19 +151,38 @@ class SubmissionProgressScreen(
                     if rv and rv.strip():
                         # only show non-empty, non-null messages
                         self.log_widget.write(
-                            f"[green]OK![/green] [b]{collector.display_name}[/b]: {rv.strip()}"
+                            " ".join(
+                                [
+                                    self._time_str(),
+                                    "[green]OK[/]",
+                                    f"[b]{collector.display_name}[/b]:",
+                                    rv.strip(),
+                                ]
+                            )
                         )
                     else:
                         self.log_widget.write(
-                            f"[green]OK![/green] [b]{collector.display_name}[/b]: finished collection!"
+                            " ".join(
+                                [
+                                    self._time_str(),
+                                    "[green]OK[/]",
+                                    f"[b]{collector.display_name}[/b]:",
+                                    "Finished collection!",
+                                ]
+                            )
                         )
                 except Exception as e:
                     if not self.log_widget:
                         return
                     self.log_widget.write(
-                        f"[red]FAILED![/red] {collector.display_name} failed!"
+                        " ".join(
+                            [
+                                self._time_str(),
+                                f"[red]FAIL[/red] {collector.display_name} failed:",
+                                repr(e),
+                            ]
+                        )
                     )
-                    self.log_widget.write(Pretty(e))
                     if collector.manual_collection_command:
                         self.log_widget.write(
                             f"You can rerun [blue]{collector.display_name}[/] "
@@ -182,7 +202,9 @@ class SubmissionProgressScreen(
             )
 
             display_name = LOG_NAME_TO_COLLECTOR[log_name].display_name
-            self.log_widget.write(f"Launched collector: {display_name}!")
+            self.log_widget.write(
+                f"{self._time_str()} Launched collector: {display_name}!"
+            )
 
     def start_parallel_attachment_upload(self) -> None:
         assert self.log_widget
@@ -199,19 +221,18 @@ class SubmissionProgressScreen(
                     if rv and rv.strip():
                         # only show non-empty, non-null messages
                         self.log_widget.write(
-                            f"[green]OK![/green] [b]Uploaded {f}[/b]: {rv.strip()}"
+                            f"{self._time_str()} [green]OK[/] [b]Uploaded {f}[/]: {rv.strip()}"
                         )
                     else:
                         self.log_widget.write(
-                            f"[green]OK![/green] [b]Uploaded {f}[/b]"
+                            f"{self._time_str()} [green]OK[/] [b]Uploaded {f}[/b]"
                         )
                 except Exception as e:
                     if not self.log_widget:
                         return
                     self.log_widget.write(
-                        f"[red]FAILED![/red] failed to upload {f}"
+                        f"{self._time_str()} [red]FAIL[/red] failed to upload {f}: {repr(e)}"
                     )
-                    self.log_widget.write(Pretty(e))
                     raise e  # mark the worker as failed
                 finally:
                     progress_bar.advance()
@@ -225,7 +246,7 @@ class SubmissionProgressScreen(
                 exit_on_error=False,  # hold onto the err, don't crash
             )
 
-            self.log_widget.write(f"Uploading: {file_name}")
+            self.log_widget.write(f"{self._time_str()} Uploading: {file_name}")
 
     def start_sequential_attachment_upload(self) -> None:
         assert self.log_widget
@@ -235,7 +256,9 @@ class SubmissionProgressScreen(
             for f in self.attachment_dir.iterdir():
                 try:
                     if self.log_widget:
-                        self.log_widget.write(f"Uploading: {f}")
+                        self.log_widget.write(
+                            f"{self._time_str()} Uploading: {f}"
+                        )
 
                     rv = self.submitter.upload_attachment(f)
 
@@ -245,19 +268,18 @@ class SubmissionProgressScreen(
                     if rv and rv.strip():
                         # only show non-empty, non-null messages
                         self.log_widget.write(
-                            f"[green]OK![/green] [b]Uploaded {f}[/b]: {rv.strip()}"
+                            f"{self._time_str()} [green]OK[/] [b]Uploaded {f}[/]: {rv.strip()}"
                         )
                     else:
                         self.log_widget.write(
-                            f"[green]OK![/green] [b]Uploaded {f}[/b]"
+                            f"{self._time_str()} [green]OK[/] [b]Uploaded {f}[/b]"
                         )
                 except Exception as e:
                     if not self.log_widget:
                         return
                     self.log_widget.write(
-                        f"[red]FAILED![/red] failed to upload {f}"
+                        f"{self._time_str()} [red]FAIL[/red] failed to upload {f}: {repr(e)}"
                     )
-                    self.log_widget.write(Pretty(e))
                     raise e  # mark the worker as failed
                 finally:
                     progress_bar.advance()
@@ -282,26 +304,34 @@ class SubmissionProgressScreen(
                 case str():
                     # general logs
                     self.log_widget.write(
-                        f"[b]{display_name}[/b]: {step_result}"
+                        f"{self._time_str()} [b]{display_name}[/b]: {step_result}"
                     )
                 case AdvanceMessage():
                     # messages that will advance the progress bar
                     self.log_widget.write(
-                        f"[green]OK![/green] [b]{display_name}[/b]: "
+                        f"{self._time_str()} [green]OK[/] [b]{display_name}[/b]: "
                         + step_result.message
                     )
                     progress_bar.advance()
 
-        num_running_collectors = sum(
-            1 for w in self.attachment_workers.values() if w.is_running
-        )
-        if num_running_collectors > 0:
+        running_collectors = [
+            w for w in self.attachment_workers.values() if w.is_running
+        ]
+        if len(running_collectors) > 0:
             self.log_widget.write(
-                f"Finished bug creation. Waiting for {num_running_collectors} log collectors to finish"
+                f"{self._time_str()} Finished bug creation. Waiting for {len(running_collectors)} log collector(s) to finish"
             )
+            for c in running_collectors:
+                if c.name in LOG_NAME_TO_COLLECTOR:
+                    display_name = LOG_NAME_TO_COLLECTOR[
+                        c.name  # pyright can't infer this yet
+                    ].display_name  # pyright: ignore[reportArgumentType]
+                    self.log_widget.write(
+                        f"- {display_name}",
+                    )
         else:
             self.log_widget.write(
-                "Finished bug creation, starting to upload attachments..."
+                f"{self._time_str()} Finished bug creation, starting to upload attachments..."
             )
 
     def is_finished(self) -> bool:
@@ -483,3 +513,9 @@ class SubmissionProgressScreen(
                         yield Button("Quit", id="quit")
 
             yield Footer()
+
+    def _time_str(self) -> str:
+        # 999 seconds is about 2 hours
+        # should be enough digits
+        s = f"{round(time.time() - self.progress_start_time, 1)}".rjust(6)
+        return f"[grey70][ {s} ][/]"
