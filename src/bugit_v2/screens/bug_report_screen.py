@@ -418,7 +418,7 @@ class BugReportScreen(Screen[BugReport]):
 
         self.run_worker(
             get_standard_info,
-            name="get_standard_info",
+            name=get_standard_info.__name__,
             thread=True,
             exit_on_error=False,  # still allow editing
         )
@@ -512,7 +512,7 @@ class BugReportScreen(Screen[BugReport]):
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         if (
             not event.worker.is_finished
-            or event.worker.name != "get_standard_info"
+            or event.worker.name != get_standard_info.__name__
         ):
             return
 
