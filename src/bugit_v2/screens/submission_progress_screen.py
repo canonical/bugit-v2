@@ -292,13 +292,20 @@ class SubmissionProgressScreen(
                     )
                     progress_bar.advance()
 
-        num_running_collectors = sum(
-            1 for w in self.attachment_workers.values() if w.is_running
-        )
-        if num_running_collectors > 0:
+        running_collectors = [
+            w for w in self.attachment_workers.values() if w.is_running
+        ]
+        if len(running_collectors) > 0:
             self.log_widget.write(
-                f"Finished bug creation. Waiting for {num_running_collectors} log collectors to finish"
+                f"Finished bug creation. Waiting for these {len(running_collectors)} log collectors to finish"
             )
+            for c in running_collectors:
+                if c.name in LOG_NAME_TO_COLLECTOR:
+                    self.log_widget.write(
+                        LOG_NAME_TO_COLLECTOR[
+                            c.name  # pyright can't infer this yet
+                        ].display_name  # pyright: ignore[reportArgumentType]
+                    )
         else:
             self.log_widget.write(
                 "Finished bug creation, starting to upload attachments..."
