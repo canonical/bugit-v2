@@ -95,11 +95,11 @@ def acpidump(target_dir: Path, _: BugReport) -> str:
 
 
 def dmesg_of_current_boot(target_dir: Path, _: BugReport) -> str:
-    with open("/proc/sys/kernel/random/boot_id") as b:
-        boot_id = b.read().strip().replace("-", "")
-        with open(target_dir / f"dmesg-{boot_id}.log") as f:
+    with open("/proc/sys/kernel/random/boot_id") as boot_id_file:
+        boot_id = boot_id_file.read().strip().replace("-", "")
+        with open(target_dir / f"dmesg-{boot_id}.log", "w") as f:
             sp.check_call(["dmesg"], stdout=f, stderr=sp.DEVNULL, text=True)
-            return f"Saved dmesg logs of boot {b}"
+            return f"Saved dmesg logs of boot {boot_id} to {f.name}"
 
 
 mock_collectors: Sequence[LogCollector] = (
