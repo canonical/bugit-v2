@@ -87,3 +87,8 @@ parts:
     plugin: nil
     stage-packages:
       - sosreport
+
+  inxi:
+    plugin: nil
+    stage-packages:
+      - inxi
