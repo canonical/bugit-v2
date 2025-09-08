@@ -105,7 +105,10 @@ def dmesg_of_current_boot(target_dir: Path, _: BugReport) -> str:
 def inxi(target_dir: Path, _: BugReport) -> str:
     with open(target_dir / "inxi-dump.txt", "w") as f:
         sp.check_call(
-            ["inxi", "-ACDEGJLMNSxm"], stdout=f, stderr=sp.DEVNULL, text=True
+            ["inxi", "--tty", "-ACDEGJLMNSxm"],
+            stdout=f,
+            stderr=sp.DEVNULL,
+            text=True,
         )
         return f"Saved inxi dump  to {f.name}"
 

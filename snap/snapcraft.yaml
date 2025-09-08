@@ -105,3 +105,4 @@ parts:
     plugin: nil
     stage-packages:
       - inxi
+      - mesa-utils # for inxi's graphics report
