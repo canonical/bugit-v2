@@ -45,6 +45,7 @@ class SubmissionProgressScreen(
     attachment_workers: dict[str, Worker[str | None]]
     upload_workers: dict[str, Worker[str | None]]
     bug_creation_worker: Worker[None] | None = None
+    progress_start_time: float
 
     attachment_dir: Path
     log_widget: RichLog | None = None  # late init in on_mount
@@ -114,6 +115,9 @@ class SubmissionProgressScreen(
                         True,  # if it was saved before,
                         # then allow_cache_credentials is definitely true
                     )
+                # overwrite the old one to avoid counting the time waiting
+                # for the auth modal
+                self.progress_start_time = time.time()
             except AssertionError:
                 self.dismiss("report_editor")
 
