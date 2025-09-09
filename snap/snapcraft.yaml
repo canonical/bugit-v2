@@ -12,8 +12,6 @@ description: |
 version: "0.2.3"
 confinement: devmode # required for ubuntu core to collect logs
 license: GPL-3.0+
-assumes:
-  - command-chain
 
 # cross builds are significantly faster on launchpad
 architectures:
