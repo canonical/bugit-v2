@@ -84,6 +84,7 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
             yield Label(
                 "https://id.atlassian.com/manage-profile/security/api-tokens"
             )
+            yield Label("Use Ctrl+Shift+V to paste into the textbox")
             yield Checkbox(
                 "Cache valid credentials until next boot",
                 tooltip=(
