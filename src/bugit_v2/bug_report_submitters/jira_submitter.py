@@ -84,7 +84,6 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
             yield Label(
                 "https://id.atlassian.com/manage-profile/security/api-tokens"
             )
-            yield Label("Use Ctrl+Shift+V to paste into the textbox")
             yield Checkbox(
                 "Cache valid credentials until next boot",
                 tooltip=(
@@ -102,8 +101,18 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
         self.query_exactly_one("#top_level_container").border_title = (
             "Jira Authentication"
         )
-        self.query_exactly_one("#email").border_title = "Email"
-        self.query_exactly_one("#token").border_title = "Jira Access Token"
+
+        email_input = self.query_exactly_one("#email")
+        email_input.border_title = "Email"
+        email_input.border_subtitle = (
+            "Use Ctrl+Shift+V to paste into the textbox"
+        )
+
+        token_input = self.query_exactly_one("#token")
+        token_input.border_title = "Jira Access Token"
+        token_input.border_subtitle = (
+            "Use Ctrl+Shift+V to paste into the textbox"
+        )
 
     @on(Input.Blurred)
     @on(Input.Changed)
