@@ -543,7 +543,7 @@ class BugReportScreen(Screen[BugReport]):
         self.initial_report["Additional Information"] = "\n".join(
             [
                 "CID:",
-                "SKU",
+                "SKU:",
                 *(f"{k}: {v}" for k, v in machine_info.items()),
             ]
         )
