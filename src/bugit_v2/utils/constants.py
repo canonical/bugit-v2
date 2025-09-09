@@ -1,3 +1,4 @@
+import enum
 from collections.abc import Mapping
 
 FEATURE_MAP: Mapping[str, tuple[str, ...]] = {
@@ -69,3 +70,13 @@ VENDOR_MAP: Mapping[str, tuple[str, ...]] = {
     "Telegesis": ("ihv-telegesis",),
     "Telit": ("ihv-telit",),
 }
+
+
+class NullSelection(enum.Enum):
+    """
+    Represent an explicit selection of "No Session" and "No Job" in
+    the selection screens
+    """
+
+    NO_SESSION = enum.auto()
+    NO_JOB = enum.auto()

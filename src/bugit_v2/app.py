@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal, final
 
 import typer
@@ -31,6 +32,7 @@ from bugit_v2.screens.submission_progress_screen import (
     SubmissionProgressScreen,
 )
 from bugit_v2.utils import is_prod
+from bugit_v2.utils.constants import NullSelection
 from bugit_v2.utils.validations import before_entry_check
 
 cli_app = typer.Typer(
@@ -51,8 +53,8 @@ class AppState:
     - All non-null: submission in progress
     """
 
-    session: Session | None = None
-    job_id: str | None = None
+    session: Session | Literal[NullSelection.NO_SESSION] | None = None
+    job_id: str | Literal[NullSelection.NO_JOB] | None = None
     bug_report: BugReport | None = None
 
 
@@ -121,11 +123,16 @@ class BugitApp(App[None]):
 
         match self.state:
             case AppState(session=None, job_id=None, bug_report=None):
-                self.push_screen(
-                    SessionSelectionScreen(),
-                    lambda session_path: session_path
-                    and _write_state(AppState(Session(session_path))),
-                )
+
+                def callback(
+                    screen_rv: Path | Literal[NullSelection.NO_SESSION] | None,
+                ):
+                    if isinstance(screen_rv, Path):
+                        self.state = AppState(Session(screen_rv))
+                    else:
+                        self.state = AppState(screen_rv)
+
+                self.push_screen(SessionSelectionScreen(), callback)
             case AppState(session=s, job_id=None, bug_report=None) if s:
                 self.push_screen(
                     JobSelectionScreen(s),
