@@ -215,10 +215,15 @@ class BugReportScreen(Screen[BugReport]):
             classes="nb",
             id="bug_report_metadata_header",
         ):
-            # stick to the top
-            yield Label(f"- Job ID: {self.job_id}")
-            if self.session != NullSelection.NO_SESSION:
+            if self.session == NullSelection.NO_SESSION:
+                yield Label("- No session selected")
+            else:
                 yield Label(f"- Test Plan: {self.session.testplan_id}")
+
+            if self.job_id == NullSelection.NO_JOB:
+                yield Label("- No job selected")
+            else:
+                yield Label(f"- Job ID: {self.job_id}")
 
         with VerticalScroll(classes="center"):
             yield Input(
