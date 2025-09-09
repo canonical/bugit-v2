@@ -138,33 +138,14 @@ class BugitApp(App[None]):
                 # selected a normal session, should go to job selection
                 self.push_screen(
                     JobSelectionScreen(session),
-                    lambda job_id: _write_state(
-                        AppState(self.state.session, job_id)
-                    ),
+                    lambda job_id: _write_state(AppState(session, job_id)),
                 )
             case AppState(
-                session=NullSelection.NO_SESSION, job_id=None, bug_report=None
-            ):
-                # selected no session, skip to editor with absolutely nothing
-                self.push_screen(
-                    BugReportScreen(
-                        NullSelection.NO_SESSION,
-                        NullSelection.NO_JOB,
-                        self.args.submitter,
-                        self.bug_report_backup,
-                    ),
-                    lambda bug_report: _write_state(
-                        AppState(
-                            self.state.session, self.state.job_id, bug_report
-                        )
-                    ),
-                )
-            case AppState(
-                session=Session() as session,
-                job_id=NullSelection.NO_JOB,
+                session=NullSelection.NO_SESSION as session,
+                job_id=None | NullSelection.NO_JOB,
                 bug_report=None,
             ):
-                # has session, but no job, skip to editor with session
+                # selected no session, skip to editor with absolutely nothing
                 self.push_screen(
                     BugReportScreen(
                         session,
@@ -174,8 +155,27 @@ class BugitApp(App[None]):
                     ),
                     lambda bug_report: _write_state(
                         AppState(
-                            self.state.session, self.state.job_id, bug_report
+                            session,
+                            NullSelection.NO_JOB,  # explicitly convert to NO_JOB
+                            bug_report,
                         )
+                    ),
+                )
+            case AppState(
+                session=Session() as session,
+                job_id=NullSelection.NO_JOB as job_id,
+                bug_report=None,
+            ):
+                # has session, but no job, skip to editor with session
+                self.push_screen(
+                    BugReportScreen(
+                        session,
+                        job_id,
+                        self.args.submitter,
+                        self.bug_report_backup,
+                    ),
+                    lambda bug_report: _write_state(
+                        AppState(session, job_id, bug_report)
                     ),
                 )
             case AppState(
@@ -192,21 +192,21 @@ class BugitApp(App[None]):
                         self.bug_report_backup,
                     ),
                     lambda bug_report: _write_state(
-                        AppState(
-                            self.state.session, self.state.job_id, bug_report
-                        )
+                        AppState(session, job_id, bug_report)
                     ),
                 )
             case AppState(
                 session=Session() | NullSelection.NO_SESSION as session,
-                job_id=str() | NullSelection.NO_JOB | None as job_id,
+                job_id=str() | NullSelection.NO_JOB as job_id,
                 bug_report=BugReport() as br,
             ):
 
                 def callback(return_screen: ReturnScreenChoice | None):
                     match return_screen:
                         case None:
-                            pass
+                            raise RuntimeError(
+                                "Submission screen should not return None"
+                            )
                         case "quit":
                             self.exit()
                         case "session":
