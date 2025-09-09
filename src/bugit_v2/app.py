@@ -123,24 +123,26 @@ class BugitApp(App[None]):
 
         match self.state:
             case AppState(session=None, job_id=None, bug_report=None):
-
-                def callback(
-                    screen_rv: Path | Literal[NullSelection.NO_SESSION] | None,
-                ):
-                    if isinstance(screen_rv, Path):
-                        self.state = AppState(Session(screen_rv))
-                    else:
-                        self.state = AppState(screen_rv)
-
-                self.push_screen(SessionSelectionScreen(), callback)
-            case AppState(session=s, job_id=None, bug_report=None) if s:
+                self.push_screen(
+                    SessionSelectionScreen(),
+                    lambda screen_rv: (
+                        _write_state(AppState(Session(screen_rv)))
+                        if isinstance(screen_rv, Path)
+                        else _write_state(AppState(screen_rv))
+                    ),
+                )
+            case AppState(
+                session=Session() as s, job_id=None, bug_report=None
+            ):
                 self.push_screen(
                     JobSelectionScreen(s),
                     lambda job_id: _write_state(
                         AppState(self.state.session, job_id)
                     ),
                 )
-            case AppState(session=s, job_id=str(j), bug_report=None) if s:
+            case AppState(
+                session=Session() as s, job_id=str() as j, bug_report=None
+            ):
                 self.push_screen(
                     BugReportScreen(
                         s,
@@ -154,10 +156,16 @@ class BugitApp(App[None]):
                         )
                     ),
                 )
-            case AppState(session=s, job_id=str(j), bug_report=br) if s and br:
+            case AppState(
+                session=Session() as s,
+                job_id=str() as j,
+                bug_report=BugReport() as br,
+            ):
 
-                def handle_return(return_screen: ReturnScreenChoice):
+                def callback(return_screen: ReturnScreenChoice | None):
                     match return_screen:
+                        case None:
+                            pass
                         case "quit":
                             self.exit()
                         case "session":
@@ -171,9 +179,11 @@ class BugitApp(App[None]):
                             self.state = AppState(s, j)
 
                 self.push_screen(
-                    SubmissionProgressScreen(br, self.submitter_class()),
-                    lambda return_screen: return_screen
-                    and handle_return(return_screen),
+                    SubmissionProgressScreen(
+                        br,
+                        self.submitter_class(),
+                    ),
+                    callback,
                 )
 
             case _:

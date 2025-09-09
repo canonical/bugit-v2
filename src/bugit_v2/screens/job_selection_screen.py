@@ -58,22 +58,17 @@ class JobSelectionScreen(Screen[str]):
                     f"{os.path.basename(self.session.session_path)}"
                 )
             )
-        jobs = self.session.get_run_jobs()
-        if len(jobs) == 0:
-            with VerticalGroup(classes="w100 h100 center"):
-                yield Label(
-                    (
-                        "There are no failed jobs. "
-                        "Use Alt+LeftArrow to go back to session selection"
-                    ),
-                    classes="wa ha",
-                )
-        else:
-            yield RadioSet(
-                *(RadioButton(job) for job in jobs),
-                classes="nb",
-                id="job_list_container",
-            )
+
+        yield RadioSet(
+            RadioButton(
+                "No Job (skip to editor)",
+                name="bugit_no_job",
+                tooltip="Choose this to skip to editor with the session data",
+            ),
+            *(RadioButton(job) for job in self.session.get_run_jobs()),
+            classes="nb",
+            id="job_list_container",
+        )
         with VerticalGroup(classes="db"):
             yield Button(
                 "Select a job to continue",
