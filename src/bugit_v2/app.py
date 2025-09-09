@@ -199,7 +199,7 @@ class BugitApp(App[None]):
                 )
             case AppState(
                 session=Session() | NullSelection.NO_SESSION as session,
-                job_id=str() | NullSelection.NO_JOB as job_id,
+                job_id=str() | NullSelection.NO_JOB | None as job_id,
                 bug_report=BugReport() as br,
             ):
 
