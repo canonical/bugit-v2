@@ -70,12 +70,7 @@ class JobSelectionScreen(Screen[str]):
                 )
         else:
             yield RadioSet(
-                *(
-                    RadioButton(job)
-                    for job in (
-                        self.session.get_run_jobs() if self.session else []
-                    )
-                ),
+                *(RadioButton(job) for job in jobs),
                 classes="nb",
                 id="job_list_container",
             )
