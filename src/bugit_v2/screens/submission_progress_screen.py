@@ -481,7 +481,7 @@ class SubmissionProgressScreen(
 
     @override
     def compose(self) -> ComposeResult:
-        yield Header(classes="dt")
+        yield Header(classes="dt", icon="〇")
 
         with Center(classes="lrm1"):
             with HorizontalGroup():

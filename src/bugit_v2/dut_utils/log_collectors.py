@@ -102,6 +102,17 @@ def dmesg_of_current_boot(target_dir: Path, _: BugReport) -> str:
             return f"Saved dmesg logs of boot {boot_id} to {f.name}"
 
 
+def inxi(target_dir: Path, _: BugReport) -> str:
+    with open(target_dir / "inxi-dump.txt", "w") as f:
+        sp.check_call(
+            ["inxi", "--tty", "-ACDEGJLMNSxm"],
+            stdout=f,
+            stderr=sp.DEVNULL,
+            text=True,
+        )
+        return f"Saved inxi dump  to {f.name}"
+
+
 mock_collectors: Sequence[LogCollector] = (
     LogCollector(
         "sos-report",
@@ -196,6 +207,13 @@ real_collectors: Sequence[LogCollector] = (
         "NVIDIA Bug Report",
         False,
         manual_collection_command="nvidia-bug-report.sh --extra-system-data",
+    ),
+    LogCollector(
+        "inxi",
+        inxi,
+        "inxi Report (verbose)",
+        False,
+        manual_collection_command="sudo inxi -ACDEGJLMNSxm",
     ),
 )
 
