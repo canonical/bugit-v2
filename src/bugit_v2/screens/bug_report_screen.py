@@ -327,6 +327,19 @@ class BugReportScreen(Screen[BugReport]):
                         id="severity",
                         classes="default_box",
                     )
+
+                    if self.session == NullSelection.NO_SESSION:
+                        # don't even include the session collector if there's no session
+                        collectors = [
+                            c
+                            for c in LOG_NAME_TO_COLLECTOR.values()
+                            if c.name != "checkbox-session"
+                        ]
+                    else:
+                        collectors = [
+                            c for c in LOG_NAME_TO_COLLECTOR.values()
+                        ]
+
                     yield SelectionList[LogName](
                         *(
                             Selection[LogName](
@@ -339,7 +352,7 @@ class BugReportScreen(Screen[BugReport]):
                                 disabled=collector.name == "nvidia-bug-report",
                             )
                             for collector in sorted(
-                                LOG_NAME_TO_COLLECTOR.values(),
+                                collectors,
                                 key=lambda a: (
                                     # prioritize collect_by_default ones
                                     0
