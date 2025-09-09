@@ -207,7 +207,7 @@ class SubmissionProgressScreen(
 
             display_name = LOG_NAME_TO_COLLECTOR[log_name].display_name
             self.log_widget.write(
-                f"{self._time_str()} Launched collector: {display_name}!"
+                f"{self._time_str()} Launched collector: {display_name}"
             )
 
     def start_parallel_attachment_upload(self) -> None:

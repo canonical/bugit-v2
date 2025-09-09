@@ -58,7 +58,9 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         try:
             self.jira.project(id=project_name)
         except Exception:
-            raise JiraSubmitterError(f"{project_name} doesn't exist!")
+            raise JiraSubmitterError(
+                f"Project '{project_name}' doesn't exist!"
+            )
 
     def assignee_exists_and_unique(self, assignee: str) -> None:
         """Does @param assignee exist and is it unique?
@@ -70,9 +72,9 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
 
         query_result = self.jira.search_users(query=assignee)
         if len(query_result) == 0:
-            raise JiraSubmitterError(f"{assignee} doesn't exist!")
+            raise JiraSubmitterError(f"Assignee '{assignee}' doesn't exist!")
         elif len(query_result) > 1:
-            raise JiraSubmitterError(f"{assignee} isn't unique!")
+            raise JiraSubmitterError(f"Assignee '{assignee}' isn't unique!")
 
     def all_components_exist(
         self, project: str, components: Sequence[str]
@@ -89,7 +91,7 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
                 for actual_component in query_result
             ):
                 raise JiraSubmitterError(
-                    f"{wanted_component} doesn't exist in {project}!"
+                    f"Component '{wanted_component}' doesn't exist in {project}!"
                 )
 
     @override
