@@ -123,6 +123,7 @@ class BugitApp(App[None]):
 
         match self.state:
             case AppState(session=None, job_id=None, bug_report=None):
+                # init, nothing has been selected yet
                 self.push_screen(
                     SessionSelectionScreen(),
                     lambda screen_rv: (
@@ -132,21 +133,23 @@ class BugitApp(App[None]):
                     ),
                 )
             case AppState(
-                session=Session() as s, job_id=None, bug_report=None
+                session=Session() as session, job_id=None, bug_report=None
             ):
+                # selected a normal session, should go to job selection
                 self.push_screen(
-                    JobSelectionScreen(s),
+                    JobSelectionScreen(session),
                     lambda job_id: _write_state(
                         AppState(self.state.session, job_id)
                     ),
                 )
             case AppState(
-                session=Session() as s, job_id=str() as j, bug_report=None
+                session=NullSelection.NO_SESSION, job_id=None, bug_report=None
             ):
+                # selected no session, skip to editor with absolutely nothing
                 self.push_screen(
                     BugReportScreen(
-                        s,
-                        j,
+                        NullSelection.NO_SESSION,
+                        NullSelection.NO_JOB,
                         self.args.submitter,
                         self.bug_report_backup,
                     ),
@@ -157,8 +160,46 @@ class BugitApp(App[None]):
                     ),
                 )
             case AppState(
-                session=Session() as s,
-                job_id=str() as j,
+                session=Session() as session,
+                job_id=NullSelection.NO_JOB,
+                bug_report=None,
+            ):
+                # has session, but no job, skip to editor with session
+                self.push_screen(
+                    BugReportScreen(
+                        session,
+                        NullSelection.NO_JOB,
+                        self.args.submitter,
+                        self.bug_report_backup,
+                    ),
+                    lambda bug_report: _write_state(
+                        AppState(
+                            self.state.session, self.state.job_id, bug_report
+                        )
+                    ),
+                )
+            case AppState(
+                session=Session() as session,
+                job_id=str() as job_id,
+                bug_report=None,
+            ):
+                # normal case, session and job_id were selected
+                self.push_screen(
+                    BugReportScreen(
+                        session,
+                        job_id,
+                        self.args.submitter,
+                        self.bug_report_backup,
+                    ),
+                    lambda bug_report: _write_state(
+                        AppState(
+                            self.state.session, self.state.job_id, bug_report
+                        )
+                    ),
+                )
+            case AppState(
+                session=Session() | NullSelection.NO_SESSION as session,
+                job_id=str() | NullSelection.NO_JOB as job_id,
                 bug_report=BugReport() as br,
             ):
 
@@ -173,10 +214,10 @@ class BugitApp(App[None]):
                             self.state = AppState()
                         case "job":
                             self.bug_report_backup = None
-                            self.state = AppState(s)
+                            self.state = AppState(session)
                         case "report_editor":
                             self.bug_report_backup = br
-                            self.state = AppState(s, j)
+                            self.state = AppState(session, job_id)
 
                 self.push_screen(
                     SubmissionProgressScreen(

@@ -70,8 +70,13 @@ def oem_getlogs(target_dir: Path, _: BugReport):
 
 
 def pack_checkbox_session(target_dir: Path, bug_report: BugReport) -> str:
+    assert (
+        bug_report.checkbox_session is not None
+    ), "Can't use this collector if there's no checkbox session"
+
     with tarfile.open(target_dir / "checkbox_session.tar.gz", "w:gz") as f:
         f.add(bug_report.checkbox_session.session_path)
+
     return f"Added checkbox session to {target_dir}"
 
 
