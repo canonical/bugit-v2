@@ -331,7 +331,7 @@ class SubmissionProgressScreen(
                         c.name  # pyright can't infer this yet
                     ].display_name  # pyright: ignore[reportArgumentType]
                     self.log_widget.write(
-                        f"- {display_name}",
+                        f"{self._time_str()} - {display_name}",
                     )
         else:
             self.log_widget.write(
