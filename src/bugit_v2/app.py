@@ -225,14 +225,15 @@ class BugitApp(App[None]):
                         case "quit":
                             self.exit()
                         case "session":
-                            self.bug_report_backup = None
                             self.state = AppState()
-                        case "job":
-                            self.bug_report_backup = None
+                        case "job" if session != NullSelection.NO_SESSION:
+                            # this is only available when there's a session
                             self.state = AppState(session)
                         case "report_editor":
                             self.bug_report_backup = br
                             self.state = AppState(session, job_id)
+                        case _:
+                            raise RuntimeError()
 
                 self.push_screen(
                     SubmissionProgressScreen(
