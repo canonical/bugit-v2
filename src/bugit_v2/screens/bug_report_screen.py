@@ -39,7 +39,7 @@ from bugit_v2.models.bug_report import (
     pretty_issue_file_times,
     pretty_severities,
 )
-from bugit_v2.utils.constants import FEATURE_MAP, VENDOR_MAP
+from bugit_v2.utils.constants import FEATURE_MAP, VENDOR_MAP, NullSelection
 
 
 class ValidSpaceSeparatedTags(Validator):
@@ -81,8 +81,8 @@ class NonEmpty(Validator):
 
 @final
 class BugReportScreen(Screen[BugReport]):
-    session: Final[Session]
-    job_id: Final[str]
+    session: Final[Session | Literal[NullSelection.NO_SESSION]]
+    job_id: Final[str | Literal[NullSelection.NO_JOB]]
     existing_report: Final[BugReport | None]
     initial_report: dict[str, str]
     submitter: Literal["jira", "lp"]
@@ -135,8 +135,8 @@ class BugReportScreen(Screen[BugReport]):
 
     def __init__(
         self,
-        session: Session,
-        job_id: str,
+        session: Session | Literal[NullSelection.NO_SESSION],
+        job_id: str | Literal[NullSelection.NO_JOB],
         submitter: Literal["jira", "lp"],
         existing_report: BugReport | None = None,
         name: str | None = None,
@@ -175,9 +175,15 @@ class BugReportScreen(Screen[BugReport]):
             "Expected result": "",
             "Actual result": "",
             "Failure rate": "",
-            "Affected test cases": job_id,
+            "Affected test cases": "",
             "Additional Information": "",
         }
+
+        if session == NullSelection.NO_SESSION:
+            return
+
+        if job_id == NullSelection.NO_JOB:
+            return
 
         job_output = session.get_job_output(job_id)
         if job_output is None:
@@ -209,9 +215,15 @@ class BugReportScreen(Screen[BugReport]):
             classes="nb",
             id="bug_report_metadata_header",
         ):
-            # stick to the top
-            yield Label(f"- Job ID: {self.job_id}")
-            yield Label(f"- Test Plan: {self.session.testplan_id}")
+            if self.session == NullSelection.NO_SESSION:
+                yield Label("- No session selected")
+            else:
+                yield Label(f"- Test Plan: {self.session.testplan_id}")
+
+            if self.job_id == NullSelection.NO_JOB:
+                yield Label("- No job selected")
+            else:
+                yield Label(f"- Job ID: {self.job_id}")
 
         with VerticalScroll(classes="center"):
             yield Input(
@@ -320,6 +332,19 @@ class BugReportScreen(Screen[BugReport]):
                         id="severity",
                         classes="default_box",
                     )
+
+                    if self.session == NullSelection.NO_SESSION:
+                        # don't even include the session collector if there's no session
+                        collectors = [
+                            c
+                            for c in LOG_NAME_TO_COLLECTOR.values()
+                            if c.name != "checkbox-session"
+                        ]
+                    else:
+                        collectors = [
+                            c for c in LOG_NAME_TO_COLLECTOR.values()
+                        ]
+
                     yield SelectionList[LogName](
                         *(
                             Selection[LogName](
@@ -332,7 +357,7 @@ class BugReportScreen(Screen[BugReport]):
                                 disabled=collector.name == "nvidia-bug-report",
                             )
                             for collector in sorted(
-                                LOG_NAME_TO_COLLECTOR.values(),
+                                collectors,
                                 key=lambda a: (
                                     # prioritize collect_by_default ones
                                     0
@@ -543,7 +568,7 @@ class BugReportScreen(Screen[BugReport]):
         self.initial_report["Additional Information"] = "\n".join(
             [
                 "CID:",
-                "SKU",
+                "SKU:",
                 *(f"{k}: {v}" for k, v in machine_info.items()),
             ]
         )
@@ -592,7 +617,11 @@ class BugReportScreen(Screen[BugReport]):
 
         return BugReport(
             title=self.query_exactly_one("#title", Input).value.strip(),
-            checkbox_session=self.session,
+            checkbox_session=(
+                None
+                if self.session == NullSelection.NO_SESSION
+                else self.session
+            ),
             description=self.query_exactly_one(
                 "#description", TextArea
             ).text.strip(),

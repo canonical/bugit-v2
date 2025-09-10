@@ -1,5 +1,5 @@
 import os
-from typing import Final, final
+from typing import Final, Literal, final
 
 from textual import on
 from textual.app import ComposeResult
@@ -16,10 +16,11 @@ from textual.widgets import (
 from typing_extensions import override
 
 from bugit_v2.checkbox_utils import Session
+from bugit_v2.utils.constants import NullSelection
 
 
 @final
-class JobSelectionScreen(Screen[str]):
+class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
     CSS_PATH = "styles.tcss"
 
     session: Final[Session]
@@ -58,27 +59,22 @@ class JobSelectionScreen(Screen[str]):
                     f"{os.path.basename(self.session.session_path)}"
                 )
             )
-        jobs = self.session.get_run_jobs()
-        if len(jobs) == 0:
-            with VerticalGroup(classes="w100 h100 center"):
-                yield Label(
-                    (
-                        "There are no failed jobs. "
-                        "Use Alt+LeftArrow to go back to session selection"
-                    ),
-                    classes="wa ha",
-                )
-        else:
-            yield RadioSet(
-                *(
-                    RadioButton(job)
-                    for job in (
-                        self.session.get_run_jobs() if self.session else []
-                    )
-                ),
-                classes="nb",
-                id="job_list_container",
-            )
+
+        yield RadioSet(
+            RadioButton(
+                "No Job (skip to editor)",
+                name="bugit_no_job",
+                # tooltip != None is used to check if this special
+                # button is clicked, do not remove
+                tooltip="Choose this to skip to editor with the session data",
+            ),
+            *(
+                RadioButton(job_id, name=job_id)
+                for job_id in self.session.get_run_jobs()
+            ),
+            classes="nb",
+            id="job_list_container",
+        )
         with VerticalGroup(classes="db"):
             yield Button(
                 "Select a job to continue",
@@ -97,11 +93,14 @@ class JobSelectionScreen(Screen[str]):
 
     @on(Button.Pressed, "#continue_button")
     def finish_selection(self) -> None:
-        assert self.session is not None and self.selected_job is not None
-        self.dismiss(self.selected_job)
+        assert self.selected_job is not None
+        if self.selected_job == "bugit_no_job":
+            self.dismiss(NullSelection.NO_JOB)
+        else:
+            self.dismiss(self.selected_job)
 
     def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
-        self.selected_job = str(event.pressed.label)
+        self.selected_job = str(event.pressed.name)
         btn = self.query_exactly_one("#continue_button", Button)
         btn.label = f"File a bug for [u]{self.selected_job.split('::')[-1]}"
         btn.disabled = False

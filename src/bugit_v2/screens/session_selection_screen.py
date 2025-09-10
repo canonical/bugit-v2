@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import final
+from typing import Literal, final
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -10,9 +10,11 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Label
 from typing_extensions import override
 
+from bugit_v2.utils.constants import NullSelection
+
 
 @final
-class SessionSelectionScreen(Screen[Path]):
+class SessionSelectionScreen(Screen[Path | Literal[NullSelection.NO_SESSION]]):
     session_dirs = reactive[list[Path]]([], recompose=True)
     SESSION_ROOT_DIR = Path("/var/tmp/checkbox-ng/sessions")
 
@@ -33,6 +35,14 @@ class SessionSelectionScreen(Screen[Path]):
             if len(self.session_dirs) > 0:
                 yield Label("[b][$primary]Select a Session")
                 yield VerticalScroll(
+                    Button(
+                        "No Session (Skip to Editor)",
+                        name="bugit_no_session",
+                        # tooltip != None is used to check if this special
+                        # button is clicked, do not remove
+                        tooltip="Choose this to skip to report editor",
+                        classes="mb1 session_button",
+                    ),
                     *(
                         Button(
                             os.path.basename(session),
@@ -70,8 +80,15 @@ class SessionSelectionScreen(Screen[Path]):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         session_path = event.button.name
         try:
-            assert session_path and Path(session_path).exists()
-            self.dismiss(Path(session_path).absolute())
+            assert session_path
+            if (
+                session_path == "bugit_no_session"
+                and event.button.tooltip is not None
+            ):
+                self.dismiss(NullSelection.NO_SESSION)
+            else:
+                assert Path(session_path).exists()
+                self.dismiss(Path(session_path).absolute())
         except AssertionError:
             self.app.notify(
                 "Was it deleted while BugIt is running?",

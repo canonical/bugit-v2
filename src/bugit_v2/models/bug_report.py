@@ -64,8 +64,8 @@ class BugReport:
     project: str
     severity: Severity
     issue_file_time: IssueFileTime
-    checkbox_session: Session
     # optionals
+    checkbox_session: Session | None
     assignee: str | None = None  # appear as unassigned if None
     platform_tags: Sequence[str] = field(default_factory=list[str])
     additional_tags: Sequence[str] = field(default_factory=list[str])

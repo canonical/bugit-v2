@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal, final
 
 import typer
@@ -31,6 +32,7 @@ from bugit_v2.screens.submission_progress_screen import (
     SubmissionProgressScreen,
 )
 from bugit_v2.utils import is_prod
+from bugit_v2.utils.constants import NullSelection
 from bugit_v2.utils.validations import before_entry_check
 
 cli_app = typer.Typer(
@@ -51,8 +53,8 @@ class AppState:
     - All non-null: submission in progress
     """
 
-    session: Session | None = None
-    job_id: str | None = None
+    session: Session | Literal[NullSelection.NO_SESSION] | None = None
+    job_id: str | Literal[NullSelection.NO_JOB] | None = None
     bug_report: BugReport | None = None
 
 
@@ -121,52 +123,124 @@ class BugitApp(App[None]):
 
         match self.state:
             case AppState(session=None, job_id=None, bug_report=None):
+                # init, nothing has been selected yet
+                def after_session_select(
+                    rv: Path | Literal[NullSelection.NO_SESSION] | None,
+                ):
+                    match rv:
+                        case Path():
+                            self.state = AppState(Session(rv))
+                        case NullSelection.NO_SESSION:
+                            self.state = AppState(rv, NullSelection.NO_JOB)
+                        case None:
+                            raise RuntimeError(
+                                "Session selection should not return None"
+                            )
+
                 self.push_screen(
-                    SessionSelectionScreen(),
-                    lambda session_path: session_path
-                    and _write_state(AppState(Session(session_path))),
+                    SessionSelectionScreen(), after_session_select
                 )
-            case AppState(session=s, job_id=None, bug_report=None) if s:
+            case AppState(
+                session=Session() as session, job_id=None, bug_report=None
+            ):
+                # selected a normal session, should go to job selection
                 self.push_screen(
-                    JobSelectionScreen(s),
-                    lambda job_id: _write_state(
-                        AppState(self.state.session, job_id)
-                    ),
+                    JobSelectionScreen(session),
+                    lambda job_id: _write_state(AppState(session, job_id)),
                 )
-            case AppState(session=s, job_id=str(j), bug_report=None) if s:
+            case AppState(
+                session=NullSelection.NO_SESSION as session,
+                job_id=NullSelection.NO_JOB as job_id,
+                bug_report=None,
+            ):
+                # selected no session, skip to editor with absolutely nothing
                 self.push_screen(
                     BugReportScreen(
-                        s,
-                        j,
+                        session,
+                        job_id,
                         self.args.submitter,
                         self.bug_report_backup,
                     ),
                     lambda bug_report: _write_state(
                         AppState(
-                            self.state.session, self.state.job_id, bug_report
+                            session,
+                            job_id,
+                            bug_report,
                         )
                     ),
                 )
-            case AppState(session=s, job_id=str(j), bug_report=br) if s and br:
-
-                def handle_return(return_screen: ReturnScreenChoice):
+            case AppState(
+                session=Session() as session,
+                job_id=NullSelection.NO_JOB as job_id,
+                bug_report=None,
+            ):
+                # has session, but chose the no job object
+                # skip to editor with session
+                self.push_screen(
+                    BugReportScreen(
+                        session,
+                        job_id,
+                        self.args.submitter,
+                        self.bug_report_backup,
+                    ),
+                    lambda bug_report: _write_state(
+                        AppState(session, job_id, bug_report)
+                    ),
+                )
+            case AppState(
+                session=Session() as session,
+                job_id=str() as job_id,
+                bug_report=None,
+            ):
+                # normal case, session and job_id were selected
+                # go to editor with info
+                self.push_screen(
+                    BugReportScreen(
+                        session,
+                        job_id,
+                        self.args.submitter,
+                        self.bug_report_backup,
+                    ),
+                    lambda bug_report: _write_state(
+                        AppState(session, job_id, bug_report)
+                    ),
+                )
+            case AppState(
+                session=Session() | NullSelection.NO_SESSION as session,
+                job_id=str() | NullSelection.NO_JOB as job_id,
+                bug_report=BugReport() as br,
+            ):
+                # returning from the end of submission screen
+                # handle the button selections
+                def after_submission_finished(
+                    return_screen: ReturnScreenChoice | None,
+                ):
+                    # already submitted, flush the stale backup
+                    self.bug_report_backup = None
                     match return_screen:
+                        case None:
+                            raise RuntimeError(
+                                "Submission screen should not return None"
+                            )
                         case "quit":
                             self.exit()
                         case "session":
-                            self.bug_report_backup = None
                             self.state = AppState()
-                        case "job":
-                            self.bug_report_backup = None
-                            self.state = AppState(s)
+                        case "job" if session != NullSelection.NO_SESSION:
+                            # this is only available when there's a session
+                            self.state = AppState(session)
                         case "report_editor":
                             self.bug_report_backup = br
-                            self.state = AppState(s, j)
+                            self.state = AppState(session, job_id)
+                        case _:
+                            raise RuntimeError()
 
                 self.push_screen(
-                    SubmissionProgressScreen(br, self.submitter_class()),
-                    lambda return_screen: return_screen
-                    and handle_return(return_screen),
+                    SubmissionProgressScreen(
+                        br,
+                        self.submitter_class(),
+                    ),
+                    after_submission_finished,
                 )
 
             case _:
@@ -178,21 +252,42 @@ class BugitApp(App[None]):
         This function should only reassign (not modify) the state object and
         let textual automatically re-render
         """
-        if self.state.session is None:
-            self.notify("Already at the beginning")
-            return  # nothing to do here if no session is selected
-        elif self.state.job_id is None:
-            # go back to session selection
-            self.state = AppState(None, None)
-        elif self.state.bug_report is None:
-            # go back to job selection
-            self.state = AppState(self.state.session, None)
-        else:
-            self.notify(
-                "(but you can use Ctrl+Q to quit)",
-                title="Can't go back while a submission is happening",
-                severity="error",
-            )
+        match self.state:
+            case AppState(session=None):
+                self.notify("Already at the beginning")
+                return
+            case AppState(session=Session(), job_id=None):
+                # returning from job selection
+                self.state = AppState(None, None)
+            case AppState(
+                session=NullSelection.NO_SESSION,
+                job_id=NullSelection.NO_JOB,
+                bug_report=None,
+            ):
+                # returning from editor with nothing selected
+                # just go back to the beginning
+                self.state = AppState(None, None)
+            case AppState(
+                session=Session() as session,
+                job_id=str() | NullSelection.NO_JOB,
+                bug_report=None,
+            ):
+                # returning from editor with explicit job selection
+                # go back to job selection
+                self.state = AppState(session, None)
+            case AppState(
+                session=Session() | NullSelection.NO_SESSION,
+                job_id=str() | NullSelection.NO_JOB,
+                bug_report=BugReport(),
+            ):
+                self.notify(
+                    title="Cannot go back while a submission is happening",
+                    message="But you can force quit with Ctrl+Q",
+                )
+            case _:
+                raise RuntimeError(
+                    f"Impossible state when going back: {self.state}"
+                )
 
     @override
     def compose(self) -> ComposeResult:
