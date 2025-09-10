@@ -36,8 +36,10 @@ class SessionSelectionScreen(Screen[Path | Literal[NullSelection.NO_SESSION]]):
                 yield Label("[b][$primary]Select a Session")
                 yield VerticalScroll(
                     Button(
-                        "No Session",
+                        "No Session (Skip to Editor)",
                         name="bugit_no_session",
+                        # tooltip != None is used to check if this special
+                        # button is clicked, do not remove
                         tooltip="Choose this to skip to report editor",
                         classes="mb1 session_button",
                     ),
