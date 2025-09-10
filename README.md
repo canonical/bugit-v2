@@ -111,6 +111,8 @@ Copying from INSIDE the app to OUTSIDE the app: Hold shift to override textual's
 
 Copying from OUTSIDE the app to INSIDE the app: Use Ctrl+Shift+V to paste into the app. This is the same as pasting to any other terminal programs.
 
+For more details, check [textual's explanation](https://textual.textualize.io/FAQ/#how-can-i-select-and-copy-text-in-a-textual-app)
+
 ## SSH Colors
 
 If you ssh into a ubuntu machine and run a **non-snap** version of bugit-v2, it might give you completely different colors than running locally. This can be fixed by running
