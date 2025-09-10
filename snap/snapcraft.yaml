@@ -39,6 +39,14 @@ environment:
   # let sosreport and oem-getlogs find their libraries
   PYTHONPATH: "$PYTHONPATH:$SNAP/usr/lib/python3/dist-packages"
 
+layout:
+  /etc/sos.conf:
+    bind-file: $SNAP/etc/sos.conf
+  /var/lib/usbutils/usb.ids:
+    bind-file: $SNAP/var/lib/usbutils/usb.ids
+  /usr/share/alsa:
+    bind: $SNAP/usr/share/alsa
+
 apps:
   bugit-v2:
     command-chain:
@@ -49,11 +57,6 @@ apps:
   dump-standard-info:
     # redirect stderr to suppress errors
     command: bin/python3 $SNAP/src/bugit_v2/dump_standard_info.py
-
-  inxi:
-    command-chain:
-      - env_wrapper.sh
-    command: usr/bin/inxi
 
   oem-getlogs:
     command: usr/bin/oem-getlogs
@@ -98,9 +101,3 @@ parts:
     plugin: nil
     stage-packages:
       - sosreport
-
-  inxi:
-    plugin: nil
-    stage-packages:
-      - inxi
-      - mesa-utils # for inxi's graphics report

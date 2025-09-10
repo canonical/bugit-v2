@@ -43,7 +43,6 @@ LogName = Literal[
     "nvidia-bug-report",
     "acpidump",
     "dmesg",
-    "inxi",
 ]
 LOG_NAMES: tuple[LogName, ...] = LogName.__args__
 # pretty log names should be specified in the LogCollector class
