@@ -22,7 +22,6 @@ esac
 
 PERL_VERSION=$(perl -e '$^V=~/^v(\d+\.\d+)/;print $1')
 export PERL5LIB="$PERL5LIB:$SNAP/usr/lib/$ARCH/perl/$PERL_VERSION:$SNAP/usr/lib/$ARCH/perl5/$PERL_VERSION:$SNAP/usr/share/perl/$PERL_VERSION:$SNAP/usr/share/perl5"
-echo "Called wrapper!"
 
 # https://github.com/snapcrafters/get-iplayer/blob/candidate/snap/local/scripts/launcher
 exec "$@"
