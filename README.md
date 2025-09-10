@@ -8,7 +8,7 @@ This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [
 
 > [!CAUTION]
 > This project is VERY EXPERIMENTAL as of Aug 29,2025. Although both Jira and LP logic have been manually tested (v0.2+), there will likely be undiscovered issues in prod. Please report them in [Issues](https://github.com/canonical/bugit-v2/issues) if you find any.
-<img width="2000" height="2144" alt="image" src="https://github.com/user-attachments/assets/7901ef4a-7398-49dd-992d-dfefb448fe6a" />
+> <img width="2000" height="2144" alt="image" src="https://github.com/user-attachments/assets/7901ef4a-7398-49dd-992d-dfefb448fe6a" />
 
 ## Features
 
@@ -38,10 +38,10 @@ Run the app with `sudo bugit.bugit-v2 jira` or `sudo bugit.bugit-v2 lp`
 #### Local Snap
 
 1. Clone the repo
-2. Install snapcraft `sudo snap install snapcraft --edge --classic`
-3. `snapcraft clean && snapcraft pack`
-4. Once snapcraft produces a `.snap` file, `sudo snap install ./bugit-v2_0.1_amd64.snap --dangerous --devmode` (replace the filename with the real one) to install it.
-5. Run the app with `sudo bugit jira`
+1. Install snapcraft `sudo snap install snapcraft --edge --classic`
+1. `snapcraft clean && snapcraft pack`
+1. Once snapcraft produces a `.snap` file, `sudo snap install ./bugit-v2_0.1_amd64.snap --dangerous --devmode` (replace the filename with the real one) to install it.
+1. Run the app with `sudo bugit.bugit-v2 jira` or `sudo bugit.bugit-v2 lp`
 
 To uninstall, `sudo snap remove bugit`
 
@@ -77,7 +77,6 @@ sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_
 
 where jira_server_url is the base URL of your jira server, it should start with `https` and end with `atlassian.net`.
 
-
 To uninstall, `pipx uninstall bugit-v2`
 
 ### Try with uvx
@@ -102,7 +101,15 @@ Or run a specific release:
 sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 uvx --from git+https://github.com/canonical/bugit-v2.git@v0.2 bugit-v2 jira
 ```
 
+## How do I copy and paste?
 
+This varies across different terminal emulators so I'll use gnome-terminal as the example here since it comes with ubuntu by default (and by extension ptyxis that comes with 25.10).
+
+Copying from INSIDE the app to another place INSIDE the app: Use Ctrl+C like you would normally.
+
+Copying from INSIDE the app to OUTSIDE the app: Hold shift to override textual's selection and drag over the text you want to copy, then use Ctrl+Shift+C to write to the system clipboard. This is the same as copying regular terminal output, which is rather ugly for this app since you would be selecting the UI elements too. The main description editor comes with a "Dump to text file" button to specifically handle this; it will dump the description into a plain text file for easy processing outside the app.
+
+Copying from OUTSIDE the app to INSIDE the app: Use Ctrl+Shift+V to paste into the app. This is the same as pasting to any other terminal programs.
 
 ## SSH Colors
 
@@ -143,6 +150,7 @@ This basically says the automatic style fixes were not included. Do another `git
 ### Type Checks
 
 All the tools should pass `basedpyright`'s checks. Run the `basedpyright` command at the project root with the virtual environment enabled. In vscode, there's the [basedpyright extension](https://marketplace.visualstudio.com/items?itemName=detachhead.basedpyright) that lets you catch these errors in the editor.
+
 - Warnings are OK for now since some of the rules are very strict, but try to fix as many of them as possible
 - Errors must be fixed because they indicate either something is guaranteed to fail at runtime or the type annotations are too incomplete for the type checker to do any meaningful analysis. To just check for errors, run `basedpyright --level error`.
 
@@ -190,10 +198,10 @@ pseudo_classes={'dark', 'focus'})>
 ready in 91 milliseconds
 ```
 
-
 ## Limitations
 
 This app only looks pretty when it's used through a graphical terminal such as:
+
 - gnome-terminal
 - kitty
 - ptyxis
