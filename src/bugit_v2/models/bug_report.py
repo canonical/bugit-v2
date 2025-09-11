@@ -31,8 +31,6 @@ BUG_STATUSES: Final[tuple[BugStatus, ...]] = BugStatus.__args__
 
 # log choices
 LogName = Literal[
-    "sos-report",
-    "oem-get-logs",
     "immediate",
     "fast1",
     "fast2",

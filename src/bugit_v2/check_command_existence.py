@@ -1,6 +1,6 @@
 import shutil
 
-commands = ["dmidecode", "lspci", "uname", "oem-getlogs", "find", "tail"]
+commands = ["dmidecode", "lspci", "uname", "find", "tail"]
 
 ok = set[str]()
 for c in commands:

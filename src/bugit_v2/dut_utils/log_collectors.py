@@ -6,9 +6,6 @@ here is that each log collectors is a (slow-running) function and is *independen
 from all other collectors.
 """
 
-import os
-import re
-import shutil
 import subprocess as sp
 import tarfile
 from collections.abc import Mapping, Sequence
@@ -37,36 +34,6 @@ class LogCollector:
     # provide a way for the user to manually collect the logs if this collector
     # failed at runtime
     manual_collection_command: str | None = None
-
-
-def sos_report(target_dir: Path, _: BugReport):
-    assert target_dir.is_dir()
-    out = sp.check_output(
-        ["sos", "report", "--batch", f"--tmp-dir={target_dir}"],
-        text=True,
-        timeout=600,  # just in case
-    )
-    # remove the sha file
-    for file in target_dir.iterdir():
-        if file.name.startswith("sosreport") and file.name.endswith(".sha256"):
-            os.remove(file)
-    return out
-
-
-def oem_getlogs(target_dir: Path, _: BugReport):
-    assert target_dir.is_dir()
-    out = sp.check_output(["oem-getlogs"], text=True)
-    if (
-        log_file_match := re.search(r"oemlogs.*\.apport\.gz", out)
-    ) is not None:
-        file_path = Path(log_file_match.group(0))
-        assert file_path.exists(), f"{file_path} doesn't exist!"
-        shutil.move(file_path, target_dir)
-    else:
-        raise FileNotFoundError(
-            "oem-getlogs finished, but didn't find a filename matching"
-            + "oemlogs.*\\.apport\\.gz in its output"
-        )
 
 
 def pack_checkbox_session(target_dir: Path, bug_report: BugReport) -> str:
@@ -108,18 +75,6 @@ def dmesg_of_current_boot(target_dir: Path, _: BugReport) -> str:
 
 
 mock_collectors: Sequence[LogCollector] = (
-    LogCollector(
-        "sos-report",
-        lambda p, b: sp.check_output(["sleep", "4"], text=True),
-        "SOS Report",
-        manual_collection_command="sudo sos report --batch",
-    ),
-    LogCollector(
-        "oem-get-logs",
-        lambda p, b: sp.check_output(["sleep", "2"], text=True),
-        "OEM Get Logs",
-        manual_collection_command="sudo oem-getlogs",
-    ),
     LogCollector(
         "immediate",
         lambda p, b: sp.check_output(["echo"], text=True),
@@ -164,19 +119,6 @@ mock_collectors: Sequence[LogCollector] = (
 
 
 real_collectors: Sequence[LogCollector] = (
-    LogCollector(
-        "sos-report",
-        sos_report,
-        "SOS Report",
-        False,
-        manual_collection_command="sudo sos report --batch",
-    ),
-    LogCollector(
-        "oem-get-logs",
-        oem_getlogs,
-        "OEM Get Logs",
-        manual_collection_command="sudo oem-getlogs",
-    ),
     LogCollector(
         "acpidump",
         acpidump,
