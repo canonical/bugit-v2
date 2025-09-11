@@ -8,7 +8,8 @@ This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [
 
 > [!CAUTION]
 > This project is VERY EXPERIMENTAL as of Aug 29,2025. Although both Jira and LP logic have been manually tested (v0.2+), there will likely be undiscovered issues in prod. Please report them in [Issues](https://github.com/canonical/bugit-v2/issues) if you find any.
-> <img width="2000" height="2144" alt="image" src="https://github.com/user-attachments/assets/7901ef4a-7398-49dd-992d-dfefb448fe6a" />
+
+<img width="2000" height="2144" alt="image" src="https://github.com/user-attachments/assets/7901ef4a-7398-49dd-992d-dfefb448fe6a" />
 
 ## Features
 
