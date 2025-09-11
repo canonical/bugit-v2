@@ -2,7 +2,7 @@
 
 """
 This is a slightly modified version of the original oem-getlogs from apport
-Vendorized from the file in the `python3-apport` package
+Vendored from the file in the `python3-apport` package
 """
 
 import platform
@@ -12,7 +12,7 @@ try:
     # reading the base snap's /etc/os-release (core22)
     # or straight up crash (core 24)
     platform._os_release_candidates = (  # pyright: ignore[reportAttributeAccessIssue]
-        "/var/lib/snapd/hostfs/etc/os-release",
+        "/var/lib/snapd/hostfs/etc/os-release",  # this is the real os-release file
         *platform._os_release_candidates,  # pyright: ignore[reportAttributeAccessIssue]
     )
 except Exception:
@@ -27,7 +27,6 @@ import sys
 import tempfile
 import time
 import zipfile
-from argparse import ArgumentParser
 from glob import glob
 from io import BytesIO
 from typing import Callable, Literal
@@ -116,8 +115,8 @@ def attach_nvidia_debug_logs(report: apport.Report, keep_locale: bool = False):
     # output result to temp directory
     nv_tempdir = tempfile.mkdtemp()
     nv_debug_file = "nvidia-bug-report"
-    nv_debug_fullfile = os.path.join(nv_tempdir, nv_debug_file)
-    nv_debug_cmd = [nv_debug_command, "--output-file", nv_debug_fullfile]
+    nv_debug_full_file = os.path.join(nv_tempdir, nv_debug_file)
+    nv_debug_cmd = [nv_debug_command, "--output-file", nv_debug_full_file]
     try:
         subprocess.run(
             nv_debug_cmd,
@@ -126,11 +125,11 @@ def attach_nvidia_debug_logs(report: apport.Report, keep_locale: bool = False):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        nv_debug_fullfile_gz = nv_debug_fullfile + ".gz"
+        nv_debug_full_file_gz = nv_debug_full_file + ".gz"
         hookutils.attach_file_if_exists(
-            report, nv_debug_fullfile_gz, "nvidia-bug-report.gz"
+            report, nv_debug_full_file_gz, "nvidia-bug-report.gz"
         )
-        os.unlink(nv_debug_fullfile_gz)
+        os.unlink(nv_debug_full_file_gz)
         os.rmdir(nv_tempdir)
     except OSError as e:
         print("Error:", str(e))
@@ -296,20 +295,9 @@ def add_info(report: apport.Report):
 
 
 def main():
-    parser = ArgumentParser(
-        prog="oem-getlogs",
-        usage="Useage: sudo -E oem-getlogs [-c CASE_ID]",
-        description=__doc__,
-    )
-    parser.add_argument(
-        "-c", "--case-id", help="optional CASE_ID", dest="cid", default=""
-    )
-    args = parser.parse_args()
-
-    # check if we got root permission
     if os.geteuid() != 0:
         print("Error: you need to run this program as root")
-        parser.print_help()
+        print("Usage: sudo -E oem-getlogs")
         sys.exit(1)
 
     print("Start to collect logs: ", end="", flush=True)
@@ -321,8 +309,6 @@ def main():
     hostname = os.uname()[1]
     date_time = time.strftime("%Y%m%d%H%M%S%z", time.localtime())
     filename_lst = ["oemlogs", hostname]
-    if len(args.cid) > 0:
-        filename_lst.append(args.cid)
     filename_lst.append(date_time + ".apport.gz")
     filename = "-".join(filename_lst)
 
