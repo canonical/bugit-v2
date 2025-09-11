@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import TypeVar, cast, final
+from typing import cast, final
 
 from textual.app import ComposeResult
 from textual.containers import Center, HorizontalGroup
@@ -7,11 +7,9 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Label
 from typing_extensions import override
 
-T = TypeVar("T", bound=str)
-
 
 @final
-class ConfirmScreen(ModalScreen[T]):
+class ConfirmScreen[T: str](ModalScreen[T]):
 
     CSS = """
     ConfirmScreen {
