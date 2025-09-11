@@ -4,7 +4,7 @@ issues:
   - https://github.com/canonical/bugit-v2/issues
 source-code: https://github.com/canonical/bugit-v2
 type: app
-base: core22
+base: core24
 grade: stable
 summary: Cool new bugit
 description: |
