@@ -4,16 +4,16 @@
 # originally from checkbox
 case "$SNAP_ARCH" in
 "amd64")
-	ARCH='x86_64-linux-gnu'
+	export ARCH='x86_64-linux-gnu'
 	;;
 "i386")
-	ARCH='i386-linux-gnu'
+	export ARCH='i386-linux-gnu'
 	;;
 "arm64")
-	ARCH='aarch64-linux-gnu'
+	export ARCH='aarch64-linux-gnu'
 	;;
 "armhf")
-	ARCH='arm-linux-gnueabihf'
+	export ARCH='arm-linux-gnueabihf'
 	;;
 *)
 	echo "Unsupported architecture: $SNAP_ARCH"
