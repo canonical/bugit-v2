@@ -164,7 +164,10 @@ class BugReportScreen(Screen[BugReport]):
             "severity": ("[b]How bad is it?", ""),
             "project": ("[b]Project Name", ""),
             "additional_tags": ("[b]Additional Tags", ""),
-            "logs_to_include": ("[b]Select some logs to include", ""),
+            "logs_to_include": (
+                "[b]Select some logs to include",
+                "Green = Selected",
+            ),
             "impacted_features": ("[b]Impacted Features", ""),
             "impacted_vendors": ("[b]Impacted Vendors", ""),
         }
