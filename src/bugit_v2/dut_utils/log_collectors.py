@@ -169,7 +169,7 @@ real_collectors: Sequence[LogCollector] = (
         "dmesg",
         dmesg_of_current_boot,
         "dmesg Logs of This Boot",
-        False,
+        True,
         "sudo dmesg",
     ),
     LogCollector(
