@@ -101,6 +101,11 @@ def dmesg_of_current_boot(target_dir: Path, _: BugReport) -> str:
             return f"Saved dmesg logs of boot {boot_id} to {f.name}"
 
 
+def snap_list(target_dir: Path, _: BugReport):
+    with open(target_dir / "snap_list.log", "w") as f:
+        sp.check_call(["snap", "list", "--all"], stdout=f, text=True)
+
+
 mock_collectors: Sequence[LogCollector] = (
     LogCollector(
         "immediate",
@@ -185,6 +190,13 @@ real_collectors: Sequence[LogCollector] = (
         "Journalctl Logs of This Week",
         True,
         'journalctl --since="1 week ago"',
+    ),
+    LogCollector(
+        "snap-list",
+        snap_list,
+        "List of Snaps in This System",
+        True,
+        "snap list --all",
     ),
 )
 

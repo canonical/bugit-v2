@@ -31,17 +31,20 @@ BUG_STATUSES: Final[tuple[BugStatus, ...]] = BugStatus.__args__
 
 # log choices
 LogName = Literal[
+    # mock
     "immediate",
-    "journalctl",
     "fast1",
     "fast2",
     "slow1",
     "slow2",
     "always-fail",
+    # real
+    "journalctl",
     "checkbox-session",
     "nvidia-bug-report",
     "acpidump",
     "dmesg",
+    "snap-list",
 ]
 LOG_NAMES: tuple[LogName, ...] = LogName.__args__
 # pretty log names should be specified in the LogCollector class
