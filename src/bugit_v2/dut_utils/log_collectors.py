@@ -6,6 +6,7 @@ here is that each log collectors is a (slow-running) function and is *independen
 from all other collectors.
 """
 
+import os
 import subprocess as sp
 import tarfile
 from collections.abc import Mapping, Sequence
@@ -57,6 +58,32 @@ def nvidia_bug_report(target_dir: Path, _: BugReport) -> str:
         ],
         text=True,
     )
+
+
+def journal_of_past_week(target_dir: Path, _: BugReport) -> None:
+    with open(target_dir / "journalctl_1_week.log", "w") as f:
+        sp.check_call(
+            ["journalctl", "--since", "1 week ago"],
+            stdout=f,
+            text=True,
+        )
+
+    bad = False
+    with open(target_dir / "journalctl_1_week.log") as f:
+        first_line = f.readline()
+        if "No entries" in first_line:
+            # this happens when the the journalctl binary can't read the
+            # journal file on the host
+            # in `snap run --shell bugit.bugit-v2``, calling journalctl will
+            # show more errors
+            bad = True
+
+    if bad:
+        os.remove(target_dir / "journalctl_1_week.log")
+        raise ValueError(
+            "Not going to attach an empty journalctl file. "
+            + "Is the DUT using a much newer version of journalctl?"
+        )
 
 
 def acpidump(target_dir: Path, _: BugReport) -> str:
@@ -115,6 +142,13 @@ mock_collectors: Sequence[LogCollector] = (
         nvidia_bug_report,
         "NVIDIA Bug Report",
     ),
+    LogCollector(
+        "journalctl",
+        journal_of_past_week,
+        "Journalctl Logs of This Week",
+        True,
+        'journalctl --since="1 week ago"',
+    ),
 )
 
 
@@ -123,14 +157,15 @@ real_collectors: Sequence[LogCollector] = (
         "acpidump",
         acpidump,
         "ACPI Dump",
-        manual_collection_command="sudo acpidump -o acpidump.log",
+        True,
+        "sudo acpidump -o acpidump.log",
     ),
     LogCollector(
         "dmesg",
         dmesg_of_current_boot,
         "dmesg Logs of This Boot",
         False,
-        manual_collection_command="sudo dmesg",
+        "sudo dmesg",
     ),
     LogCollector(
         "checkbox-session",
@@ -142,7 +177,14 @@ real_collectors: Sequence[LogCollector] = (
         nvidia_bug_report,
         "NVIDIA Bug Report",
         False,
-        manual_collection_command="nvidia-bug-report.sh --extra-system-data",
+        "nvidia-bug-report.sh --extra-system-data",
+    ),
+    LogCollector(
+        "journalctl",
+        journal_of_past_week,
+        "Journalctl Logs of This Week",
+        True,
+        'journalctl --since="1 week ago"',
     ),
 )
 
