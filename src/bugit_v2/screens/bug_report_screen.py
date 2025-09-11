@@ -164,7 +164,10 @@ class BugReportScreen(Screen[BugReport]):
             "severity": ("[b]How bad is it?", ""),
             "project": ("[b]Project Name", ""),
             "additional_tags": ("[b]Additional Tags", ""),
-            "logs_to_include": ("[b]Select some logs to include", ""),
+            "logs_to_include": (
+                "[b]Select some logs to include",
+                "Green = Selected",
+            ),
             "impacted_features": ("[b]Impacted Features", ""),
             "impacted_vendors": ("[b]Impacted Vendors", ""),
         }
@@ -210,7 +213,7 @@ class BugReportScreen(Screen[BugReport]):
     def compose(self) -> ComposeResult:
         yield Header(icon="〇")
         with Collapsible(
-            title="[bold]Bug Report for...[/bold]",
+            title=f"[bold]{'Jira' if self.submitter == 'jira' else 'Launchpad'} Bug Report for...[/bold]",
             collapsed=False,
             classes="nb",
             id="bug_report_metadata_header",

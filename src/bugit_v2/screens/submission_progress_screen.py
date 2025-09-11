@@ -3,7 +3,7 @@ import shutil
 import time
 from pathlib import Path
 from tempfile import mkdtemp
-from typing import Final, Generic, Literal, TypeVar, final
+from typing import Final, Literal, final
 
 from textual import on, work
 from textual.app import ComposeResult
@@ -27,14 +27,10 @@ ReturnScreenChoice = Literal["job", "session", "quit", "report_editor"]
 RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
     ReturnScreenChoice.__args__
 )
-TAuth = TypeVar("TAuth")
-TReturn = TypeVar("TReturn")
 
 
 @final
-class SubmissionProgressScreen(
-    Generic[TAuth, TReturn], Screen[ReturnScreenChoice]
-):
+class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     """
     The progress screen shown while submission/log collection is happening
     """

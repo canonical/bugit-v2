@@ -139,12 +139,12 @@
 
 .selection-list--button-selected {
     color: $text-success;
-    background: $text-success;
+    background: $text-success 50%;
 }
 
 .selection-list--button-selected-highlighted {
     color: $text-success;
-    background: $text-success;
+    background: $text-success 50%;
 }
 
 .session_button {

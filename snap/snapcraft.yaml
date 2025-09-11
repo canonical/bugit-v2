@@ -4,7 +4,7 @@ issues:
   - https://github.com/canonical/bugit-v2/issues
 source-code: https://github.com/canonical/bugit-v2
 type: app
-base: core22
+base: core24
 grade: stable
 summary: Cool new bugit
 description: |
@@ -14,12 +14,15 @@ confinement: devmode # required for ubuntu core to collect logs
 license: GPL-3.0+
 
 # cross builds are significantly faster on launchpad
-architectures:
-  - build-on: [amd64]
+platforms:
+  amd64:
+    build-on: [amd64]
     build-for: [amd64]
-  - build-on: [amd64]
+  arm64:
+    build-on: [amd64]
     build-for: [arm64]
-  - build-on: [amd64]
+  armhf:
+    build-on: [amd64]
     build-for: [armhf]
 
 environment:
@@ -58,13 +61,6 @@ apps:
     # redirect stderr to suppress errors
     command: bin/python3 $SNAP/src/bugit_v2/dump_standard_info.py
 
-  oem-getlogs:
-    command: usr/bin/oem-getlogs
-
-  sosreport:
-    # the patches from the original bugit seem to have been merged
-    command: usr/bin/sosreport
-
 parts:
   launcher:
     plugin: dump
@@ -87,17 +83,7 @@ parts:
     after:
       - dump-files
 
-  apport:
-    plugin: nil
-    stage-packages:
-      - apport # provides oem-getlogs, only works on core22
-
   acpidump:
     plugin: nil
     stage-packages:
       - acpica-tools # provides "acpidump"
-
-  sosreport:
-    plugin: nil
-    stage-packages:
-      - sosreport
