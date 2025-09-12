@@ -412,81 +412,13 @@ class BugReportScreen(Screen[BugReport]):
         self.query_exactly_one("#title", Input).focus()
 
         # fill the app_args values first, they have lower precedence
-        if self.app_args.assignee:
-            self.query_exactly_one("#assignee", Input).value = (
-                self.app_args.assignee
-            )
-        if self.app_args.project:
-            self.query_exactly_one("#project", Input).value = (
-                self.app_args.project
-            )
-        if len(self.app_args.platform_tags) > 0:
-            self.query_exactly_one("#platform_tags", Input).value = " ".join(
-                self.app_args.platform_tags
-            )
-        if len(self.app_args.tags) > 0:
-            self.query_exactly_one("#additional_tags", Input).value = " ".join(
-                self.app_args.tags
-            )
+        self._prefill_with_app_args()
 
         if not self.existing_report:
             return
 
         # restore existing report, take over the CLI values
-        for elem_id, border_titles in self.elem_id_to_border_title.items():
-            elem = self.query_exactly_one(f"#{elem_id}")
-
-            if not hasattr(self.existing_report, elem_id):
-                self.log.warning(f"No such attribute in BugReport: {elem_id}")
-                continue
-
-            match elem:
-                case Input():
-                    report_value = cast(
-                        list[str] | str, getattr(self.existing_report, elem_id)
-                    )
-                    if isinstance(report_value, list):
-                        elem.value = " ".join(map(str, report_value))
-                    else:
-                        elem.value = str(report_value)
-                case TextArea():
-                    elem.text = self.existing_report.get_with_type(
-                        elem_id, str
-                    )
-                    # don't wait for the info collector, immediately enable
-                    # and allow editing
-                    elem.disabled = False
-                    self.query_exactly_one("#save_as_text_file").disabled = (
-                        False
-                    )
-                case RadioSet():
-                    selected_name = self.existing_report.get_with_type(
-                        elem_id, str
-                    )
-                    for child in elem.children:
-                        if (
-                            isinstance(child, RadioButton)
-                            and child.name == selected_name
-                        ):
-                            child.action_toggle_button()
-                case SelectionWithPreview():
-                    value = cast(
-                        list[str],
-                        self.existing_report.get_with_type(elem_id, list),
-                    )
-                    elem.restore_selection(value)
-                case SelectionList():
-                    elem_value = cast(
-                        list[str],
-                        self.existing_report.get_with_type(elem_id, list),
-                    )
-                    for v in elem_value:
-                        try:
-                            cast(SelectionList[str], elem).select(str(v))
-                        except Exception:
-                            pass
-                case _:
-                    pass
+        self._restore_existing_report()
 
     @on(Button.Pressed, "#save_as_text_file")
     def save_as_text_file(self):
@@ -677,3 +609,81 @@ class BugReportScreen(Screen[BugReport]):
                 self.query_exactly_one("#logs_to_include", SelectionList),
             ).selected,
         )
+
+    def _prefill_with_app_args(self):
+        if self.app_args.assignee:
+            self.query_exactly_one("#assignee", Input).value = (
+                self.app_args.assignee
+            )
+        if self.app_args.project:
+            self.query_exactly_one("#project", Input).value = (
+                self.app_args.project
+            )
+        if len(self.app_args.platform_tags) > 0:
+            self.query_exactly_one("#platform_tags", Input).value = " ".join(
+                self.app_args.platform_tags
+            )
+        if len(self.app_args.tags) > 0:
+            self.query_exactly_one("#additional_tags", Input).value = " ".join(
+                self.app_args.tags
+            )
+
+    def _restore_existing_report(self):
+        if not self.existing_report:
+            return
+
+        # restore existing report, take over the CLI values
+        for elem_id in self.elem_id_to_border_title:
+            elem = self.query_exactly_one(f"#{elem_id}")
+
+            if not hasattr(self.existing_report, elem_id):
+                self.log.warning(f"No such attribute in BugReport: {elem_id}")
+                continue
+
+            match elem:
+                case Input():
+                    report_value = cast(
+                        list[str] | str, getattr(self.existing_report, elem_id)
+                    )
+                    if isinstance(report_value, list):
+                        elem.value = " ".join(map(str, report_value))
+                    else:
+                        elem.value = str(report_value)
+                case TextArea():
+                    elem.text = self.existing_report.get_with_type(
+                        elem_id, str
+                    )
+                    # don't wait for the info collector, immediately enable
+                    # and allow editing
+                    elem.disabled = False
+                    self.query_exactly_one("#save_as_text_file").disabled = (
+                        False
+                    )
+                case RadioSet():
+                    selected_name = self.existing_report.get_with_type(
+                        elem_id, str
+                    )
+                    for child in elem.children:
+                        if (
+                            isinstance(child, RadioButton)
+                            and child.name == selected_name
+                        ):
+                            child.action_toggle_button()
+                case SelectionWithPreview():
+                    value = cast(
+                        list[str],
+                        self.existing_report.get_with_type(elem_id, list),
+                    )
+                    elem.restore_selection(value)
+                case SelectionList():
+                    elem_value = cast(
+                        list[str],
+                        self.existing_report.get_with_type(elem_id, list),
+                    )
+                    for v in elem_value:
+                        try:
+                            cast(SelectionList[str], elem).select(str(v))
+                        except Exception:
+                            pass
+                case _:
+                    pass
