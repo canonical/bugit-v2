@@ -127,6 +127,13 @@ For more details, check out [textual's explanation](https://textual.textualize.i
 If you ssh into a ubuntu machine and run a **non-snap** version of bugit-v2, it might give you completely different colors than running locally. This can be fixed by running
 `export COLORTERM=truecolor` in the ssh session. You can also fix this permanently by adding it to the target machine's `.bashrc` or `.zshrc`.
 
+## Fonts
+
+The default font in gnome-terminal can cause some UI elements to clip a little bit. To fix this without downloading additional fonts, use one of these fonts:
+- Monospace
+- Liberation Mono
+- DejaVu Sans Mono
+
 ## Development
 
 ### Dependencies
