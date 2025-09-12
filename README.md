@@ -118,9 +118,9 @@ Copying from INSIDE the app to another place INSIDE the app: Use Ctrl+C like you
 
 Copying from INSIDE the app to OUTSIDE the app: Hold shift to override textual's selection and drag over the text you want to copy, then use Ctrl+Shift+C to write to the system clipboard. This is the same as copying regular terminal output, which is rather ugly for this app since you would be selecting the UI elements too. The main description editor comes with a "Dump to text file" button to specifically handle this; it will dump the description into a plain text file for easy processing outside the app.
 
-Copying from OUTSIDE the app to INSIDE the app: Use Ctrl+Shift+V to paste into the app. This is the same as pasting to any other terminal programs.
+Copying from OUTSIDE the app to INSIDE the app: Use Ctrl+Shift+V to paste into the app. This is the same as pasting to any other terminal program.
 
-For more details, check [textual's explanation](https://textual.textualize.io/FAQ/#how-can-i-select-and-copy-text-in-a-textual-app)
+For more details, check out [textual's explanation](https://textual.textualize.io/FAQ/#how-can-i-select-and-copy-text-in-a-textual-app)
 
 ## SSH Colors
 
@@ -150,7 +150,7 @@ Optionally install pre commit hooks:
 pre-commit install
 ```
 
-This will run some basic formatting checks before allowing a commit. If you don't want this git behavior, `pre-commit run --all-files` will just run the checks.
+This will run some basic formatter and linter checks before allowing a commit. If you don't want this git behavior, `pre-commit run --all-files` will just run the checks.
 
 If you are using VSCode's git panel, it might show something like this when the hooks didn't pass:
 
