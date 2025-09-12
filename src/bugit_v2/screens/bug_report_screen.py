@@ -402,6 +402,14 @@ class BugReportScreen(Screen[BugReport]):
         for elem_id, border_titles in self.elem_id_to_border_title.items():
             elem = self.query_exactly_one(f"#{elem_id}")
             elem.border_title, elem.border_subtitle = border_titles
+        # must launch the worker
+        self.run_worker(
+            get_standard_info,
+            name=get_standard_info.__name__,
+            thread=True,
+            exit_on_error=False,  # still allow editing
+        )
+        self.query_exactly_one("#title", Input).focus()
 
         # fill the app_args values first, they have lower precedence
         if self.app_args.assignee:
@@ -471,14 +479,6 @@ class BugReportScreen(Screen[BugReport]):
                             pass
                 case _:
                     pass
-
-        self.run_worker(
-            get_standard_info,
-            name=get_standard_info.__name__,
-            thread=True,
-            exit_on_error=False,  # still allow editing
-        )
-        self.query_exactly_one("#title", Input).focus()
 
     @on(Button.Pressed, "#save_as_text_file")
     def save_as_text_file(self):
