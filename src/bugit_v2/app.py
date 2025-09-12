@@ -61,7 +61,7 @@ def cid_check(value: str | None) -> str | None:
     return value.strip()
 
 
-def project_name_check(value: str | None) -> str | None:
+def alnum_check(value: str | None) -> str | None:
     if value is None:
         return None
     if not value.isalnum():
@@ -359,7 +359,7 @@ def launchpad_mode(
             help="Project name like STELLA, SOMERVILLE. Case sensitive.",
             file_okay=False,
             dir_okay=False,
-            callback=project_name_check,
+            callback=alnum_check,
         ),
     ] = None,
     assignee: Annotated[
@@ -373,9 +373,31 @@ def launchpad_mode(
             callback=assignee_str_check,
         ),
     ] = None,
+    platform_tags: Annotated[
+        list[str],
+        typer.Option(
+            "-pt",
+            "--platform-tags",
+            help='Platform Tags. They appear under "Components" on Jira',
+            file_okay=False,
+            dir_okay=False,
+        ),
+    ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
+    tags: Annotated[
+        list[str],
+        typer.Option(
+            "-t",
+            "--tags",
+            help="Additional tags on Jira",
+            file_okay=False,
+            dir_okay=False,
+        ),
+    ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
 ):
     before_entry_check()
-    app = BugitApp(AppArgs("lp", cid, sku, project, assignee))
+    app = BugitApp(
+        AppArgs("lp", cid, sku, project, assignee, platform_tags, tags)
+    )
     app.run()
 
 
@@ -411,7 +433,7 @@ def jira_mode(
             help="Project name like STELLA, SOMERVILLE. Case sensitive.",
             file_okay=False,
             dir_okay=False,
-            callback=project_name_check,
+            callback=alnum_check,
         ),
     ] = None,
     assignee: Annotated[
@@ -425,9 +447,31 @@ def jira_mode(
             callback=assignee_str_check,
         ),
     ] = None,
+    platform_tags: Annotated[
+        list[str],
+        typer.Option(
+            "-pt",
+            "--platform-tags",
+            help='Platform Tags. They appear under "Components" on Jira',
+            file_okay=False,
+            dir_okay=False,
+        ),
+    ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
+    tags: Annotated[
+        list[str],
+        typer.Option(
+            "-t",
+            "--tags",
+            help="Additional tags on Jira",
+            file_okay=False,
+            dir_okay=False,
+        ),
+    ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
 ):
     before_entry_check()
-    app = BugitApp(AppArgs("jira", cid, sku, project, assignee))
+    app = BugitApp(
+        AppArgs("jira", cid, sku, project, assignee, platform_tags, tags)
+    )
     app.run()
 
 

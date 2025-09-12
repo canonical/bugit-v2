@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
@@ -12,3 +13,5 @@ class AppArgs:
     sku: str | None = None
     project: str | None = None  # has a validator
     assignee: str | None = None  # has a validator
+    platform_tags: Sequence[str] = ()
+    tags: Sequence[str] = ()
