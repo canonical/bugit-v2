@@ -37,6 +37,8 @@ from bugit_v2.utils.constants import NullSelection
 from bugit_v2.utils.validations import before_entry_check, is_cid
 
 cli_app = typer.Typer(
+    help="Bugit is a tool for creating bug reports on Launchpad and Jira",
+    no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
     pretty_exceptions_enable=not is_prod(),
     pretty_exceptions_show_locals=not is_prod(),
