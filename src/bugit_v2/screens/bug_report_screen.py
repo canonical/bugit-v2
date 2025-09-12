@@ -573,8 +573,8 @@ class BugReportScreen(Screen[BugReport]):
         machine_info = cast(dict[str, str], event.worker.result)
         self.initial_report["Additional Information"] = "\n".join(
             [
-                "CID:",
-                "SKU:",
+                f"CID: {self.app_args.cid or ''}",
+                f"SKU: {self.app_args.sku or ''}",
                 *(f"{k}: {v}" for k, v in machine_info.items()),
             ]
         )

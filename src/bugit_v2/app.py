@@ -45,13 +45,9 @@ cli_app = typer.Typer(
 
 @dataclass(slots=True)
 class AppState:
-    """The global app state.
-
-    Combination of null and non-nulls determine which state we are in
-    - All null: session selection
-    - Only session is NOT null: job selection
-    - Only bug_report is null: editor
-    - All non-null: submission in progress
+    """
+    The global app state. Check the watch_state function to see all possible
+    state combinations
     """
 
     session: Session | Literal[NullSelection.NO_SESSION] | None = None
