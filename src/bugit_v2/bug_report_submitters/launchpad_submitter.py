@@ -25,6 +25,7 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
 )
 from bugit_v2.models.bug_report import BugReport, pretty_issue_file_times
+from bugit_v2.utils import is_prod
 
 LP_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
 # 'staging' doesn't seem to work
@@ -33,7 +34,9 @@ VALID_SERVICE_ROOTS = ("production", "qastaging")
 
 SERVICE_ROOT = cast(
     Literal["production", "qastaging"],
-    os.getenv("APPORT_LAUNCHPAD_INSTANCE", "qastaging"),
+    os.getenv(
+        "APPORT_LAUNCHPAD_INSTANCE", "production" if is_prod() else "qastaging"
+    ),
 )
 LP_APP_NAME = os.getenv("BUGIT_APP_NAME", "bugit-v2")
 
