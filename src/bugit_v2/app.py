@@ -11,7 +11,7 @@ from textual.driver import Driver
 from textual.reactive import var
 from textual.types import CSSPathType
 from textual.widgets import Footer, Header, LoadingIndicator
-from typing_extensions import override
+from typing_extensions import Annotated, override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
@@ -23,6 +23,7 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
+from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import BugReport
 from bugit_v2.screens.bug_report_screen import BugReportScreen
 from bugit_v2.screens.job_selection_screen import JobSelectionScreen
@@ -56,11 +57,6 @@ class AppState:
     session: Session | Literal[NullSelection.NO_SESSION] | None = None
     job_id: str | Literal[NullSelection.NO_JOB] | None = None
     bug_report: BugReport | None = None
-
-
-@dataclass(slots=True)
-class AppArgs:
-    submitter: Literal["lp", "jira"]
 
 
 @final
@@ -159,6 +155,7 @@ class BugitApp(App[None]):
                         session,
                         job_id,
                         self.args.submitter,
+                        self.args,
                         self.bug_report_backup,
                     ),
                     lambda bug_report: _write_state(
@@ -181,6 +178,7 @@ class BugitApp(App[None]):
                         session,
                         job_id,
                         self.args.submitter,
+                        self.args,
                         self.bug_report_backup,
                     ),
                     lambda bug_report: _write_state(
@@ -199,6 +197,7 @@ class BugitApp(App[None]):
                         session,
                         job_id,
                         self.args.submitter,
+                        self.args,
                         self.bug_report_backup,
                     ),
                     lambda bug_report: _write_state(
@@ -297,16 +296,58 @@ class BugitApp(App[None]):
 
 
 @cli_app.command("lp", help="Submit a bug to Launchpad")
-def launchpad_mode():
+def launchpad_mode(
+    cid: Annotated[
+        str | None,
+        typer.Option(
+            "-c",
+            "--cid",
+            help="Canonical ID (CID) of the device under test",
+            file_okay=False,
+            dir_okay=False,
+        ),
+    ] = None,
+    sku: Annotated[
+        str | None,
+        typer.Option(
+            "-k",
+            "--sku",
+            help="Stock Keeping Unit (SKU) string of the device under test",
+            file_okay=False,
+            dir_okay=False,
+        ),
+    ] = None,
+):
     before_entry_check()
-    app = BugitApp(AppArgs("lp"))
+    app = BugitApp(AppArgs("lp", cid, sku))
     app.run()
 
 
 @cli_app.command("jira", help="Submit a bug to Jira")
-def jira_mode():
+def jira_mode(
+    cid: Annotated[
+        str | None,
+        typer.Option(
+            "-c",
+            "--cid",
+            help="Canonical ID (CID) of the device under test",
+            file_okay=False,
+            dir_okay=False,
+        ),
+    ] = None,
+    sku: Annotated[
+        str | None,
+        typer.Option(
+            "-k",
+            "--sku",
+            help="Stock Keeping Unit (SKU) string of the device under test",
+            file_okay=False,
+            dir_okay=False,
+        ),
+    ] = None,
+):
     before_entry_check()
-    app = BugitApp(AppArgs("jira"))
+    app = BugitApp(AppArgs("jira", cid, sku))
     app.run()
 
 

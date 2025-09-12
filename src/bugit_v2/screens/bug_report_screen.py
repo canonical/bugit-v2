@@ -31,6 +31,7 @@ from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.selection_with_preview import SelectionWithPreview
 from bugit_v2.dut_utils.info_getters import get_standard_info
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
+from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import (
     ISSUE_FILE_TIMES,
     SEVERITIES,
@@ -84,8 +85,10 @@ class BugReportScreen(Screen[BugReport]):
     session: Final[Session | Literal[NullSelection.NO_SESSION]]
     job_id: Final[str | Literal[NullSelection.NO_JOB]]
     existing_report: Final[BugReport | None]
+
     initial_report: dict[str, str]
     submitter: Literal["jira", "lp"]
+    app_args: AppArgs
 
     # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
     # id should match the property name in the BugReport object
@@ -138,7 +141,9 @@ class BugReportScreen(Screen[BugReport]):
         session: Session | Literal[NullSelection.NO_SESSION],
         job_id: str | Literal[NullSelection.NO_JOB],
         submitter: Literal["jira", "lp"],
+        app_args: AppArgs,
         existing_report: BugReport | None = None,
+        # ---
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
@@ -148,6 +153,7 @@ class BugReportScreen(Screen[BugReport]):
         self.job_id = job_id
         self.existing_report = existing_report
         self.submitter = submitter
+        self.app_args = app_args
 
         self.elem_id_to_border_title = {
             "title": (
