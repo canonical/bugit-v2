@@ -8,5 +8,7 @@ class AppArgs:
 
     submitter: Literal["lp", "jira"]
     # hold onto these values to pre-fill them in the bug report
-    cid: str | None = None
+    cid: str | None = None  # has a validator
     sku: str | None = None
+    project: str | None = None  # has a validator
+    assignee: str | None = None  # has a validator

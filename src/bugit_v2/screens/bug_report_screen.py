@@ -398,12 +398,27 @@ class BugReportScreen(Screen[BugReport]):
         yield Footer()
 
     def on_mount(self):
+        # this loop must happen
         for elem_id, border_titles in self.elem_id_to_border_title.items():
             elem = self.query_exactly_one(f"#{elem_id}")
             elem.border_title, elem.border_subtitle = border_titles
-            # restore existing report
-            if not self.existing_report:
-                continue
+
+        # fill the app_args values first, they have lower precedence
+        if self.app_args.assignee:
+            self.query_exactly_one("#assignee", Input).value = (
+                self.app_args.assignee
+            )
+        if self.app_args.project:
+            self.query_exactly_one("#assignee", Input).value = (
+                self.app_args.project
+            )
+
+        if not self.existing_report:
+            return
+
+        # restore existing report, take over the CLI values
+        for elem_id, border_titles in self.elem_id_to_border_title.items():
+            elem = self.query_exactly_one(f"#{elem_id}")
 
             if not hasattr(self.existing_report, elem_id):
                 self.log.warning(f"No such attribute in BugReport: {elem_id}")
@@ -568,8 +583,10 @@ class BugReportScreen(Screen[BugReport]):
             )
             return
 
-        # only if basic info collection succeeded
-
+        # only write if basic info collection succeeded
+        # this also implicitly achieves what on_mount does with app_args
+        # since the values in self.initial_report is only used when there's no
+        # existing report
         machine_info = cast(dict[str, str], event.worker.result)
         self.initial_report["Additional Information"] = "\n".join(
             [

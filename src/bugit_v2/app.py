@@ -45,6 +45,10 @@ cli_app = typer.Typer(
 )
 
 
+def strip(value: str):
+    return value.strip()
+
+
 def cid_check(value: str):
     if not is_cid(value):
         raise typer.BadParameter(
@@ -52,6 +56,23 @@ def cid_check(value: str):
             + "CID should look like 202408-12345 "
             + "(6 digits, dash, then 5 digits)",
         )
+    return value.strip()
+
+
+def project_name_check(value: str):
+    if not value.isalnum():
+        raise typer.BadParameter(
+            f"Invalid project: '{value}'. "
+            + "Project name should be an alphanumeric string."
+        )
+    return value.strip()
+
+
+def assignee_str_check(value: str):
+    # not going to check for email, way too complicated
+    # we'll just send it to jira and let jira figure it out
+    if value.startswith("lp:"):
+        raise typer.BadParameter('Assignee should not start with "lp:"')
     return value.strip()
 
 
@@ -321,14 +342,34 @@ def launchpad_mode(
             help="Stock Keeping Unit (SKU) string of the device under test",
             file_okay=False,
             dir_okay=False,
-            callback=lambda s: str(  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
-                s  # pyright: ignore[reportUnknownArgumentType]
-            ).strip(),
+            callback=strip,
+        ),
+    ] = None,
+    project: Annotated[
+        str | None,
+        typer.Option(
+            "-p",
+            "--project",
+            help="Project name like STELLA, SOMERVILLE. Case sensitive.",
+            file_okay=False,
+            dir_okay=False,
+            callback=project_name_check,
+        ),
+    ] = None,
+    assignee: Annotated[
+        str | None,
+        typer.Option(
+            "-a",
+            "--assignee",
+            help='Assignee ID. For Launchpad it\'s LP ID, without the "lp:" part',
+            file_okay=False,
+            dir_okay=False,
+            callback=assignee_str_check,
         ),
     ] = None,
 ):
     before_entry_check()
-    app = BugitApp(AppArgs("lp", cid, sku))
+    app = BugitApp(AppArgs("lp", cid, sku, project, assignee))
     app.run()
 
 
@@ -353,14 +394,34 @@ def jira_mode(
             help="Stock Keeping Unit (SKU) string of the device under test",
             file_okay=False,
             dir_okay=False,
-            callback=lambda s: str(  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
-                s  # pyright: ignore[reportUnknownArgumentType]
-            ).strip(),
+            callback=strip,
+        ),
+    ] = None,
+    project: Annotated[
+        str | None,
+        typer.Option(
+            "-p",
+            "--project",
+            help="Project name like STELLA, SOMERVILLE. Case sensitive.",
+            file_okay=False,
+            dir_okay=False,
+            callback=project_name_check,
+        ),
+    ] = None,
+    assignee: Annotated[
+        str | None,
+        typer.Option(
+            "-a",
+            "--assignee",
+            help="Assignee ID. For Jira it's the assignee's email",
+            file_okay=False,
+            dir_okay=False,
+            callback=assignee_str_check,
         ),
     ] = None,
 ):
     before_entry_check()
-    app = BugitApp(AppArgs("jira", cid, sku))
+    app = BugitApp(AppArgs("jira", cid, sku, project, assignee))
     app.run()
 
 
