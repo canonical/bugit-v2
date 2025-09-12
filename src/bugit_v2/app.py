@@ -154,7 +154,6 @@ class BugitApp(App[None]):
                     BugReportScreen(
                         session,
                         job_id,
-                        self.args.submitter,
                         self.args,
                         self.bug_report_backup,
                     ),
@@ -177,7 +176,6 @@ class BugitApp(App[None]):
                     BugReportScreen(
                         session,
                         job_id,
-                        self.args.submitter,
                         self.args,
                         self.bug_report_backup,
                     ),
@@ -196,7 +194,6 @@ class BugitApp(App[None]):
                     BugReportScreen(
                         session,
                         job_id,
-                        self.args.submitter,
                         self.args,
                         self.bug_report_backup,
                     ),

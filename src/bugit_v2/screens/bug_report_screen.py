@@ -87,7 +87,6 @@ class BugReportScreen(Screen[BugReport]):
     existing_report: Final[BugReport | None]
 
     initial_report: dict[str, str]
-    submitter: Literal["jira", "lp"]
     app_args: AppArgs
 
     # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
@@ -140,7 +139,6 @@ class BugReportScreen(Screen[BugReport]):
         self,
         session: Session | Literal[NullSelection.NO_SESSION],
         job_id: str | Literal[NullSelection.NO_JOB],
-        submitter: Literal["jira", "lp"],
         app_args: AppArgs,
         existing_report: BugReport | None = None,
         # ---
@@ -152,13 +150,12 @@ class BugReportScreen(Screen[BugReport]):
         self.session = session
         self.job_id = job_id
         self.existing_report = existing_report
-        self.submitter = submitter
         self.app_args = app_args
 
         self.elem_id_to_border_title = {
             "title": (
                 "[b]Bug Title",
-                f"This is the title in {'Jira' if submitter == 'jira' else 'Launchpad'}",
+                f"This is the title in {'Jira' if app_args.submitter == 'jira' else 'Launchpad'}",
             ),
             "description": (
                 "[b]Bug Description",
@@ -219,7 +216,7 @@ class BugReportScreen(Screen[BugReport]):
     def compose(self) -> ComposeResult:
         yield Header(icon="〇")
         with Collapsible(
-            title=f"[bold]{'Jira' if self.submitter == 'jira' else 'Launchpad'} Bug Report for...[/bold]",
+            title=f"[bold]{'Jira' if self.app_args.submitter == 'jira' else 'Launchpad'} Bug Report for...[/bold]",
             collapsed=False,
             classes="nb",
             id="bug_report_metadata_header",
@@ -305,7 +302,7 @@ class BugReportScreen(Screen[BugReport]):
                     )
                     yield Input(
                         id="additional_tags",
-                        placeholder=f"Optional, extra {'Jira' if self.submitter == 'jira' else 'LP'} tags specific to the project",
+                        placeholder=f"Optional, extra {'Jira' if self.app_args.submitter == 'jira' else 'LP'} tags specific to the project",
                         classes="default_box",
                         validators=[ValidSpaceSeparatedTags()],
                     )
@@ -313,7 +310,7 @@ class BugReportScreen(Screen[BugReport]):
                         id="assignee",
                         placeholder=(
                             "Assignee's Jira Email"
-                            if self.submitter == "jira"
+                            if self.app_args.submitter == "jira"
                             else "Assignee's Launchpad ID"
                         ),
                         classes="default_box",
@@ -321,7 +318,7 @@ class BugReportScreen(Screen[BugReport]):
 
                     highest_display_name = (
                         "Highest (Jira)"
-                        if self.submitter == "jira"
+                        if self.app_args.submitter == "jira"
                         else "Critical (LP)"
                     )
                     yield RadioSet(
