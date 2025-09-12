@@ -28,7 +28,9 @@ from bugit_v2.models.bug_report import (
     pretty_issue_file_times,
 )
 
-JIRA_SERVER_ADDRESS = os.getenv("JIRA_SERVER")
+JIRA_SERVER_ADDRESS = os.getenv(
+    "JIRA_SERVER", "https://warthogs.atlassian.net"
+)
 
 
 @dataclass(slots=True)
@@ -74,7 +76,7 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
     def compose(self) -> ComposeResult:
         with VerticalGroup(id="top_level_container"):
             yield Label(
-                f"[b][$primary]Jira Authentication for {os.environ['JIRA_SERVER']}"
+                f"[b][$primary]Jira Authentication for {JIRA_SERVER_ADDRESS}"
             )
             yield Input(placeholder="your.email@jira.com", id="email")
             yield Input(

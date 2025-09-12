@@ -22,7 +22,7 @@ To see more about textual itself, [check out their docs](https://textual.textual
 
 ## Installation
 
-### Snap (recommended)
+### Snap (recommended for ubuntu core and classic systems older than 24.04)
 
 #### Snap store
 
@@ -46,9 +46,9 @@ Run the app with `sudo bugit.bugit-v2 jira` or `sudo bugit.bugit-v2 lp`
 
 To uninstall, `sudo snap remove bugit`
 
-### pipx
+### pipx (recommended for classic systems running 24.04 and newer)
 
-(works on 22.04+, requires python3.10)
+(works on 24.04+, requires python3.12)
 
 Install pipx first:
 
@@ -56,33 +56,41 @@ Install pipx first:
 sudo apt install pipx
 ```
 
-Then either install for the current user:
+Then use pipx to install the app:
 
 ```sh
+# choose...
+
+# point version release ("beta")
+pipx install git+https://github.com/canonical/bugit-v2.git@v0.2.2
+
+# or latest commit ("edge")
 pipx install git+https://github.com/canonical/bugit-v2.git
 ```
+- Note: If you are using newer pipx that comes with the `--global` flag, you don't need to modify the PATH or specify env when running the app
 
-Or install globally:
+This should give you a new command called `bugit-v2`. If `pipx install` is used the first time, pipx will prompt you to add `$HOME/.local/bin` to the path. You can use `pipx ensurepath` to fix this. Restart the terminal for it to take effect.
+
+Now we can run the app with
 
 ```sh
-sudo pipx install --global git+https://github.com/canonical/bugit-v2.git
+sudo -E env PATH="$PATH" bugit-v2 jira
+# or
+sudo -E env PATH="$PATH" bugit-v2 lp
 ```
 
-This should give you a new command called `bugit-v2`. If pipx is installed for the first time, it will prompt you about the app not being in `$PATH`. To fix this permanently, add `$HOME/.local/bin` to your $PATH.
+Optionally install tab completion with
 
-Typically we need sudo for the log collectors. To run with sudo:
-
+```sh
+bugit-v2 --install-completion
+# restart the terminal session for this to take effect
 ```
-sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 bugit-v2 jira
-```
-
-where jira_server_url is the base URL of your jira server, it should start with `https` and end with `atlassian.net`.
 
 To uninstall, `pipx uninstall bugit-v2`
 
 ### Try with uvx
 
-(works on versions that can run the python3.10 binary)
+(works on versions that can run the python3.12 binary)
 
 Install uv:
 
@@ -93,13 +101,13 @@ sudo snap install astral-uv
 Then use `uvx` to run the latest commit:
 
 ```
-sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 uvx --from git+https://github.com/canonical/bugit-v2.git bugit-v2 jira
+sudo -E env PATH="$PATH" uvx --from git+https://github.com/canonical/bugit-v2.git bugit-v2 jira
 ```
 
 Or run a specific release:
 
 ```
-sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 uvx --from git+https://github.com/canonical/bugit-v2.git@v0.2 bugit-v2 jira
+sudo -E env PATH="$PATH" uvx --from git+https://github.com/canonical/bugit-v2.git@v0.2 bugit-v2 jira
 ```
 
 ## How do I copy and paste?
@@ -110,14 +118,21 @@ Copying from INSIDE the app to another place INSIDE the app: Use Ctrl+C like you
 
 Copying from INSIDE the app to OUTSIDE the app: Hold shift to override textual's selection and drag over the text you want to copy, then use Ctrl+Shift+C to write to the system clipboard. This is the same as copying regular terminal output, which is rather ugly for this app since you would be selecting the UI elements too. The main description editor comes with a "Dump to text file" button to specifically handle this; it will dump the description into a plain text file for easy processing outside the app.
 
-Copying from OUTSIDE the app to INSIDE the app: Use Ctrl+Shift+V to paste into the app. This is the same as pasting to any other terminal programs.
+Copying from OUTSIDE the app to INSIDE the app: Use Ctrl+Shift+V to paste into the app. This is the same as pasting to any other terminal program.
 
-For more details, check [textual's explanation](https://textual.textualize.io/FAQ/#how-can-i-select-and-copy-text-in-a-textual-app)
+For more details, check out [textual's explanation](https://textual.textualize.io/FAQ/#how-can-i-select-and-copy-text-in-a-textual-app)
 
 ## SSH Colors
 
 If you ssh into a ubuntu machine and run a **non-snap** version of bugit-v2, it might give you completely different colors than running locally. This can be fixed by running
-`export COLORTERM=truecolor` in the ssh session.
+`export COLORTERM=truecolor` in the ssh session. You can also fix this permanently by adding it to the target machine's `.bashrc` or `.zshrc`.
+
+## Fonts
+
+The default font in gnome-terminal can cause some UI elements to clip a little bit. To fix this without downloading additional fonts, use one of these fonts:
+- Monospace
+- Liberation Mono
+- DejaVu Sans Mono
 
 ## Development
 
@@ -142,7 +157,7 @@ Optionally install pre commit hooks:
 pre-commit install
 ```
 
-This will run some basic formatting checks before allowing a commit. If you don't want this git behavior, `pre-commit run --all-files` will just run the checks.
+This will run some basic formatter and linter checks before allowing a commit. If you don't want this git behavior, `pre-commit run --all-files` will just run the checks.
 
 If you are using VSCode's git panel, it might show something like this when the hooks didn't pass:
 
@@ -162,7 +177,7 @@ All the tools should pass `basedpyright`'s checks. Run the `basedpyright` comman
 Since the app runs inside the terminal, it covers up all the normal stdout and stderr outputs. Textual provides the `textual console` command to allows us to inspect what's going on in the app. To use this:
 
 ```sh
-uv sync --python 3.10
+uv sync --python 3.12
 source .venv/bin/activate
 textual console
 ```
@@ -170,7 +185,7 @@ textual console
 Then in another terminal run the app with the `--dev` flag:
 
 ```sh
-uv sync --python 3.10
+uv sync --python 3.12
 source .venv/bin/activate
 textual run --dev src/bugit_v2/app.py
 ```

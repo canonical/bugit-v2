@@ -49,12 +49,16 @@ def pack_checkbox_session(target_dir: Path, bug_report: BugReport) -> str:
 
 
 def nvidia_bug_report(target_dir: Path, _: BugReport) -> str:
+    if "SNAP" in os.environ:
+        executable = "/var/lib/snapd/hostfs/usr/bin/nvidia-bug-report.sh"
+    else:
+        executable = "nvidia-bug-report.sh"
     return sp.check_output(
         [
-            "nvidia-bug-report.sh",
+            executable,
             "--extra-system-data",
             "--output-file",
-            str(target_dir / "nvidia-bug-report.log"),
+            str(target_dir / "nvidia-bug-report.log.gz"),
         ],
         text=True,
     )

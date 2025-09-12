@@ -4,7 +4,7 @@ from typing import Literal, final
 
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Center, Vertical, VerticalScroll
+from textual.containers import Vertical, VerticalScroll
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Header, Label
@@ -32,33 +32,26 @@ class SessionSelectionScreen(Screen[Path | Literal[NullSelection.NO_SESSION]]):
     def compose(self) -> ComposeResult:
         yield Header(icon="〇")
         with Vertical(classes="w100 h100 center", id="after_load_container"):
-            if len(self.session_dirs) > 0:
-                yield Label("[b][$primary]Select a Session")
-                yield VerticalScroll(
+            yield Label("[b][$primary]Select a Session")
+            yield VerticalScroll(
+                Button(
+                    "No Session (Skip to Editor)",
+                    name="bugit_no_session",
+                    # tooltip != None is used to check if this special
+                    # button is clicked, do not remove
+                    tooltip="Choose this to skip to report editor",
+                    classes="mb1 session_button",
+                ),
+                *(
                     Button(
-                        "No Session (Skip to Editor)",
-                        name="bugit_no_session",
-                        # tooltip != None is used to check if this special
-                        # button is clicked, do not remove
-                        tooltip="Choose this to skip to report editor",
+                        os.path.basename(session),
+                        name=str(session),
                         classes="mb1 session_button",
-                    ),
-                    *(
-                        Button(
-                            os.path.basename(session),
-                            name=str(session),
-                            classes="mb1 session_button",
-                        )
-                        for session in self.session_dirs
-                    ),
-                    classes="w100 h100 center",
-                )
-            else:
-                yield Center(
-                    Label(
-                        "There are no sessions with failed jobs",
                     )
-                )
+                    for session in self.session_dirs
+                ),
+                classes="w100 h100 center",
+            )
         yield Footer()
 
     def on_mount(self) -> None:

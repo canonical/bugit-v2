@@ -22,7 +22,9 @@ from bugit_v2.bug_report_submitters.jira_submitter import (
 )
 from bugit_v2.models.bug_report import BugReport, Severity
 
-JIRA_SERVER_ADDRESS = os.getenv("JIRA_SERVER")
+JIRA_SERVER_ADDRESS = os.getenv(
+    "JIRA_SERVER", "https://warthogs.atlassian.net"
+)
 
 
 @final
