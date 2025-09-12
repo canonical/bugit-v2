@@ -22,7 +22,7 @@ To see more about textual itself, [check out their docs](https://textual.textual
 
 ## Installation
 
-### Snap (recommended)
+### Snap (recommended for ubuntu core and classic systems older than 24.04)
 
 #### Snap store
 
@@ -46,9 +46,9 @@ Run the app with `sudo bugit.bugit-v2 jira` or `sudo bugit.bugit-v2 lp`
 
 To uninstall, `sudo snap remove bugit`
 
-### pipx
+### pipx (recommended for classic systems running 24.04 and newer)
 
-(works on 22.04+, requires python3.10)
+(works on 24.04+, requires python3.12)
 
 Install pipx first:
 
@@ -56,33 +56,35 @@ Install pipx first:
 sudo apt install pipx
 ```
 
-Then either install for the current user:
+Then use pipx to install the app:
 
-```sh
+```
 pipx install git+https://github.com/canonical/bugit-v2.git
 ```
+- Note: If you are using newer pipx that comes with the `--global` flag, you don't need to modify the PATH or specify env when running the app
 
-Or install globally:
+This should give you a new command called `bugit-v2`. If `pipx install` is used the first time, pipx will prompt you to add `$HOME/.local/bin` to the path. You can use `pipx ensurepath` to fix this. Restart the terminal for it to take effect.
+
+Now we can run the app with
 
 ```sh
-sudo pipx install --global git+https://github.com/canonical/bugit-v2.git
+sudo -E env PATH="$PATH" bugit-v2 jira
+# or
+sudo -E env PATH="$PATH" bugit-v2 jira
 ```
 
-This should give you a new command called `bugit-v2`. If pipx is installed for the first time, it will prompt you about the app not being in `$PATH`. To fix this permanently, add `$HOME/.local/bin` to your $PATH.
+Optionally install tab completion with
 
-Typically we need sudo for the log collectors. To run with sudo:
-
+```sh
+bugit-v2 --install-completion
+# restart the terminal session for this to take effect
 ```
-sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 bugit-v2 jira
-```
-
-where jira_server_url is the base URL of your jira server, it should start with `https` and end with `atlassian.net`.
 
 To uninstall, `pipx uninstall bugit-v2`
 
 ### Try with uvx
 
-(works on versions that can run the python3.10 binary)
+(works on versions that can run the python3.12 binary)
 
 Install uv:
 
@@ -117,7 +119,7 @@ For more details, check [textual's explanation](https://textual.textualize.io/FA
 ## SSH Colors
 
 If you ssh into a ubuntu machine and run a **non-snap** version of bugit-v2, it might give you completely different colors than running locally. This can be fixed by running
-`export COLORTERM=truecolor` in the ssh session.
+`export COLORTERM=truecolor` in the ssh session. You can also fix this permanently by adding it to the target machine's `.bashrc` or `.zshrc`.
 
 ## Development
 
@@ -162,7 +164,7 @@ All the tools should pass `basedpyright`'s checks. Run the `basedpyright` comman
 Since the app runs inside the terminal, it covers up all the normal stdout and stderr outputs. Textual provides the `textual console` command to allows us to inspect what's going on in the app. To use this:
 
 ```sh
-uv sync --python 3.10
+uv sync --python 3.12
 source .venv/bin/activate
 textual console
 ```
@@ -170,7 +172,7 @@ textual console
 Then in another terminal run the app with the `--dev` flag:
 
 ```sh
-uv sync --python 3.10
+uv sync --python 3.12
 source .venv/bin/activate
 textual run --dev src/bugit_v2/app.py
 ```
