@@ -34,13 +34,23 @@ from bugit_v2.screens.submission_progress_screen import (
 )
 from bugit_v2.utils import is_prod
 from bugit_v2.utils.constants import NullSelection
-from bugit_v2.utils.validations import before_entry_check
+from bugit_v2.utils.validations import before_entry_check, is_cid
 
 cli_app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
     pretty_exceptions_enable=not is_prod(),
     pretty_exceptions_show_locals=not is_prod(),
 )
+
+
+def cid_check(value: str):
+    if not is_cid(value):
+        raise typer.BadParameter(
+            f"Invalid CID: '{value}'. "
+            + "CID should look like 202408-12345 "
+            + "(6 digits, dash, then 5 digits)",
+        )
+    return value.strip()
 
 
 @dataclass(slots=True)
@@ -326,6 +336,7 @@ def jira_mode(
             help="Canonical ID (CID) of the device under test",
             file_okay=False,
             dir_okay=False,
+            callback=cid_check,
         ),
     ] = None,
     sku: Annotated[
@@ -336,6 +347,9 @@ def jira_mode(
             help="Stock Keeping Unit (SKU) string of the device under test",
             file_okay=False,
             dir_okay=False,
+            callback=lambda s: str(  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+                s  # pyright: ignore[reportUnknownArgumentType]
+            ).strip(),
         ),
     ] = None,
 ):
