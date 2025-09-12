@@ -45,11 +45,13 @@ cli_app = typer.Typer(
 )
 
 
-def strip(value: str):
-    return value.strip()
+def strip(value: str | None) -> str | None:
+    return value and value.strip()
 
 
-def cid_check(value: str):
+def cid_check(value: str | None) -> str | None:
+    if value is None:
+        return None
     if not is_cid(value):
         raise typer.BadParameter(
             f"Invalid CID: '{value}'. "
@@ -59,7 +61,9 @@ def cid_check(value: str):
     return value.strip()
 
 
-def project_name_check(value: str):
+def project_name_check(value: str | None) -> str | None:
+    if value is None:
+        return None
     if not value.isalnum():
         raise typer.BadParameter(
             f"Invalid project: '{value}'. "
@@ -68,7 +72,9 @@ def project_name_check(value: str):
     return value.strip()
 
 
-def assignee_str_check(value: str):
+def assignee_str_check(value: str | None) -> str | None:
+    if value is None:
+        return None
     # not going to check for email, way too complicated
     # we'll just send it to jira and let jira figure it out
     if value.startswith("lp:"):
