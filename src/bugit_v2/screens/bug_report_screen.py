@@ -420,6 +420,14 @@ class BugReportScreen(Screen[BugReport]):
             self.query_exactly_one("#project", Input).value = (
                 self.app_args.project
             )
+        if len(self.app_args.platform_tags) > 0:
+            self.query_exactly_one("#platform_tags", Input).value = " ".join(
+                self.app_args.platform_tags
+            )
+        if len(self.app_args.tags) > 0:
+            self.query_exactly_one("#additional_tags", Input).value = " ".join(
+                self.app_args.tags
+            )
 
         if not self.existing_report:
             return
