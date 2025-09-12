@@ -58,7 +58,13 @@ sudo apt install pipx
 
 Then use pipx to install the app:
 
-```
+```sh
+# choose...
+
+# point version release ("beta")
+pipx install git+https://github.com/canonical/bugit-v2.git@v0.2.2
+
+# or latest commit ("edge")
 pipx install git+https://github.com/canonical/bugit-v2.git
 ```
 - Note: If you are using newer pipx that comes with the `--global` flag, you don't need to modify the PATH or specify env when running the app
@@ -70,7 +76,7 @@ Now we can run the app with
 ```sh
 sudo -E env PATH="$PATH" bugit-v2 jira
 # or
-sudo -E env PATH="$PATH" bugit-v2 jira
+sudo -E env PATH="$PATH" bugit-v2 lp
 ```
 
 Optionally install tab completion with
@@ -95,13 +101,13 @@ sudo snap install astral-uv
 Then use `uvx` to run the latest commit:
 
 ```
-sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 uvx --from git+https://github.com/canonical/bugit-v2.git bugit-v2 jira
+sudo -E env PATH="$PATH" uvx --from git+https://github.com/canonical/bugit-v2.git bugit-v2 jira
 ```
 
 Or run a specific release:
 
 ```
-sudo -E env PATH="$PATH" APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<jira_server_url> PROD=1 uvx --from git+https://github.com/canonical/bugit-v2.git@v0.2 bugit-v2 jira
+sudo -E env PATH="$PATH" uvx --from git+https://github.com/canonical/bugit-v2.git@v0.2 bugit-v2 jira
 ```
 
 ## How do I copy and paste?
