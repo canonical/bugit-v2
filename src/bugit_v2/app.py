@@ -308,6 +308,7 @@ def launchpad_mode(
             help="Canonical ID (CID) of the device under test",
             file_okay=False,
             dir_okay=False,
+            callback=cid_check,
         ),
     ] = None,
     sku: Annotated[
@@ -318,6 +319,9 @@ def launchpad_mode(
             help="Stock Keeping Unit (SKU) string of the device under test",
             file_okay=False,
             dir_okay=False,
+            callback=lambda s: str(  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+                s  # pyright: ignore[reportUnknownArgumentType]
+            ).strip(),
         ),
     ] = None,
 ):
