@@ -417,7 +417,7 @@ class BugReportScreen(Screen[BugReport]):
                 self.app_args.assignee
             )
         if self.app_args.project:
-            self.query_exactly_one("#assignee", Input).value = (
+            self.query_exactly_one("#project", Input).value = (
                 self.app_args.project
             )
 
