@@ -31,6 +31,7 @@ from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.selection_with_preview import SelectionWithPreview
 from bugit_v2.dut_utils.info_getters import get_standard_info
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
+from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import (
     ISSUE_FILE_TIMES,
     SEVERITIES,
@@ -84,8 +85,9 @@ class BugReportScreen(Screen[BugReport]):
     session: Final[Session | Literal[NullSelection.NO_SESSION]]
     job_id: Final[str | Literal[NullSelection.NO_JOB]]
     existing_report: Final[BugReport | None]
+
     initial_report: dict[str, str]
-    submitter: Literal["jira", "lp"]
+    app_args: AppArgs
 
     # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
     # id should match the property name in the BugReport object
@@ -137,8 +139,9 @@ class BugReportScreen(Screen[BugReport]):
         self,
         session: Session | Literal[NullSelection.NO_SESSION],
         job_id: str | Literal[NullSelection.NO_JOB],
-        submitter: Literal["jira", "lp"],
+        app_args: AppArgs,
         existing_report: BugReport | None = None,
+        # ---
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
@@ -147,12 +150,12 @@ class BugReportScreen(Screen[BugReport]):
         self.session = session
         self.job_id = job_id
         self.existing_report = existing_report
-        self.submitter = submitter
+        self.app_args = app_args
 
         self.elem_id_to_border_title = {
             "title": (
                 "[b]Bug Title",
-                f"This is the title in {'Jira' if submitter == 'jira' else 'Launchpad'}",
+                f"This is the title in {'Jira' if app_args.submitter == 'jira' else 'Launchpad'}",
             ),
             "description": (
                 "[b]Bug Description",
@@ -213,18 +216,18 @@ class BugReportScreen(Screen[BugReport]):
     def compose(self) -> ComposeResult:
         yield Header(icon="〇")
         with Collapsible(
-            title=f"[bold]{'Jira' if self.submitter == 'jira' else 'Launchpad'} Bug Report for...[/bold]",
+            title=f"[bold]{'Jira' if self.app_args.submitter == 'jira' else 'Launchpad'} Bug Report for...[/bold]",
             collapsed=False,
             classes="nb",
             id="bug_report_metadata_header",
         ):
             if self.session == NullSelection.NO_SESSION:
-                yield Label("- No session selected")
+                yield Label("- [$warning]No session selected")
             else:
                 yield Label(f"- Test Plan: {self.session.testplan_id}")
 
             if self.job_id == NullSelection.NO_JOB:
-                yield Label("- No job selected")
+                yield Label("- [$warning]No job selected")
             else:
                 yield Label(f"- Job ID: {self.job_id}")
 
@@ -299,7 +302,7 @@ class BugReportScreen(Screen[BugReport]):
                     )
                     yield Input(
                         id="additional_tags",
-                        placeholder=f"Optional, extra {'Jira' if self.submitter == 'jira' else 'LP'} tags specific to the project",
+                        placeholder=f"Optional, extra {'Jira' if self.app_args.submitter == 'jira' else 'LP'} tags specific to the project",
                         classes="default_box",
                         validators=[ValidSpaceSeparatedTags()],
                     )
@@ -307,7 +310,7 @@ class BugReportScreen(Screen[BugReport]):
                         id="assignee",
                         placeholder=(
                             "Assignee's Jira Email"
-                            if self.submitter == "jira"
+                            if self.app_args.submitter == "jira"
                             else "Assignee's Launchpad ID"
                         ),
                         classes="default_box",
@@ -315,7 +318,7 @@ class BugReportScreen(Screen[BugReport]):
 
                     highest_display_name = (
                         "Highest (Jira)"
-                        if self.submitter == "jira"
+                        if self.app_args.submitter == "jira"
                         else "Critical (LP)"
                     )
                     yield RadioSet(
@@ -395,65 +398,11 @@ class BugReportScreen(Screen[BugReport]):
         yield Footer()
 
     def on_mount(self):
+        # this loop must happen
         for elem_id, border_titles in self.elem_id_to_border_title.items():
             elem = self.query_exactly_one(f"#{elem_id}")
             elem.border_title, elem.border_subtitle = border_titles
-            # restore existing report
-            if not self.existing_report:
-                continue
-
-            if not hasattr(self.existing_report, elem_id):
-                self.log.warning(f"No such attribute in BugReport: {elem_id}")
-                continue
-
-            match elem:
-                case Input():
-                    report_value = cast(
-                        list[str] | str, getattr(self.existing_report, elem_id)
-                    )
-                    if isinstance(report_value, list):
-                        elem.value = " ".join(map(str, report_value))
-                    else:
-                        elem.value = str(report_value)
-                case TextArea():
-                    elem.text = self.existing_report.get_with_type(
-                        elem_id, str
-                    )
-                    # don't wait for the info collector, immediately enable
-                    # and allow editing
-                    elem.disabled = False
-                    self.query_exactly_one("#save_as_text_file").disabled = (
-                        False
-                    )
-                case RadioSet():
-                    selected_name = self.existing_report.get_with_type(
-                        elem_id, str
-                    )
-                    for child in elem.children:
-                        if (
-                            isinstance(child, RadioButton)
-                            and child.name == selected_name
-                        ):
-                            child.action_toggle_button()
-                case SelectionWithPreview():
-                    value = cast(
-                        list[str],
-                        self.existing_report.get_with_type(elem_id, list),
-                    )
-                    elem.restore_selection(value)
-                case SelectionList():
-                    elem_value = cast(
-                        list[str],
-                        self.existing_report.get_with_type(elem_id, list),
-                    )
-                    for v in elem_value:
-                        try:
-                            cast(SelectionList[str], elem).select(str(v))
-                        except Exception:
-                            pass
-                case _:
-                    pass
-
+        # must launch the worker
         self.run_worker(
             get_standard_info,
             name=get_standard_info.__name__,
@@ -461,6 +410,15 @@ class BugReportScreen(Screen[BugReport]):
             exit_on_error=False,  # still allow editing
         )
         self.query_exactly_one("#title", Input).focus()
+
+        # fill the app_args values first, they have lower precedence
+        self._prefill_with_app_args()
+
+        if not self.existing_report:
+            return
+
+        # restore existing report, take over the CLI values
+        self._restore_existing_report()
 
     @on(Button.Pressed, "#save_as_text_file")
     def save_as_text_file(self):
@@ -565,13 +523,15 @@ class BugReportScreen(Screen[BugReport]):
             )
             return
 
-        # only if basic info collection succeeded
-
+        # only write if basic info collection succeeded
+        # this also implicitly achieves what on_mount does with app_args
+        # since the values in self.initial_report is only used when there's no
+        # existing report
         machine_info = cast(dict[str, str], event.worker.result)
         self.initial_report["Additional Information"] = "\n".join(
             [
-                "CID:",
-                "SKU:",
+                f"CID: {self.app_args.cid or ''}",
+                f"SKU: {self.app_args.sku or ''}",
                 *(f"{k}: {v}" for k, v in machine_info.items()),
             ]
         )
@@ -649,3 +609,81 @@ class BugReportScreen(Screen[BugReport]):
                 self.query_exactly_one("#logs_to_include", SelectionList),
             ).selected,
         )
+
+    def _prefill_with_app_args(self):
+        if self.app_args.assignee:
+            self.query_exactly_one("#assignee", Input).value = (
+                self.app_args.assignee
+            )
+        if self.app_args.project:
+            self.query_exactly_one("#project", Input).value = (
+                self.app_args.project
+            )
+        if len(self.app_args.platform_tags) > 0:
+            self.query_exactly_one("#platform_tags", Input).value = " ".join(
+                self.app_args.platform_tags
+            )
+        if len(self.app_args.tags) > 0:
+            self.query_exactly_one("#additional_tags", Input).value = " ".join(
+                self.app_args.tags
+            )
+
+    def _restore_existing_report(self):
+        if not self.existing_report:
+            return
+
+        # restore existing report, take over the CLI values
+        for elem_id in self.elem_id_to_border_title:
+            elem = self.query_exactly_one(f"#{elem_id}")
+
+            if not hasattr(self.existing_report, elem_id):
+                self.log.warning(f"No such attribute in BugReport: {elem_id}")
+                continue
+
+            match elem:
+                case Input():
+                    report_value = cast(
+                        list[str] | str, getattr(self.existing_report, elem_id)
+                    )
+                    if isinstance(report_value, list):
+                        elem.value = " ".join(map(str, report_value))
+                    else:
+                        elem.value = str(report_value)
+                case TextArea():
+                    elem.text = self.existing_report.get_with_type(
+                        elem_id, str
+                    )
+                    # don't wait for the info collector, immediately enable
+                    # and allow editing
+                    elem.disabled = False
+                    self.query_exactly_one("#save_as_text_file").disabled = (
+                        False
+                    )
+                case RadioSet():
+                    selected_name = self.existing_report.get_with_type(
+                        elem_id, str
+                    )
+                    for child in elem.children:
+                        if (
+                            isinstance(child, RadioButton)
+                            and child.name == selected_name
+                        ):
+                            child.action_toggle_button()
+                case SelectionWithPreview():
+                    value = cast(
+                        list[str],
+                        self.existing_report.get_with_type(elem_id, list),
+                    )
+                    elem.restore_selection(value)
+                case SelectionList():
+                    elem_value = cast(
+                        list[str],
+                        self.existing_report.get_with_type(elem_id, list),
+                    )
+                    for v in elem_value:
+                        try:
+                            cast(SelectionList[str], elem).select(str(v))
+                        except Exception:
+                            pass
+                case _:
+                    pass

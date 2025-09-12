@@ -11,7 +11,7 @@ from textual.driver import Driver
 from textual.reactive import var
 from textual.types import CSSPathType
 from textual.widgets import Footer, Header, LoadingIndicator
-from typing_extensions import override
+from typing_extensions import Annotated, override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
@@ -23,6 +23,7 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
+from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import BugReport
 from bugit_v2.screens.bug_report_screen import BugReportScreen
 from bugit_v2.screens.job_selection_screen import JobSelectionScreen
@@ -33,34 +34,64 @@ from bugit_v2.screens.submission_progress_screen import (
 )
 from bugit_v2.utils import is_prod
 from bugit_v2.utils.constants import NullSelection
-from bugit_v2.utils.validations import before_entry_check
+from bugit_v2.utils.validations import before_entry_check, is_cid
 
 cli_app = typer.Typer(
+    help="Bugit is a tool for creating bug reports on Launchpad and Jira",
+    no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
     pretty_exceptions_enable=not is_prod(),
     pretty_exceptions_show_locals=not is_prod(),
 )
 
 
+def strip(value: str | None) -> str | None:
+    return value and value.strip()
+
+
+def cid_check(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if not is_cid(value):
+        raise typer.BadParameter(
+            f"Invalid CID: '{value}'. "
+            + "CID should look like 202408-12345 "
+            + "(6 digits, dash, then 5 digits)",
+        )
+    return value.strip()
+
+
+def alnum_check(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if not value.isalnum():
+        raise typer.BadParameter(
+            f"Invalid project: '{value}'. "
+            + "Project name should be an alphanumeric string."
+        )
+    return value.strip()
+
+
+def assignee_str_check(value: str | None) -> str | None:
+    if value is None:
+        return None
+    # not going to check for email, way too complicated
+    # we'll just send it to jira and let jira figure it out
+    if value.startswith("lp:"):
+        raise typer.BadParameter('Assignee should not start with "lp:"')
+    return value.strip()
+
+
 @dataclass(slots=True)
 class AppState:
-    """The global app state.
-
-    Combination of null and non-nulls determine which state we are in
-    - All null: session selection
-    - Only session is NOT null: job selection
-    - Only bug_report is null: editor
-    - All non-null: submission in progress
+    """
+    The global app state. Check the watch_state function to see all possible
+    state combinations
     """
 
     session: Session | Literal[NullSelection.NO_SESSION] | None = None
     job_id: str | Literal[NullSelection.NO_JOB] | None = None
     bug_report: BugReport | None = None
-
-
-@dataclass(slots=True)
-class AppArgs:
-    submitter: Literal["lp", "jira"]
 
 
 @final
@@ -158,7 +189,7 @@ class BugitApp(App[None]):
                     BugReportScreen(
                         session,
                         job_id,
-                        self.args.submitter,
+                        self.args,
                         self.bug_report_backup,
                     ),
                     lambda bug_report: _write_state(
@@ -180,7 +211,7 @@ class BugitApp(App[None]):
                     BugReportScreen(
                         session,
                         job_id,
-                        self.args.submitter,
+                        self.args,
                         self.bug_report_backup,
                     ),
                     lambda bug_report: _write_state(
@@ -198,7 +229,7 @@ class BugitApp(App[None]):
                     BugReportScreen(
                         session,
                         job_id,
-                        self.args.submitter,
+                        self.args,
                         self.bug_report_backup,
                     ),
                     lambda bug_report: _write_state(
@@ -297,16 +328,150 @@ class BugitApp(App[None]):
 
 
 @cli_app.command("lp", help="Submit a bug to Launchpad")
-def launchpad_mode():
+def launchpad_mode(
+    cid: Annotated[
+        str | None,
+        typer.Option(
+            "-c",
+            "--cid",
+            help="Canonical ID (CID) of the device under test",
+            file_okay=False,
+            dir_okay=False,
+            callback=cid_check,
+        ),
+    ] = None,
+    sku: Annotated[
+        str | None,
+        typer.Option(
+            "-k",
+            "--sku",
+            help="Stock Keeping Unit (SKU) string of the device under test",
+            file_okay=False,
+            dir_okay=False,
+            callback=strip,
+        ),
+    ] = None,
+    project: Annotated[
+        str | None,
+        typer.Option(
+            "-p",
+            "--project",
+            help="Project name like STELLA, SOMERVILLE. Case sensitive.",
+            file_okay=False,
+            dir_okay=False,
+            callback=alnum_check,
+        ),
+    ] = None,
+    assignee: Annotated[
+        str | None,
+        typer.Option(
+            "-a",
+            "--assignee",
+            help='Assignee ID. For Launchpad it\'s LP ID, without the "lp:" part',
+            file_okay=False,
+            dir_okay=False,
+            callback=assignee_str_check,
+        ),
+    ] = None,
+    platform_tags: Annotated[
+        list[str],
+        typer.Option(
+            "-pt",
+            "--platform-tags",
+            help='Platform Tags. They appear under "Components" on Jira',
+            file_okay=False,
+            dir_okay=False,
+        ),
+    ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
+    tags: Annotated[
+        list[str],
+        typer.Option(
+            "-t",
+            "--tags",
+            help="Additional tags on Jira",
+            file_okay=False,
+            dir_okay=False,
+        ),
+    ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
+):
     before_entry_check()
-    app = BugitApp(AppArgs("lp"))
+    app = BugitApp(
+        AppArgs("lp", cid, sku, project, assignee, platform_tags, tags)
+    )
     app.run()
 
 
 @cli_app.command("jira", help="Submit a bug to Jira")
-def jira_mode():
+def jira_mode(
+    cid: Annotated[
+        str | None,
+        typer.Option(
+            "-c",
+            "--cid",
+            help="Canonical ID (CID) of the device under test",
+            file_okay=False,
+            dir_okay=False,
+            callback=cid_check,
+        ),
+    ] = None,
+    sku: Annotated[
+        str | None,
+        typer.Option(
+            "-k",
+            "--sku",
+            help="Stock Keeping Unit (SKU) string of the device under test",
+            file_okay=False,
+            dir_okay=False,
+            callback=strip,
+        ),
+    ] = None,
+    project: Annotated[
+        str | None,
+        typer.Option(
+            "-p",
+            "--project",
+            help="Project name like STELLA, SOMERVILLE. Case sensitive.",
+            file_okay=False,
+            dir_okay=False,
+            callback=alnum_check,
+        ),
+    ] = None,
+    assignee: Annotated[
+        str | None,
+        typer.Option(
+            "-a",
+            "--assignee",
+            help="Assignee ID. For Jira it's the assignee's email",
+            file_okay=False,
+            dir_okay=False,
+            callback=assignee_str_check,
+        ),
+    ] = None,
+    platform_tags: Annotated[
+        list[str],
+        typer.Option(
+            "-pt",
+            "--platform-tags",
+            help='Platform Tags. They appear under "Components" on Jira',
+            file_okay=False,
+            dir_okay=False,
+        ),
+    ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
+    tags: Annotated[
+        list[str],
+        typer.Option(
+            "-t",
+            "--tags",
+            help="Additional tags on Jira",
+            file_okay=False,
+            dir_okay=False,
+        ),
+    ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
+):
     before_entry_check()
-    app = BugitApp(AppArgs("jira"))
+    app = BugitApp(
+        AppArgs("jira", cid, sku, project, assignee, platform_tags, tags)
+    )
     app.run()
 
 

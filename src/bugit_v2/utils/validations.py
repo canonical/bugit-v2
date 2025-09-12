@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess as sp
 
 
@@ -34,3 +35,7 @@ def before_entry_check():
         raise SystemExit(
             "Bugit is not installed in devmode. Please reinstall with --devmode specified."
         )
+
+
+def is_cid(cid: str) -> bool:
+    return re.compile(r"\d{6}-\d{5}\b").fullmatch(cid) is not None

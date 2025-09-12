@@ -102,6 +102,11 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
     def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
         self.selected_job = str(event.pressed.name)
         btn = self.query_exactly_one("#continue_button", Button)
-        btn.label = f"File a bug for [u]{self.selected_job.split('::')[-1]}"
+        if self.selected_job == "bugit_no_job":
+            btn.label = "Skip to editor with session data"
+        else:
+            btn.label = (
+                f"File a bug for [u]{self.selected_job.split('::')[-1]}"
+            )
         btn.disabled = False
         btn.variant = "success"
