@@ -33,7 +33,7 @@ JIRA_SERVER_ADDRESS = os.getenv(
 )
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class JiraBasicAuth:
     email: str
     token: str

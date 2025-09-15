@@ -82,7 +82,7 @@ def assignee_str_check(value: str | None) -> str | None:
     return value.strip()
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class AppState:
     """
     The global app state. Check the watch_state function to see all possible

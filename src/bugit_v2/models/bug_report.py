@@ -51,7 +51,7 @@ LOG_NAMES: tuple[LogName, ...] = LogName.__args__
 # pretty log names should be specified in the LogCollector class
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class BugReport:
     """
     The data model for a bug report.

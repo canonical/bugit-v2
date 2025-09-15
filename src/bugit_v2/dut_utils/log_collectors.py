@@ -19,7 +19,7 @@ from bugit_v2.models.bug_report import BugReport, LogName
 COMMAND_TIMEOUT = 10 * 60  # 10 minutes
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class LogCollector:
     # internal name, alphanumeric or dashes only
     name: LogName

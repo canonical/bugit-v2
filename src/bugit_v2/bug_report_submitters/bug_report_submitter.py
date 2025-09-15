@@ -8,7 +8,7 @@ from textual.screen import ModalScreen
 from bugit_v2.models.bug_report import BugReport, Severity
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class AdvanceMessage:
     """
     Indicates to the submission screen that the progress bar
