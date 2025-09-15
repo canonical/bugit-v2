@@ -9,16 +9,40 @@ from typing import Any, Final, Literal, TypedDict, cast, final
 
 from typing_extensions import override
 
+from bugit_v2.utils import is_snap
+
 DEFAULT_ROOT: Final = Path("/")
 
 
 def get_checkbox_version() -> str | None:
-    checkbox_bin = shutil.which("checkbox-cli") or shutil.which(
-        "checkbox.checkbox-cli"
-    )
-    if checkbox_bin is None:
-        return None
-    return subprocess.check_output([checkbox_bin, "--version"], text=True)
+    if is_snap():
+        if Path(
+            deb_checkbox := "/var/lib/snapd/hostfs/usr/bin/checkbox-cli"
+        ).exists():
+            # host is using debian checkbox
+            return subprocess.check_output(
+                [deb_checkbox, "--version"],
+                text=True,
+                env={
+                    "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages"
+                },
+            ).strip()
+        elif (
+            Path(
+                snap_checkbox := "/var/lib/snapd/hostfs/snap/bin/checkbox.checkbox-cli"
+            )
+        ).exists():
+            return subprocess.check_output(
+                [snap_checkbox, "--version"], text=True
+            ).strip()
+    else:
+        checkbox_bin = shutil.which("checkbox-cli") or shutil.which(
+            "checkbox.checkbox-cli"
+        )
+        if checkbox_bin:
+            return subprocess.check_output(
+                [checkbox_bin, "--version"], text=True
+            ).strip()
 
 
 JobOutcome = Literal["pass", "fail", "skip"]
