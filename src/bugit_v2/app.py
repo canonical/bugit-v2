@@ -130,9 +130,9 @@ class BugitApp(App[None]):
     async def on_mount(self) -> None:
         self.theme = "solarized-light"
         if is_prod():
-            self.title = "BugIt V2"
+            self.title = "Bugit V2"
         else:
-            self.title = "BugIt V2 🐛🐛 DEBUG MODE 🐛🐛"
+            self.title = "Bugit V2 🐛🐛 DEBUG MODE 🐛🐛"
 
         if (version := get_checkbox_version()) is not None:
             self.sub_title = f"Checkbox {version}"
