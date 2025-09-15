@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class AppArgs:
     """The global constant holding the values from the CLI"""
 
