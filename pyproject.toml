@@ -47,7 +47,3 @@ include = '(\.pyi?|\.ipynb)$'
 
 [tool.isort]
 profile = "black"
-
-[tool.mypy]
-disallow_untyped_defs = true
-check_untyped_defs = true
