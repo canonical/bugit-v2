@@ -26,8 +26,7 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
     }
 
     #job_list_container {
-        align: center middle;
-        overflow: scroll;
+        border: none;
         height: 100%;
     }
     """
@@ -66,7 +65,6 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
                 RadioButton(job_id, name=job_id)
                 for job_id in self.session.get_run_jobs()
             ),
-            classes="nb",
             id="job_list_container",
         )
         with VerticalGroup(classes="db"):
