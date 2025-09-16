@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 import typer
-from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.driver import Driver
@@ -126,8 +125,7 @@ class BugitApp(App[None]):
 
         super().__init__(driver_class, css_path, watch_css, ansi_color)
 
-    @work
-    async def on_mount(self) -> None:
+    def on_mount(self) -> None:
         self.theme = "solarized-light"
         if is_prod():
             self.title = "Bugit V2"
