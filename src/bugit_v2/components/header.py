@@ -1,0 +1,78 @@
+from typing import final, override
+
+from textual.app import ComposeResult
+from textual.content import Content
+from textual.widget import Widget
+from textual.widgets import Static
+
+
+@final
+class HeaderTitle(Static):
+    """Display the title / subtitle in the header."""
+
+    DEFAULT_CSS = """
+    HeaderTitle {
+        text-wrap: nowrap;
+        text-overflow: ellipsis;
+        content-align: center middle;
+        width: 100%;
+    }
+    """
+
+
+@final
+class SimpleHeader(Widget):
+    """A header widget with icon and clock."""
+
+    DEFAULT_CSS = """
+    SimpleHeader {
+        dock: top;
+        width: 100%;
+        background: $panel;
+        color: $foreground;
+        height: 1;
+    }
+    """
+
+    DEFAULT_CLASSES = ""
+
+    def __init__(
+        self,
+        *,
+        name: str | None = None,
+        id: str | None = None,
+        classes: str | None = None,
+    ):
+        super().__init__(name=name, id=id, classes=classes)
+
+    @override
+    def compose(self) -> ComposeResult:
+        yield HeaderTitle()
+
+    def format_title(self) -> Content:
+        return self.app.format_title(self.screen_title, self.screen_sub_title)
+
+    @property
+    def screen_title(self) -> str:
+        screen_title = self.screen.title
+        title = screen_title if screen_title is not None else self.app.title
+        return title
+
+    @property
+    def screen_sub_title(self) -> str:
+        screen_sub_title = self.screen.sub_title
+        sub_title = (
+            screen_sub_title
+            if screen_sub_title is not None
+            else self.app.sub_title
+        )
+        return sub_title
+
+    def on_mount(self) -> None:
+        def set_title():
+            self.query_exactly_one(HeaderTitle).update(self.format_title())
+
+        self.watch(self.app, "title", set_title)
+        self.watch(self.app, "sub_title", set_title)
+        self.watch(self.screen, "title", set_title)
+        self.watch(self.screen, "sub_title", set_title)
