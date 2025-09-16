@@ -5,17 +5,11 @@ from textual import on
 from textual.app import ComposeResult
 from textual.containers import VerticalGroup
 from textual.screen import Screen
-from textual.widgets import (
-    Button,
-    Footer,
-    Header,
-    Label,
-    RadioButton,
-    RadioSet,
-)
+from textual.widgets import Button, Footer, Label, RadioButton, RadioSet
 from typing_extensions import override
 
 from bugit_v2.checkbox_utils import Session
+from bugit_v2.components.header import SimpleHeader
 from bugit_v2.utils.constants import NullSelection
 
 
@@ -52,7 +46,7 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
     @override
     def compose(self) -> ComposeResult:
         with VerticalGroup(classes="dt"):
-            yield Header(icon="〇")
+            yield SimpleHeader()
             yield Label(
                 (
                     "[bold][$primary]Select a job in [$secondary]"

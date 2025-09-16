@@ -1,9 +1,65 @@
 from typing import final, override
 
-from textual.app import ComposeResult
+from textual.app import ComposeResult, RenderResult
 from textual.content import Content
+from textual.events import Click
+from textual.reactive import Reactive
 from textual.widget import Widget
 from textual.widgets import Static
+
+
+@final
+class HeaderIcon(Widget):
+    """Display an 'icon' on the left of the header."""
+
+    DEFAULT_CSS = """
+    HeaderIcon {
+        dock: left;
+        padding: 0 1;
+        width: 8;
+        content-align: left middle;
+        background: $primary 10%
+    }
+
+    HeaderIcon:hover {
+        background: $foreground 10%;
+    }
+    """
+
+    icon = Reactive("[b]>_ CMD")
+    """The character to use as the icon within the header."""
+
+    def on_mount(self) -> None:
+        if self.app.ENABLE_COMMAND_PALETTE:
+            self.tooltip = "Open the command palette"
+        else:
+            self.disabled = True
+
+    async def on_click(self, event: Click) -> None:
+        """Launch the command palette when icon is clicked."""
+        event.stop()
+        await self.run_action("app.command_palette")
+
+    @override
+    def render(self) -> RenderResult:
+        """Render the header icon.
+
+        Returns:
+            The rendered icon.
+        """
+        return self.icon
+
+
+@final
+class RightAlignTitle(Static):
+    DEFAULT_CSS = """
+    RightAlignTitle {
+        dock: right;
+        padding: 0 1;
+        width: auto;
+        content-align: right middle;
+    }
+    """
 
 
 @final
@@ -47,7 +103,8 @@ class SimpleHeader(Widget):
 
     @override
     def compose(self) -> ComposeResult:
-        yield HeaderTitle()
+        yield HeaderIcon()
+        yield RightAlignTitle()
 
     def format_title(self) -> Content:
         return self.app.format_title(self.screen_title, self.screen_sub_title)
@@ -70,7 +127,7 @@ class SimpleHeader(Widget):
 
     def on_mount(self) -> None:
         def set_title():
-            self.query_exactly_one(HeaderTitle).update(self.format_title())
+            self.query_exactly_one(RightAlignTitle).update(self.format_title())
 
         self.watch(self.app, "title", set_title)
         self.watch(self.app, "sub_title", set_title)

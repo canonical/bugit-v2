@@ -14,7 +14,6 @@ from textual.widgets import (
     Button,
     Collapsible,
     Footer,
-    Header,
     Input,
     Label,
     RadioButton,
@@ -28,6 +27,7 @@ from typing_extensions import override
 
 from bugit_v2.checkbox_utils import Session
 from bugit_v2.components.confirm_dialog import ConfirmScreen
+from bugit_v2.components.header import SimpleHeader
 from bugit_v2.components.selection_with_preview import SelectionWithPreview
 from bugit_v2.dut_utils.info_getters import get_standard_info
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
@@ -214,7 +214,7 @@ class BugReportScreen(Screen[BugReport]):
 
     @override
     def compose(self) -> ComposeResult:
-        yield Header(icon="〇")
+        yield SimpleHeader()
         with Collapsible(
             title=f"[bold]{'Jira' if self.app_args.submitter == 'jira' else 'Launchpad'} Bug Report for...[/bold]",
             collapsed=False,

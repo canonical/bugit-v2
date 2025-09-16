@@ -11,7 +11,7 @@ from textual.containers import Center, HorizontalGroup, VerticalGroup
 from textual.reactive import var
 from textual.screen import Screen
 from textual.timer import Timer
-from textual.widgets import Button, Footer, Header, Label, ProgressBar, RichLog
+from textual.widgets import Button, Footer, Label, ProgressBar, RichLog
 from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
@@ -20,6 +20,7 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
 )
 from bugit_v2.components.confirm_dialog import ConfirmScreen
+from bugit_v2.components.header import SimpleHeader
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
 from bugit_v2.models.bug_report import BugReport, LogName
 from bugit_v2.utils import is_prod
@@ -491,7 +492,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
     @override
     def compose(self) -> ComposeResult:
-        yield Header(classes="dt", icon="〇")
+        yield SimpleHeader()
 
         with Center(classes="lrm1"):
             with HorizontalGroup():

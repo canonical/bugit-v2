@@ -4,12 +4,11 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 import typer
-from textual.app import App, ComposeResult
+from textual.app import App
 from textual.binding import Binding
 from textual.driver import Driver
 from textual.reactive import var
 from textual.types import CSSPathType
-from textual.widgets import Footer, Header, LoadingIndicator
 from typing_extensions import Annotated, override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
@@ -320,12 +319,6 @@ class BugitApp(App[None]):
                 raise RuntimeError(
                     f"Impossible state when going back: {self.state}"
                 )
-
-    @override
-    def compose(self) -> ComposeResult:
-        yield Header(icon="〇")
-        yield LoadingIndicator()
-        yield Footer()
 
 
 @cli_app.command("lp", help="Submit a bug to Launchpad")
