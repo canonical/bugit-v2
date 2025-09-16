@@ -132,6 +132,9 @@ class BugitApp(App[None]):
         else:
             self.title = "Bugit V2 🐛🐛 DEBUG MODE 🐛🐛"
 
+        if self.args.bug_to_reopen is not None:
+            self.title += f" (Reopening {self.args.bug_to_reopen})"
+
         if (version := get_checkbox_version()) is not None:
             self.sub_title = f"Checkbox {version}"
 
@@ -327,6 +330,17 @@ class BugitApp(App[None]):
 
 @cli_app.command("lp", help="Submit a bug to Launchpad")
 def launchpad_mode(
+    reopen: Annotated[
+        int | None,
+        typer.Option(
+            "-r",
+            "--reopen",
+            help=(
+                "Reopen a bug on Launchpad. "
+                "The value for this option should look like 2025684 i.e. just a number"
+            ),
+        ),
+    ] = None,
     cid: Annotated[
         str | None,
         typer.Option(
@@ -393,14 +407,26 @@ def launchpad_mode(
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
 ):
     before_entry_check()
-    app = BugitApp(
-        AppArgs("lp", cid, sku, project, assignee, platform_tags, tags)
-    )
-    app.run()
+    BugitApp(
+        AppArgs(
+            "lp", str(reopen), cid, sku, project, assignee, platform_tags, tags
+        )
+    ).run()
 
 
 @cli_app.command("jira", help="Submit a bug to Jira")
 def jira_mode(
+    reopen: Annotated[
+        str | None,
+        typer.Option(
+            "-r",
+            "--reopen",
+            help=(
+                "Reopen a bug on Jira. "
+                "The value for this option should look like STELLA-1234"
+            ),
+        ),
+    ] = None,
     cid: Annotated[
         str | None,
         typer.Option(
@@ -467,10 +493,11 @@ def jira_mode(
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
 ):
     before_entry_check()
-    app = BugitApp(
-        AppArgs("jira", cid, sku, project, assignee, platform_tags, tags)
-    )
-    app.run()
+    BugitApp(
+        AppArgs(
+            "jira", reopen, cid, sku, project, assignee, platform_tags, tags
+        )
+    ).run()
 
 
 if __name__ == "__main__":
