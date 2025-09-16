@@ -85,14 +85,14 @@ class BugReportScreen(Screen[BugReport]):
     session: Final[Session | Literal[NullSelection.NO_SESSION]]
     job_id: Final[str | Literal[NullSelection.NO_JOB]]
     existing_report: Final[BugReport | None]
+    app_args: Final[AppArgs]
+    elem_id_to_border_title: Final[Mapping[str, tuple[str, str]]]
 
     initial_report: dict[str, str]
-    app_args: AppArgs
 
     # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
     # id should match the property name in the BugReport object
     # TODO: rename this, it does more than just holding titles now
-    elem_id_to_border_title: Mapping[str, tuple[str, str]]
 
     CSS = """
     BugReportScreen {
