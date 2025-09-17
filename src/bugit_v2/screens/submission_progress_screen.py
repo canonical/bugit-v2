@@ -193,7 +193,12 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             )
 
             display_name = LOG_NAME_TO_COLLECTOR[log_name].display_name
-            self._log_with_time(f"Launched collector: {display_name}")
+            msg = f"Launched collector: {display_name}"
+            if (
+                t := LOG_NAME_TO_COLLECTOR[log_name].advertised_timeout
+            ) is not None:
+                msg += f" (timeout: {t}s)"
+            self._log_with_time(msg)
 
     def start_parallel_attachment_upload(self) -> None:
         assert self.log_widget

@@ -37,6 +37,10 @@ class LogCollector:
     # provide a way for the user to manually collect the logs if this collector
     # failed at runtime
     manual_collection_command: str | None = None
+    # how long until this collector is expected to timeout
+    # this is purely visual and doesn't change any behaviors
+    # each collector, if specifies this, should actually implement a timeout
+    advertised_timeout: int | None = None
 
 
 def pack_checkbox_session(target_dir: Path, bug_report: BugReport) -> str:
@@ -193,49 +197,54 @@ real_collectors: Sequence[LogCollector] = (
     LogCollector(
         "acpidump",
         acpidump,
-        "ACPI Dump",
+        "ACPI Dump".title(),
         True,
         "sudo acpidump -o acpidump.log",
     ),
     LogCollector(
         "dmesg",
         dmesg_of_current_boot,
-        "dmesg Logs of This Boot",
+        "dmesg Logs of This Boot".title(),
         True,
         "sudo dmesg",
+        advertised_timeout=COMMAND_TIMEOUT,
     ),
     LogCollector(
         "checkbox-session",
         pack_checkbox_session,
-        "Checkbox Session",
+        "Checkbox Session".title(),
     ),
     LogCollector(
         "nvidia-bug-report",
         nvidia_bug_report,
-        "NVIDIA Bug Report",
+        "NVIDIA Bug Report".title(),
         False,
         "nvidia-bug-report.sh --extra-system-data",
+        advertised_timeout=COMMAND_TIMEOUT,
     ),
     LogCollector(
         "journalctl-7-days",
         lambda target_dir, bug_report: journal_logs(target_dir, bug_report, 7),
-        "Journalctl Logs of This Week (Slow)",
+        "Journal Logs of This Week (Slow)".title(),
         False,
         'journalctl --since="1 week ago"',
+        advertised_timeout=COMMAND_TIMEOUT,
     ),
     LogCollector(
         "journalctl-3-days",
         lambda target_dir, bug_report: journal_logs(target_dir, bug_report, 3),
-        "Journalctl Logs of the Last 3 Days",
+        "Journal Logs of the Last 3 Days".title(),
         True,
         'journalctl --since="3 days ago"',
+        advertised_timeout=COMMAND_TIMEOUT,
     ),
     LogCollector(
         "snap-list",
         snap_list,
-        "List of Snaps in This System",
+        "List of Snaps in This System".title(),
         True,
         "snap list --all",
+        advertised_timeout=COMMAND_TIMEOUT,
     ),
 )
 
