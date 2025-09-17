@@ -381,6 +381,12 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         yield AdvanceMessage(f"Bug URL is: {self.bug_url}")
 
     @override
+    def reopen(
+        self, bug_id: str
+    ) -> Generator[str | AdvanceMessage, None, None]:
+        return super().reopen(bug_id)
+
+    @override
     def upload_attachment(self, attachment_file: Path) -> str | None:
         assert (
             self.lp_bug_object

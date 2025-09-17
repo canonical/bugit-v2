@@ -167,6 +167,12 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         self.mock_issue = "mock_issue"
 
     @override
+    def reopen(
+        self, bug_id: str
+    ) -> Generator[str | AdvanceMessage, None, None]:
+        return super().reopen(bug_id)
+
+    @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:
         try:
             with open(f"/tmp/{self.name}-credentials.json") as f:

@@ -164,6 +164,12 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
 
         yield AdvanceMessage(f"Bug URL is: {bug_url}")
 
+    @override
+    def reopen(
+        self, bug_id: str
+    ) -> Generator[str | AdvanceMessage, None, None]:
+        return super().reopen(bug_id)
+
     @property
     @override
     def bug_url(self) -> str:

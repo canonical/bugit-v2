@@ -7,7 +7,7 @@ import os
 from collections.abc import Generator, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import cast, final
+from typing import cast, final, override
 
 from jira import JIRA, Issue
 from jira.resources import Component
@@ -16,7 +16,6 @@ from textual.app import ComposeResult
 from textual.containers import Center, VerticalGroup
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Input, Label
-from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
@@ -292,6 +291,12 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
 
         self.issue = self.jira.create_issue(bug_dict)
         yield AdvanceMessage(f"Created {self.issue.key}")
+
+    @override
+    def reopen(
+        self, bug_id: str
+    ) -> Generator[str | AdvanceMessage, None, None]:
+        return super().reopen(bug_id)
 
     @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:

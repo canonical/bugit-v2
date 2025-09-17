@@ -62,6 +62,12 @@ class BugReportSubmitter[TAuth, TReturn](abc.ABC):
         pass
 
     @abc.abstractmethod
+    def reopen(
+        self, bug_id: str
+    ) -> Generator[str | AdvanceMessage, None, TReturn]:
+        pass
+
+    @abc.abstractmethod
     def get_cached_credentials(self) -> TAuth | None:
         """
         Returns the cached credentials saved in the auth_modal
