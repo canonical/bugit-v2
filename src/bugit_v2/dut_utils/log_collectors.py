@@ -185,7 +185,7 @@ mock_collectors: Sequence[LogCollector] = (
     LogCollector(
         "journalctl-7-days",
         lambda target_dir, bug_report: journal_logs(target_dir, bug_report, 7),
-        "Journalctl Logs of This Week (Slow)",
+        "Journalctl Logs of This Week",
         False,
         'journalctl --since="1 week ago"',
     ),
@@ -203,14 +203,14 @@ real_collectors: Sequence[LogCollector] = (
     LogCollector(
         "acpidump",
         acpidump,
-        "ACPI Dump".title(),
+        "ACPI Dump",
         True,
         "sudo acpidump -o acpidump.log",
     ),
     LogCollector(
         "dmesg",
         dmesg_of_current_boot,
-        "dmesg Logs of This Boot".title(),
+        "dmesg Logs of This Boot",
         True,
         "sudo dmesg",
         advertised_timeout=COMMAND_TIMEOUT,
@@ -218,12 +218,12 @@ real_collectors: Sequence[LogCollector] = (
     LogCollector(
         "checkbox-session",
         pack_checkbox_session,
-        "Checkbox Session".title(),
+        "Checkbox Session",
     ),
     LogCollector(
         "nvidia-bug-report",
         nvidia_bug_report,
-        "NVIDIA Bug Report".title(),
+        "NVIDIA Bug Report",
         False,
         "nvidia-bug-report.sh --extra-system-data",
         advertised_timeout=COMMAND_TIMEOUT,
@@ -231,7 +231,7 @@ real_collectors: Sequence[LogCollector] = (
     LogCollector(
         "journalctl-7-days",
         lambda target_dir, bug_report: journal_logs(target_dir, bug_report, 7),
-        "Journal Logs of This Week (Slow)".title(),
+        "Journal Logs of This Week",
         False,
         'journalctl --since="1 week ago"',
         advertised_timeout=COMMAND_TIMEOUT,
@@ -239,7 +239,7 @@ real_collectors: Sequence[LogCollector] = (
     LogCollector(
         "journalctl-3-days",
         lambda target_dir, bug_report: journal_logs(target_dir, bug_report, 3),
-        "Journal Logs of the Last 3 Days".title(),
+        "Journal Logs of the Last 3 Days",
         True,
         'journalctl --since="3 days ago"',
         advertised_timeout=COMMAND_TIMEOUT,
@@ -247,7 +247,7 @@ real_collectors: Sequence[LogCollector] = (
     LogCollector(
         "snap-list",
         snap_list,
-        "List of Snaps in This System".title(),
+        "List of Snaps in This System",
         True,
         "snap list --all",
         advertised_timeout=COMMAND_TIMEOUT,
