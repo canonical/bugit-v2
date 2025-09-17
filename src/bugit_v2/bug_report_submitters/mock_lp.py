@@ -35,7 +35,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
         "low": "Low",
         "lowest": "Wishlist",
     }
-    steps = 7
+    steps = 6
     lp_client: Launchpad | None = None
     auth_modal = LaunchpadAuthModal
 

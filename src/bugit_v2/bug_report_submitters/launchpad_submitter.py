@@ -246,7 +246,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         "lowest": "Wishlist",
     }
     display_name = "Launchpad"
-    steps = 7
+    steps = 6
     auth_modal = LaunchpadAuthModal
     # parallel upload will cause an irrecoverable segfault
     # and completely kill the shell
