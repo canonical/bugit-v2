@@ -16,6 +16,8 @@ from typing import Callable
 
 from bugit_v2.models.bug_report import BugReport, LogName
 
+COMMAND_TIMEOUT = 10 * 60  # 10 minutes
+
 
 @dataclass(slots=True)
 class LogCollector:
@@ -61,16 +63,23 @@ def nvidia_bug_report(target_dir: Path, _: BugReport) -> str:
             str(target_dir / "nvidia-bug-report.log.gz"),
         ],
         text=True,
+        timeout=COMMAND_TIMEOUT,
     )
 
 
-def journal_of_past_week(target_dir: Path, _: BugReport) -> None:
+def journal_logs(target_dir: Path, _: BugReport, num_days: int = 7) -> None:
     with open(target_dir / "journalctl_1_week.log", "w") as f:
-        sp.check_call(
-            ["journalctl", "--since", "1 week ago"],
-            stdout=f,
-            text=True,
-        )
+        try:
+            sp.check_call(
+                ["journalctl", "--since", f"{num_days} days ago"],
+                stdout=f,
+                text=True,
+                timeout=COMMAND_TIMEOUT,
+            )
+        except sp.TimeoutExpired:
+            raise RuntimeError(
+                "Journalctl didn't finish dumping the logs in 600 seconds"
+            )
 
     bad = False
     with open(target_dir / "journalctl_1_week.log") as f:
@@ -94,6 +103,7 @@ def acpidump(target_dir: Path, _: BugReport) -> str:
     return sp.check_output(
         ["acpidump", "-o", str(target_dir.absolute() / "acpidump.log")],
         text=True,
+        timeout=COMMAND_TIMEOUT,
     )
 
 
@@ -101,13 +111,24 @@ def dmesg_of_current_boot(target_dir: Path, _: BugReport) -> str:
     with open("/proc/sys/kernel/random/boot_id") as boot_id_file:
         boot_id = boot_id_file.read().strip().replace("-", "")
         with open(target_dir / f"dmesg-of-boot-{boot_id}.log", "w") as f:
-            sp.check_call(["dmesg"], stdout=f, stderr=sp.DEVNULL, text=True)
+            sp.check_call(
+                ["dmesg"],
+                stdout=f,
+                stderr=sp.DEVNULL,
+                text=True,
+                timeout=COMMAND_TIMEOUT,
+            )
             return f"Saved dmesg logs of boot {boot_id} to {f.name}"
 
 
 def snap_list(target_dir: Path, _: BugReport):
     with open(target_dir / "snap_list.log", "w") as f:
-        sp.check_call(["snap", "list", "--all"], stdout=f, text=True)
+        sp.check_call(
+            ["snap", "list", "--all"],
+            stdout=f,
+            text=True,
+            timeout=COMMAND_TIMEOUT,
+        )
 
 
 mock_collectors: Sequence[LogCollector] = (
@@ -152,11 +173,18 @@ mock_collectors: Sequence[LogCollector] = (
         "NVIDIA Bug Report",
     ),
     LogCollector(
-        "journalctl",
-        journal_of_past_week,
-        "Journalctl Logs of This Week",
-        True,
+        "journalctl-7-days",
+        lambda target_dir, bug_report: journal_logs(target_dir, bug_report, 7),
+        "Journalctl Logs of This Week (Slow)",
+        False,
         'journalctl --since="1 week ago"',
+    ),
+    LogCollector(
+        "journalctl-3-days",
+        lambda target_dir, bug_report: journal_logs(target_dir, bug_report, 3),
+        "Journalctl Logs of the Last 3 Days",
+        True,
+        'journalctl --since="3 days ago"',
     ),
 )
 
@@ -189,11 +217,18 @@ real_collectors: Sequence[LogCollector] = (
         "nvidia-bug-report.sh --extra-system-data",
     ),
     LogCollector(
-        "journalctl",
-        journal_of_past_week,
-        "Journalctl Logs of This Week",
-        True,
+        "journalctl-7-days",
+        lambda target_dir, bug_report: journal_logs(target_dir, bug_report, 7),
+        "Journalctl Logs of This Week (Slow)",
+        False,
         'journalctl --since="1 week ago"',
+    ),
+    LogCollector(
+        "journalctl-3-days",
+        lambda target_dir, bug_report: journal_logs(target_dir, bug_report, 3),
+        "Journalctl Logs of the Last 3 Days",
+        True,
+        'journalctl --since="3 days ago"',
     ),
     LogCollector(
         "snap-list",

@@ -39,7 +39,8 @@ LogName = Literal[
     "slow2",
     "always-fail",
     # real
-    "journalctl",
+    "journalctl-7-days",
+    "journalctl-3-days",
     "checkbox-session",
     "nvidia-bug-report",
     "acpidump",
