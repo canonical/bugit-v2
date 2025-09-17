@@ -6,6 +6,7 @@ from typing import Any, Literal, final
 import typer
 from textual.app import App
 from textual.binding import Binding
+from textual.content import Content
 from textual.driver import Driver
 from textual.reactive import var
 from textual.types import CSSPathType
@@ -131,11 +132,30 @@ class BugitApp(App[None]):
         else:
             self.title = "Bugit V2 🐛🐛 DEBUG MODE 🐛🐛"
 
-        if self.args.bug_to_reopen is not None:
-            self.title += f" (Reopening {self.args.bug_to_reopen})"
-
         if (version := get_checkbox_version()) is not None:
             self.sub_title = f"Checkbox {version}"
+
+    @override
+    def format_title(self, title: str, sub_title: str) -> Content:
+        match (title, sub_title, self.args.bug_to_reopen):
+            case (str(t), str(s), str(b)):
+                return Content.assemble(
+                    Content(t),
+                    (" - ", "dim"),
+                    Content(s).stylize("$secondary"),
+                    (" - ", "dim"),
+                    Content(f"Reopen {b}").stylize("dim"),
+                )
+            case (str(t), str(s), None) if s:
+                return Content.assemble(
+                    Content(t),
+                    (" - ", "dim"),
+                    Content(s).stylize("$secondary"),
+                )
+            case (str(t), str(s), None) if not s:
+                return Content(t)
+            case _:
+                return self.app.format_title(title, sub_title)
 
     @override
     def _handle_exception(self, error: Exception) -> None:
