@@ -117,7 +117,7 @@ def dmesg_of_current_boot(target_dir: Path, _: BugReport) -> str:
         boot_id = boot_id_file.read().strip().replace("-", "")
         with open(target_dir / f"dmesg-of-boot-{boot_id}.log", "w") as f:
             sp.check_call(
-                ["dmesg"],
+                ["dmesg", "-T"],
                 stdout=f,
                 stderr=sp.DEVNULL,
                 text=True,
