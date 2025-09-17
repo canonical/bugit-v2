@@ -217,6 +217,23 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
                 )
 
     @override
+    def bug_exists(self, bug_id: str) -> bool:
+        assert self.auth
+
+        if not self.jira:
+            self.jira = JIRA(
+                server=JIRA_SERVER_ADDRESS,
+                basic_auth=(self.auth.email, self.auth.token),
+                validate=True,
+            )
+
+        try:
+            self.jira.issue(bug_id)
+            return True
+        except Exception:
+            return False
+
+    @override
     def submit(
         self, bug_report: BugReport
     ) -> Generator[str | AdvanceMessage, None, None]:

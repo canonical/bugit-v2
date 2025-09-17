@@ -2,7 +2,7 @@ import os
 import time
 from collections.abc import Generator
 from pathlib import Path
-from typing import Any, Callable, Literal, cast, final
+from typing import Any, Callable, Literal, cast, final, override
 
 from launchpadlib.credentials import (
     Credentials,
@@ -18,7 +18,6 @@ from textual.app import ComposeResult
 from textual.containers import Center, HorizontalGroup, VerticalGroup
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Label, RichLog
-from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
@@ -291,6 +290,10 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 f"Series '{series}' doesn't exist. Original error: {e}"
             )
             raise ValueError(error_message)
+
+    @override
+    def bug_exists(self, bug_id: str) -> bool:
+        return False
 
     @override
     def submit(

@@ -62,6 +62,10 @@ class BugReportSubmitter[TAuth, TReturn](abc.ABC):
         pass
 
     @abc.abstractmethod
+    def bug_exists(self, bug_id: str) -> bool:
+        pass
+
+    @abc.abstractmethod
     def reopen(
         self, bug_id: str
     ) -> Generator[str | AdvanceMessage, None, TReturn]:

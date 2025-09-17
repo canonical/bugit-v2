@@ -5,11 +5,10 @@ import time
 from collections.abc import Generator, Mapping, Sequence
 from dataclasses import asdict
 from pathlib import Path
-from typing import cast, final
+from typing import cast, final, override
 
 from jira import JIRA
 from jira.resources import Component
-from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
@@ -95,6 +94,23 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
                 raise JiraSubmitterError(
                     f"Component '{wanted_component}' doesn't exist in {project}!"
                 )
+
+    @override
+    def bug_exists(self, bug_id: str) -> bool:
+        assert self.auth
+
+        if not self.jira:
+            self.jira = JIRA(
+                server=JIRA_SERVER_ADDRESS,
+                basic_auth=(self.auth.email, self.auth.token),
+                validate=True,
+            )
+
+        try:
+            self.jira.issue(bug_id)
+            return True
+        except Exception:
+            return False
 
     @override
     def submit(
