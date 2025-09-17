@@ -1,7 +1,4 @@
-import os
-import time
 from collections.abc import Mapping
-from pathlib import Path
 from typing import Final, Literal, cast, final
 
 from textual import on, work
@@ -19,7 +16,6 @@ from textual.widgets import (
     RadioButton,
     RadioSet,
     SelectionList,
-    TextArea,
 )
 from textual.widgets.selection_list import Selection
 from textual.worker import Worker, WorkerState
@@ -27,6 +23,7 @@ from typing_extensions import override
 
 from bugit_v2.checkbox_utils import Session
 from bugit_v2.components.confirm_dialog import ConfirmScreen
+from bugit_v2.components.description_editor import DescriptionEditor
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.components.selection_with_preview import SelectionWithPreview
 from bugit_v2.dut_utils.info_getters import get_standard_info
@@ -113,7 +110,7 @@ class BugReportScreen(Screen[BugReport]):
         padding: 0;
     }
 
-    #bug_report_description {
+    #description {
         height: auto;
         width: 60%;
     }
@@ -240,39 +237,9 @@ class BugReportScreen(Screen[BugReport]):
             )
 
             with HorizontalGroup():
-                with VerticalGroup(id="bug_report_description"):
-                    yield TextArea(
-                        "Waiting for basic machine info to be collected (30 second timeout)...",
-                        classes="default_box",
-                        show_line_numbers=True,
-                        soft_wrap=False,
-                        id="description",
-                        disabled=True,
-                    )
-                    yield HorizontalGroup(
-                        Button(
-                            "Hide Line Numbers",
-                            id="show_line_numbers_toggle",
-                            compact=True,
-                            classes="editor_button",
-                        ),
-                        Button(
-                            "Enable Wrap",
-                            id="wrap_text_toggle",
-                            compact=True,
-                            classes="editor_button",
-                            tooltip="Wrap long lines around so you don't need to scroll to see them",
-                        ),
-                        Button(
-                            "Save as Text File",
-                            id="save_as_text_file",
-                            compact=True,
-                            disabled=True,
-                            classes="editor_button wa",
-                            tooltip="Save the description to the current directory as a .txt file",
-                        ),
-                        classes="right",
-                    )
+                yield DescriptionEditor(
+                    classes="ha", id="description", disabled=True
+                )
 
                 with VerticalGroup():
                     yield RadioSet(
@@ -420,50 +387,6 @@ class BugReportScreen(Screen[BugReport]):
         # restore existing report, take over the CLI values
         self._restore_existing_report()
 
-    @on(Button.Pressed, "#save_as_text_file")
-    def save_as_text_file(self):
-        content = self.query_exactly_one(TextArea).text
-        btn = self.query_exactly_one("#save_as_text_file", Button)
-        old_label = btn.label
-
-        try:
-            file_path = (
-                Path(os.curdir) / f"bug-description-{int(time.time())}.txt"
-            )
-            with open(file_path, "w") as file:
-                file.write(content)
-                btn.label = "Saved!"
-                self.notify(
-                    title="Saved current bug description!",
-                    timeout=10,  # make it longer so users can see the path
-                    message=f"It's at {file_path.absolute().expanduser()}",
-                )
-
-                def f():
-                    btn.label = old_label
-
-                self.set_timer(3, f)
-        except Exception as e:
-            self.notify(f"Failed to save. Reason {repr(e)}")
-
-    @on(Button.Pressed, "#wrap_text_toggle")
-    def toggle_wrap(self):
-        text_area = self.query_exactly_one(TextArea)
-        btn = self.query_exactly_one("#wrap_text_toggle", Button)
-        text_area.soft_wrap = not text_area.soft_wrap
-        btn.label = "Disable Wrap" if text_area.soft_wrap else "Enable Wrap"
-
-    @on(Button.Pressed, "#show_line_numbers_toggle")
-    def toggle_line_number(self):
-        text_area = self.query_exactly_one(TextArea)
-        btn = self.query_exactly_one("#show_line_numbers_toggle", Button)
-        text_area.show_line_numbers = not text_area.show_line_numbers
-        btn.label = (
-            "Hide Line Numbers"
-            if text_area.show_line_numbers
-            else "Show Line Numbers"
-        )
-
     @work
     @on(Button.Pressed, "#submit_button")
     async def confirm_submit(self):
@@ -512,9 +435,8 @@ class BugReportScreen(Screen[BugReport]):
         ):
             return
 
-        textarea = self.query_exactly_one("#description", TextArea)
+        textarea = self.query_exactly_one("#description", DescriptionEditor)
         textarea.disabled = False
-        self.query_exactly_one("#save_as_text_file").disabled = False
 
         if event.worker.state != WorkerState.SUCCESS:
             self.notify(
@@ -586,7 +508,7 @@ class BugReportScreen(Screen[BugReport]):
                 else self.session
             ),
             description=self.query_exactly_one(
-                "#description", TextArea
+                "#description", DescriptionEditor
             ).text.strip(),
             assignee=self.query_exactly_one("#assignee", Input).value.strip(),
             project=self.query_exactly_one("#project", Input).value.strip(),
@@ -649,16 +571,13 @@ class BugReportScreen(Screen[BugReport]):
                         elem.value = " ".join(map(str, report_value))
                     else:
                         elem.value = str(report_value)
-                case TextArea():
+                case DescriptionEditor():
                     elem.text = self.existing_report.get_with_type(
                         elem_id, str
                     )
                     # don't wait for the info collector, immediately enable
                     # and allow editing
                     elem.disabled = False
-                    self.query_exactly_one("#save_as_text_file").disabled = (
-                        False
-                    )
                 case RadioSet():
                     selected_name = self.existing_report.get_with_type(
                         elem_id, str
