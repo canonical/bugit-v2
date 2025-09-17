@@ -154,12 +154,17 @@ mock_collectors: Sequence[LogCollector] = (
     ),
     LogCollector(
         "slow1",
-        lambda p, b: sp.check_output(["sleep", "6"], text=True),
+        lambda p, b: sp.check_output(
+            ["sleep", "60"], text=True, timeout=COMMAND_TIMEOUT
+        ),
         "Slow collect 1",
+        advertised_timeout=COMMAND_TIMEOUT,
     ),
     LogCollector(
         "slow2",
-        lambda p, b: sp.check_output(["sleep", "7"], text=True),
+        lambda p, b: sp.check_output(
+            ["sleep", "700"], text=True, timeout=COMMAND_TIMEOUT
+        ),
         "Slow collect 2",
     ),
     LogCollector(

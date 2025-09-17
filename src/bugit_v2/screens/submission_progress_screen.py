@@ -10,6 +10,7 @@ from textual.app import ComposeResult
 from textual.containers import Center, HorizontalGroup, VerticalGroup
 from textual.reactive import var
 from textual.screen import Screen
+from textual.timer import Timer
 from textual.widgets import Button, Footer, Header, Label, ProgressBar, RichLog
 from textual.worker import Worker, WorkerState
 from typing_extensions import override
@@ -39,6 +40,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     finished = var(False)
 
     attachment_workers: dict[str, Worker[str | None]]
+    attachment_worker_checker_timers: dict[str, Timer]
     upload_workers: dict[str, Worker[str | None]]
     bug_creation_worker: Worker[None] | None = None
     progress_start_time: float
@@ -79,6 +81,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         self.submitter = submitter
         self.attachment_dir = Path(mkdtemp()).expanduser().absolute()
         self.attachment_workers = {}
+        self.attachment_worker_checker_timers = {}
         self.upload_workers = {}
         self.progress_start_time = time.time()  # doesn't have to precise
 
@@ -88,7 +91,6 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     async def on_mount(self) -> None:
         self.log_widget = self.query_exactly_one("#submission_logs", RichLog)
         self.query_exactly_one("#menu_after_finish").display = False
-
         if self.submitter.auth_modal:
             # submission screen controls how the credentials are assigned
             try:
@@ -182,6 +184,21 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                 finally:
                     progress_bar.advance()
 
+            def check_if_worker_is_pending(name: LogName):
+                if self.attachment_workers[name].is_running:
+                    msg = (
+                        LOG_NAME_TO_COLLECTOR[name].display_name
+                        + " is still running"
+                    )
+                    if (
+                        t := LOG_NAME_TO_COLLECTOR[name].advertised_timeout
+                    ) is not None:
+                        msg += f" (timeout: {t}s)"
+                    msg += "..."
+                    self._log_with_time(msg)
+                else:
+                    self.attachment_worker_checker_timers[name].stop()
+
             self.attachment_workers[log_name] = self.run_worker(
                 # closure workaround
                 # https://stackoverflow.com/a/1107260
@@ -191,6 +208,11 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                 name=log_name,
                 exit_on_error=False,  # hold onto the err, don't crash
             )
+            self.attachment_worker_checker_timers[log_name] = (
+                self.set_interval(
+                    30, lambda n=log_name: check_if_worker_is_pending(n)
+                )
+            )
 
             display_name = LOG_NAME_TO_COLLECTOR[log_name].display_name
             msg = f"Launched collector: {display_name}"
@@ -199,6 +221,10 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             ) is not None:
                 msg += f" (timeout: {t}s)"
             self._log_with_time(msg)
+
+        self._log_with_time(
+            "[blue]Slow collectors will print a status report every 30 seconds"
+        )
 
     def start_parallel_attachment_upload(self) -> None:
         assert self.log_widget
@@ -301,7 +327,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         ]
         if len(running_collectors) > 0:
             self._log_with_time(
-                f"Finished bug creation. Waiting for {len(running_collectors)} log collector(s) to finish"
+                f"[blue]Finished bug creation[/]. Waiting for {len(running_collectors)} log collector(s) to finish"
             )
             for c in running_collectors:
                 if c.name in LOG_NAME_TO_COLLECTOR:
@@ -313,7 +339,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     )
         else:
             self._log_with_time(
-                "Finished bug creation, starting to upload attachments..."
+                "[blue]Finished bug creation[/], starting to upload attachments..."
             )
 
     def is_finished(self) -> bool:
