@@ -72,7 +72,8 @@ def nvidia_bug_report(target_dir: Path, _: BugReport) -> str:
 
 
 def journal_logs(target_dir: Path, _: BugReport, num_days: int = 7) -> None:
-    with open(target_dir / "journalctl_1_week.log", "w") as f:
+    filepath = target_dir / f"journalctl_{num_days}_days.log"
+    with open(filepath, "w") as f:
         try:
             sp.check_call(
                 ["journalctl", "--since", f"{num_days} days ago"],
@@ -86,7 +87,7 @@ def journal_logs(target_dir: Path, _: BugReport, num_days: int = 7) -> None:
             )
 
     bad = False
-    with open(target_dir / "journalctl_1_week.log") as f:
+    with open(filepath) as f:
         first_line = f.readline()
         if "No entries" in first_line:
             # this happens when the the journalctl binary can't read the
@@ -96,7 +97,7 @@ def journal_logs(target_dir: Path, _: BugReport, num_days: int = 7) -> None:
             bad = True
 
     if bad:
-        os.remove(target_dir / "journalctl_1_week.log")
+        os.remove(filepath)
         raise ValueError(
             "Not going to attach an empty journalctl file. "
             + "Is the DUT using a much newer version of journalctl?"
