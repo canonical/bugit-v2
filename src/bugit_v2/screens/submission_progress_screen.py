@@ -1,4 +1,3 @@
-import os
 import shutil
 import time
 from pathlib import Path
@@ -23,7 +22,7 @@ from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
 from bugit_v2.models.bug_report import BugReport, LogName
-from bugit_v2.utils import is_prod
+from bugit_v2.utils import is_prod, is_snap
 
 ReturnScreenChoice = Literal["job", "session", "quit", "report_editor"]
 RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
@@ -410,7 +409,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         ]
 
         if not all_upload_ok:
-            if "SNAP" in os.environ:
+            if is_snap():
                 attachment_dir = (
                     "/tmp/snap-private-tmp/snap.bugit-v2/tmp"
                     / self.attachment_dir

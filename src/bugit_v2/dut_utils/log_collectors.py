@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Callable
 
 from bugit_v2.models.bug_report import BugReport, LogName
+from bugit_v2.utils import is_snap
 
 COMMAND_TIMEOUT = 10 * 60  # 10 minutes
 
@@ -55,7 +56,7 @@ def pack_checkbox_session(target_dir: Path, bug_report: BugReport) -> str:
 
 
 def nvidia_bug_report(target_dir: Path, _: BugReport) -> str:
-    if "SNAP" in os.environ:
+    if is_snap():
         executable = "/var/lib/snapd/hostfs/usr/bin/nvidia-bug-report.sh"
     else:
         executable = "nvidia-bug-report.sh"

@@ -1,4 +1,3 @@
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, final
@@ -31,7 +30,7 @@ from bugit_v2.screens.submission_progress_screen import (
     ReturnScreenChoice,
     SubmissionProgressScreen,
 )
-from bugit_v2.utils import is_prod
+from bugit_v2.utils import is_prod, is_snap
 from bugit_v2.utils.constants import NullSelection
 from bugit_v2.utils.validations import before_entry_check, is_cid
 
@@ -159,7 +158,7 @@ class BugitApp(App[None]):
 
     @override
     def _handle_exception(self, error: Exception) -> None:
-        if is_prod() or "SNAP" in os.environ:
+        if is_prod() or is_snap():
             raise SystemExit(error)
         else:
             # don't use pretty exception in prod, it shows local vars
