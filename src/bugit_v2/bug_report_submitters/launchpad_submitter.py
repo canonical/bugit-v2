@@ -8,11 +8,11 @@ from launchpadlib.credentials import (
     Credentials,
     EndUserDeclinedAuthorization,
     EndUserNoAuthorization,
-    HTTPError,
     RequestTokenAuthorizationEngine,
 )
 from launchpadlib.launchpad import Launchpad
 from launchpadlib.uris import LPNET_WEB_ROOT, QASTAGING_WEB_ROOT
+from lazr.restfulclient.errors import HTTPError
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Center, HorizontalGroup, VerticalGroup
