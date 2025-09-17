@@ -61,10 +61,6 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     #menu_after_finish {
         display: none;
     }
-
-    RichLog {
-        padding: 0 1;
-    }
     """
 
     CSS_PATH = "styles.tcss"
@@ -327,7 +323,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         ]
         if len(running_collectors) > 0:
             self._log_with_time(
-                f"[blue]Finished bug creation[/]. Waiting for {len(running_collectors)} log collector(s) to finish"
+                f"[blue]Finished bug creation. Waiting for {len(running_collectors)} log collector(s) to finish"
             )
             for c in running_collectors:
                 if c.name in LOG_NAME_TO_COLLECTOR:
@@ -339,7 +335,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     )
         else:
             self._log_with_time(
-                "[blue]Finished bug creation[/], starting to upload attachments..."
+                "[blue]Finished bug creation, starting to upload attachments..."
             )
 
     def is_finished(self) -> bool:
