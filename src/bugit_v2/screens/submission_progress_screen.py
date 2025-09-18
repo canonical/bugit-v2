@@ -21,7 +21,7 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
-from bugit_v2.models.bug_report import BugReport, LogName
+from bugit_v2.models.bug_report import BugReport, LogName, PartialBugReport
 from bugit_v2.utils import is_prod, is_snap
 
 ReturnScreenChoice = Literal["job", "session", "quit", "report_editor"]
@@ -36,7 +36,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     The progress screen shown while submission/log collection is happening
     """
 
-    bug_report: BugReport
+    bug_report: BugReport | PartialBugReport
     finished = var(False)
 
     attachment_workers: dict[str, Worker[str | None]]
@@ -67,7 +67,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
     def __init__(
         self,
-        bug_report: BugReport,
+        bug_report: BugReport | PartialBugReport,
         submitter: BugReportSubmitter[TAuth, TReturn],
         name: str | None = None,
         id: str | None = None,
@@ -300,10 +300,18 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     def create_bug(self) -> None:
         """Do the entire bug creation sequence. This should be run in a worker"""
         assert self.log_widget
+        # assert isinstance(self.bug_report, BugReport)
+
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
         display_name = self.submitter.display_name or self.submitter.name
 
-        for step_result in self.submitter.submit(self.bug_report):
+        match self.bug_report:
+            case BugReport() as b:
+                submission_step_iterator = self.submitter.submit(b)
+            case PartialBugReport() as p:
+                submission_step_iterator = self.submitter.reopen(p)
+
+        for step_result in submission_step_iterator:
             match step_result:
                 case str():
                     # general logs

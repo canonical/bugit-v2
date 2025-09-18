@@ -5,7 +5,7 @@ from pathlib import Path
 
 from textual.screen import ModalScreen
 
-from bugit_v2.models.bug_report import BugReport, Severity
+from bugit_v2.models.bug_report import BugReport, PartialBugReport, Severity
 
 
 @dataclass(slots=True, frozen=True)
@@ -67,7 +67,7 @@ class BugReportSubmitter[TAuth, TReturn](abc.ABC):
 
     @abc.abstractmethod
     def reopen(
-        self, bug_id: str
+        self, bug_report: PartialBugReport
     ) -> Generator[str | AdvanceMessage, None, TReturn]:
         pass
 

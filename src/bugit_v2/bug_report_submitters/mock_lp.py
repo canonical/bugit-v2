@@ -15,7 +15,7 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
     SERVICE_ROOT,
     LaunchpadAuthModal,
 )
-from bugit_v2.models.bug_report import BugReport
+from bugit_v2.models.bug_report import BugReport, PartialBugReport
 
 LAUNCHPAD_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
 # 'staging' doesn't seem to work
@@ -169,9 +169,9 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
 
     @override
     def reopen(
-        self, bug_id: str
+        self, bug_report: PartialBugReport
     ) -> Generator[str | AdvanceMessage, None, None]:
-        return super().reopen(bug_id)
+        return super().reopen(bug_report)
 
     @property
     @override

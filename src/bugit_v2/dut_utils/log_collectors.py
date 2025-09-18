@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from bugit_v2.models.bug_report import BugReport, LogName
+from bugit_v2.models.bug_report import BugReport, LogName, PartialBugReport
 from bugit_v2.utils import is_snap
 
 COMMAND_TIMEOUT = 10 * 60  # 10 minutes
@@ -26,7 +26,7 @@ class LogCollector:
     name: LogName
     # the function that actually collects the logs
     collect: Callable[
-        [Path, BugReport],
+        [Path, BugReport | PartialBugReport],
         str | None,  # (target_dir: Path) -> optional result string
         # if returns None, a generic success message is logged to the screen
         # errors should be raised as regular exceptions
@@ -44,7 +44,9 @@ class LogCollector:
     advertised_timeout: int | None = None
 
 
-def pack_checkbox_session(target_dir: Path, bug_report: BugReport) -> str:
+def pack_checkbox_session(
+    target_dir: Path, bug_report: BugReport | PartialBugReport
+) -> str:
     assert (
         bug_report.checkbox_session is not None
     ), "Can't use this collector if there's no checkbox session"
@@ -55,7 +57,9 @@ def pack_checkbox_session(target_dir: Path, bug_report: BugReport) -> str:
     return f"Added checkbox session to {target_dir}"
 
 
-def nvidia_bug_report(target_dir: Path, _: BugReport) -> str:
+def nvidia_bug_report(
+    target_dir: Path, _: BugReport | PartialBugReport
+) -> str:
     if is_snap():
         executable = "/var/lib/snapd/hostfs/usr/bin/nvidia-bug-report.sh"
     else:
@@ -72,7 +76,9 @@ def nvidia_bug_report(target_dir: Path, _: BugReport) -> str:
     )
 
 
-def journal_logs(target_dir: Path, _: BugReport, num_days: int = 7) -> None:
+def journal_logs(
+    target_dir: Path, _: BugReport | PartialBugReport, num_days: int = 7
+) -> None:
     filepath = target_dir / f"journalctl_{num_days}_days.log"
     with open(filepath, "w") as f:
         try:
@@ -105,7 +111,7 @@ def journal_logs(target_dir: Path, _: BugReport, num_days: int = 7) -> None:
         )
 
 
-def acpidump(target_dir: Path, _: BugReport) -> str:
+def acpidump(target_dir: Path, _: BugReport | PartialBugReport) -> str:
     return sp.check_output(
         ["acpidump", "-o", str(target_dir.absolute() / "acpidump.log")],
         text=True,
@@ -113,7 +119,9 @@ def acpidump(target_dir: Path, _: BugReport) -> str:
     )
 
 
-def dmesg_of_current_boot(target_dir: Path, _: BugReport) -> str:
+def dmesg_of_current_boot(
+    target_dir: Path, _: BugReport | PartialBugReport
+) -> str:
     with open("/proc/sys/kernel/random/boot_id") as boot_id_file:
         boot_id = boot_id_file.read().strip().replace("-", "")
         with open(target_dir / f"dmesg-of-boot-{boot_id}.log", "w") as f:
@@ -127,7 +135,7 @@ def dmesg_of_current_boot(target_dir: Path, _: BugReport) -> str:
             return f"Saved dmesg logs of boot {boot_id} to {f.name}"
 
 
-def snap_list(target_dir: Path, _: BugReport):
+def snap_list(target_dir: Path, _: BugReport | PartialBugReport):
     with open(target_dir / "snap_list.log", "w") as f:
         sp.check_call(
             ["snap", "list", "--all"],

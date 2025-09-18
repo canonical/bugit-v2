@@ -23,6 +23,7 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 )
 from bugit_v2.models.bug_report import (
     BugReport,
+    PartialBugReport,
     Severity,
     pretty_issue_file_times,
 )
@@ -314,9 +315,9 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
 
     @override
     def reopen(
-        self, bug_id: str
+        self, bug_report: PartialBugReport
     ) -> Generator[str | AdvanceMessage, None, None]:
-        return super().reopen(bug_id)
+        return super().reopen(bug_report)
 
     @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:

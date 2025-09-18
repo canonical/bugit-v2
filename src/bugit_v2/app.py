@@ -23,9 +23,10 @@ from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
 from bugit_v2.models.app_args import AppArgs
-from bugit_v2.models.bug_report import BugReport
+from bugit_v2.models.bug_report import BugReport, PartialBugReport
 from bugit_v2.screens.bug_report_screen import BugReportScreen
 from bugit_v2.screens.job_selection_screen import JobSelectionScreen
+from bugit_v2.screens.reopen_bug_editor_screen import ReopenBugEditorScreen
 from bugit_v2.screens.reopen_precheck_screen import ReopenPreCheckScreen
 from bugit_v2.screens.session_selection_screen import SessionSelectionScreen
 from bugit_v2.screens.submission_progress_screen import (
@@ -91,7 +92,7 @@ class AppState:
 
     session: Session | Literal[NullSelection.NO_SESSION] | None = None
     job_id: str | Literal[NullSelection.NO_JOB] | None = None
-    bug_report: BugReport | None = None
+    bug_report: BugReport | PartialBugReport | None = None
 
 
 @final
@@ -103,6 +104,7 @@ class BugitApp(App[None]):
         BugReportSubmitter[Any, Any]  # pyright: ignore[reportExplicitAny]
     ]
     bug_report_backup: BugReport | None = None
+    partial_bug_report_backup: PartialBugReport | None = None
     BINDINGS = [Binding("alt+left", "go_back", "Go Back")]
 
     def __init__(
@@ -128,7 +130,7 @@ class BugitApp(App[None]):
 
     @work(thread=True)
     def on_mount(self) -> None:
-        self.theme = "textual-light"
+        self.theme = "solarized-light"
         if is_prod():
             self.title = "Bugit V2"
         else:
@@ -261,6 +263,26 @@ class BugitApp(App[None]):
                 session=Session() as session,
                 job_id=str() as job_id,
                 bug_report=None,
+            ) if (
+                self.args.bug_to_reopen is None
+            ):
+                self.push_screen(
+                    ReopenBugEditorScreen(
+                        session,
+                        job_id,
+                        self.args,
+                        self.partial_bug_report_backup,
+                    ),
+                    lambda bug_report: _write_state(
+                        AppState(session, job_id, bug_report)
+                    ),
+                )
+            case AppState(
+                session=Session() as session,
+                job_id=str() as job_id,
+                bug_report=None,
+            ) if (
+                self.args.bug_to_reopen is not None
             ):
                 # normal case, session and job_id were selected
                 # go to editor with info
@@ -286,7 +308,6 @@ class BugitApp(App[None]):
                     return_screen: ReturnScreenChoice | None,
                 ):
                     # already submitted, flush the stale backup
-                    self.bug_report_backup = None
                     match return_screen:
                         case None:
                             raise RuntimeError(
@@ -295,12 +316,53 @@ class BugitApp(App[None]):
                         case "quit":
                             self.exit()
                         case "session":
+                            self.bug_report_backup = None
                             self.state = AppState()
                         case "job" if session != NullSelection.NO_SESSION:
                             # this is only available when there's a session
+                            self.bug_report_backup = None
                             self.state = AppState(session)
                         case "report_editor":
                             self.bug_report_backup = br
+                            self.state = AppState(session, job_id)
+                        case _:
+                            raise RuntimeError()
+
+                self.push_screen(
+                    SubmissionProgressScreen(
+                        br,
+                        self.submitter_class(),
+                    ),
+                    after_submission_finished,
+                )
+
+            case AppState(
+                session=Session() | NullSelection.NO_SESSION as session,
+                job_id=str() | NullSelection.NO_JOB as job_id,
+                bug_report=PartialBugReport() as br,
+            ):
+                # returning from the end of submission screen
+                # handle the button selections
+                def after_submission_finished(
+                    return_screen: ReturnScreenChoice | None,
+                ):
+                    # already submitted, flush the stale backup
+                    match return_screen:
+                        case None:
+                            raise RuntimeError(
+                                "Submission screen should not return None"
+                            )
+                        case "quit":
+                            self.exit()
+                        case "session":
+                            self.partial_bug_report_backup = None
+                            self.state = AppState()
+                        case "job" if session != NullSelection.NO_SESSION:
+                            # this is only available when there's a session
+                            self.partial_bug_report_backup = None
+                            self.state = AppState(session)
+                        case "report_editor":
+                            self.partial_bug_report_backup = br
                             self.state = AppState(session, job_id)
                         case _:
                             raise RuntimeError()
