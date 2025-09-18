@@ -21,6 +21,7 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
+from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import BugReport, LogName, PartialBugReport
 from bugit_v2.utils import is_prod, is_snap
 
@@ -37,6 +38,8 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     """
 
     bug_report: BugReport | PartialBugReport
+    app_args: AppArgs
+
     finished = var(False)
 
     attachment_workers: dict[str, Worker[str | None]]
@@ -69,6 +72,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         self,
         bug_report: BugReport | PartialBugReport,
         submitter: BugReportSubmitter[TAuth, TReturn],
+        app_args: AppArgs,
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
@@ -80,6 +84,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         self.attachment_worker_checker_timers = {}
         self.upload_workers = {}
         self.progress_start_time = time.time()  # doesn't have to precise
+        self.app_args = app_args
 
         super().__init__(name, id, classes)
 
@@ -309,7 +314,10 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             case BugReport() as b:
                 submission_step_iterator = self.submitter.submit(b)
             case PartialBugReport() as p:
-                submission_step_iterator = self.submitter.reopen(p)
+                assert self.app_args.bug_to_reopen
+                submission_step_iterator = self.submitter.reopen(
+                    p, self.app_args.bug_to_reopen
+                )
 
         for step_result in submission_step_iterator:
             match step_result:

@@ -321,8 +321,7 @@ class BugitApp(App[None]):
 
                 self.push_screen(
                     SubmissionProgressScreen(
-                        br,
-                        self.submitter_class(),
+                        br, self.submitter_class(), self.args
                     ),
                     after_submission_finished,
                 )

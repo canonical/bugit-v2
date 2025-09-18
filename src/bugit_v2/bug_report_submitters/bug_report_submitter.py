@@ -67,7 +67,7 @@ class BugReportSubmitter[TAuth, TReturn](abc.ABC):
 
     @abc.abstractmethod
     def reopen(
-        self, bug_report: PartialBugReport
+        self, bug_report: PartialBugReport, bug_id: str
     ) -> Generator[str | AdvanceMessage, None, TReturn]:
         pass
 

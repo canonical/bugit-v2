@@ -187,9 +187,9 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
 
     @override
     def reopen(
-        self, bug_report: PartialBugReport
+        self, bug_report: PartialBugReport, bug_id: str
     ) -> Generator[str | AdvanceMessage, None, None]:
-        return super().reopen(bug_report)
+        return super().reopen(bug_report, bug_id)
 
     @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:

@@ -31,7 +31,6 @@ from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import (
     ISSUE_FILE_TIMES,
-    SEVERITIES,
     LogName,
     PartialBugReport,
     pretty_issue_file_times,
@@ -418,16 +417,11 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
             btn.label = "Submit Bug Report"
 
     def _build_bug_report(self) -> PartialBugReport:
-        selected_severity_button = self.query_exactly_one(
-            "#severity", RadioSet
-        ).pressed_button
         selected_issue_file_time_button = self.query_exactly_one(
             "#issue_file_time", RadioSet
         ).pressed_button
 
         # shouldn't fail at runtime, major logic error if they do
-        assert selected_severity_button
-        assert selected_severity_button.name in SEVERITIES
         assert selected_issue_file_time_button
         assert selected_issue_file_time_button.name in ISSUE_FILE_TIMES
 

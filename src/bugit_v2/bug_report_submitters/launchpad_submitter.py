@@ -389,9 +389,9 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
 
     @override
     def reopen(
-        self, bug_report: PartialBugReport
+        self, bug_report: PartialBugReport, bug_id: str
     ) -> Generator[str | AdvanceMessage, None, None]:
-        return super().reopen(bug_report)
+        return super().reopen(bug_report, bug_id)
 
     @override
     def upload_attachment(self, attachment_file: Path) -> str | None:
