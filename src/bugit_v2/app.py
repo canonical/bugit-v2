@@ -179,6 +179,26 @@ class BugitApp(App[None]):
         def _write_state(new_state: AppState):
             self.state = new_state
 
+        def _pick_editor(
+            session: Session | Literal[NullSelection.NO_SESSION],
+            job_id: str | Literal[NullSelection.NO_JOB],
+        ):
+            return (
+                ReopenBugEditorScreen(
+                    session,
+                    job_id,
+                    self.args,
+                    self.partial_bug_report_backup,
+                )
+                if self.args.bug_to_reopen
+                else BugReportScreen(
+                    session,
+                    job_id,
+                    self.args,
+                    self.bug_report_backup,
+                )
+            )
+
         match self.state:
             case AppState(session=None, job_id=None, bug_report=None):
                 # init, nothing has been selected yet
@@ -227,21 +247,7 @@ class BugitApp(App[None]):
             ):
                 # selected no session, skip to editor with absolutely nothing
                 self.push_screen(
-                    (
-                        ReopenBugEditorScreen(
-                            session,
-                            job_id,
-                            self.args,
-                            self.partial_bug_report_backup,
-                        )
-                        if self.args.bug_to_reopen
-                        else BugReportScreen(
-                            session,
-                            job_id,
-                            self.args,
-                            self.bug_report_backup,
-                        )
-                    ),
+                    _pick_editor(session, job_id),
                     lambda bug_report: _write_state(
                         AppState(
                             session,
@@ -258,21 +264,7 @@ class BugitApp(App[None]):
                 # has session, but chose the no job object
                 # skip to editor with session
                 self.push_screen(
-                    (
-                        ReopenBugEditorScreen(
-                            session,
-                            job_id,
-                            self.args,
-                            self.partial_bug_report_backup,
-                        )
-                        if self.args.bug_to_reopen
-                        else BugReportScreen(
-                            session,
-                            job_id,
-                            self.args,
-                            self.bug_report_backup,
-                        )
-                    ),
+                    _pick_editor(session, job_id),
                     lambda bug_report: _write_state(
                         AppState(session, job_id, bug_report)
                     ),
@@ -285,21 +277,7 @@ class BugitApp(App[None]):
                 # normal case, session and job_id were selected
                 # go to editor with info
                 self.push_screen(
-                    (
-                        ReopenBugEditorScreen(
-                            session,
-                            job_id,
-                            self.args,
-                            self.partial_bug_report_backup,
-                        )
-                        if self.args.bug_to_reopen
-                        else BugReportScreen(
-                            session,
-                            job_id,
-                            self.args,
-                            self.bug_report_backup,
-                        )
-                    ),
+                    _pick_editor(session, job_id),
                     lambda bug_report: _write_state(
                         AppState(session, job_id, bug_report)
                     ),
