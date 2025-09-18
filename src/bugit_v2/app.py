@@ -227,11 +227,20 @@ class BugitApp(App[None]):
             ):
                 # selected no session, skip to editor with absolutely nothing
                 self.push_screen(
-                    BugReportScreen(
-                        session,
-                        job_id,
-                        self.args,
-                        self.bug_report_backup,
+                    (
+                        ReopenBugEditorScreen(
+                            session,
+                            job_id,
+                            self.args,
+                            self.partial_bug_report_backup,
+                        )
+                        if self.args.bug_to_reopen
+                        else BugReportScreen(
+                            session,
+                            job_id,
+                            self.args,
+                            self.bug_report_backup,
+                        )
                     ),
                     lambda bug_report: _write_state(
                         AppState(
@@ -249,11 +258,20 @@ class BugitApp(App[None]):
                 # has session, but chose the no job object
                 # skip to editor with session
                 self.push_screen(
-                    BugReportScreen(
-                        session,
-                        job_id,
-                        self.args,
-                        self.bug_report_backup,
+                    (
+                        ReopenBugEditorScreen(
+                            session,
+                            job_id,
+                            self.args,
+                            self.partial_bug_report_backup,
+                        )
+                        if self.args.bug_to_reopen
+                        else BugReportScreen(
+                            session,
+                            job_id,
+                            self.args,
+                            self.bug_report_backup,
+                        )
                     ),
                     lambda bug_report: _write_state(
                         AppState(session, job_id, bug_report)
@@ -263,35 +281,24 @@ class BugitApp(App[None]):
                 session=Session() as session,
                 job_id=str() as job_id,
                 bug_report=None,
-            ) if (
-                self.args.bug_to_reopen is None
-            ):
-                self.push_screen(
-                    ReopenBugEditorScreen(
-                        session,
-                        job_id,
-                        self.args,
-                        self.partial_bug_report_backup,
-                    ),
-                    lambda bug_report: _write_state(
-                        AppState(session, job_id, bug_report)
-                    ),
-                )
-            case AppState(
-                session=Session() as session,
-                job_id=str() as job_id,
-                bug_report=None,
-            ) if (
-                self.args.bug_to_reopen is not None
             ):
                 # normal case, session and job_id were selected
                 # go to editor with info
                 self.push_screen(
-                    BugReportScreen(
-                        session,
-                        job_id,
-                        self.args,
-                        self.bug_report_backup,
+                    (
+                        ReopenBugEditorScreen(
+                            session,
+                            job_id,
+                            self.args,
+                            self.partial_bug_report_backup,
+                        )
+                        if self.args.bug_to_reopen
+                        else BugReportScreen(
+                            session,
+                            job_id,
+                            self.args,
+                            self.bug_report_backup,
+                        )
                     ),
                     lambda bug_report: _write_state(
                         AppState(session, job_id, bug_report)

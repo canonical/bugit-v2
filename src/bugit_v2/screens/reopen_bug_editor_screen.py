@@ -35,9 +35,8 @@ from bugit_v2.models.bug_report import (
     LogName,
     PartialBugReport,
     pretty_issue_file_times,
-    pretty_severities,
 )
-from bugit_v2.utils.constants import FEATURE_MAP, VENDOR_MAP, NullSelection
+from bugit_v2.utils.constants import NullSelection
 
 
 class ValidSpaceSeparatedTags(Validator):
@@ -100,6 +99,7 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
     #submit_button {
         width: 100%;
         padding: 0;
+        margin-top: 1;
     }
 
     #description {
@@ -146,15 +146,11 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
             "issue_file_time": ("[b]When was this issue filed?", ""),
             "platform_tags": ("[b]Platform Tags", ""),
             "assignee": ("[b]Assignee", ""),
-            "severity": ("[b]How bad is it?", ""),
-            "project": ("[b]Project Name", ""),
             "additional_tags": ("[b]Additional Tags", ""),
             "logs_to_include": (
                 "[b]Select some logs to include",
                 "Green = Selected",
             ),
-            "impacted_features": ("[b]Impacted Features", ""),
-            "impacted_vendors": ("[b]Impacted Vendors", ""),
         }
 
         self.initial_report = {
@@ -198,7 +194,7 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
     def compose(self) -> ComposeResult:
         yield SimpleHeader()
         with Collapsible(
-            title=f"[bold]{'Jira' if self.app_args.submitter == 'jira' else 'Launchpad'} Bug Report for...[/bold]",
+            title=f"[bold]Reopen {'Jira' if self.app_args.submitter == 'jira' else 'Launchpad'} Bug Report for...[/bold]",
             collapsed=False,
             classes="nb",
             id="bug_report_metadata_header",
@@ -214,13 +210,6 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
                 yield Label(f"- Job ID: {self.job_id}")
 
         with VerticalScroll(classes="center"):
-            yield Input(
-                placeholder="Short title for this bug",
-                id="title",
-                classes="default_box",
-                validators=[NonEmpty()],
-            )
-
             with HorizontalGroup():
                 yield DescriptionEditor(
                     classes="ha", id="description", disabled=True
@@ -241,12 +230,6 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
                         classes="default_box",
                     )
                     yield Input(
-                        id="project",
-                        placeholder="SOMERVILLE, STELLA, ...",
-                        classes="default_box",
-                        validators=[NoSpaces(), NonEmpty()],
-                    )
-                    yield Input(
                         id="platform_tags",
                         placeholder='Tags like "numbat-hello", space separated',
                         classes="default_box",
@@ -265,29 +248,6 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
                             if self.app_args.submitter == "jira"
                             else "Assignee's Launchpad ID"
                         ),
-                        classes="default_box",
-                    )
-
-                    highest_display_name = (
-                        "Highest (Jira)"
-                        if self.app_args.submitter == "jira"
-                        else "Critical (LP)"
-                    )
-                    yield RadioSet(
-                        *(
-                            RadioButton(
-                                (
-                                    highest_display_name
-                                    if severity == "highest"
-                                    else display_name
-                                ),
-                                name=severity,
-                                value=severity
-                                == "highest",  # default to critical
-                            )
-                            for severity, display_name in pretty_severities.items()
-                        ),
-                        id="severity",
                         classes="default_box",
                     )
 
@@ -327,19 +287,6 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
                         classes="default_box",
                         id="logs_to_include",
                     )
-
-            yield SelectionWithPreview(
-                FEATURE_MAP,
-                Label("[i][$primary]These features will be tagged"),
-                id="impacted_features",
-                classes="default_box",
-            )
-            yield SelectionWithPreview(
-                VENDOR_MAP,
-                Label("[i][$primary]These vendors will be tagged"),
-                id="impacted_vendors",
-                classes="default_box",
-            )
 
             yield Button(
                 "Waiting for basic machine info to be collected...",
