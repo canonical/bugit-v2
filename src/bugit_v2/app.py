@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Literal, final
 
 import typer
+from textual import work
 from textual.app import App
 from textual.binding import Binding
 from textual.content import Content
@@ -124,13 +125,16 @@ class BugitApp(App[None]):
 
         super().__init__(driver_class, css_path, watch_css, ansi_color)
 
+    @work(thread=True)
     def on_mount(self) -> None:
-        self.theme = "solarized-light"
+        self.theme = "textual-light"
         if is_prod():
             self.title = "Bugit V2"
         else:
             self.title = "Bugit V2 🐛🐛 DEBUG MODE 🐛🐛"
 
+        # snap checkbox takes a while to respond especially if it's the
+        # 1st use after reboot
         if (version := get_checkbox_version()) is not None:
             self.sub_title = f"Checkbox {version}"
 
