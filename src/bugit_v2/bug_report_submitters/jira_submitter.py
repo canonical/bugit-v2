@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import cast, final, override
 
-from jira import JIRA, Issue
+from jira import JIRA, Issue, JIRAError
 from jira.resources import Component
 from textual import on
 from textual.app import ComposeResult
@@ -232,7 +232,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
                         json.dump(asdict(self.auth), f)
             self.jira.issue(bug_id)
             return True
-        except Exception as e:
+        except JIRAError as e:
             print(e)
             return False
 

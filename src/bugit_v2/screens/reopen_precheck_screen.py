@@ -4,6 +4,7 @@ from textual import work
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import Label
+from textual.worker import Worker, WorkerState
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
@@ -64,9 +65,14 @@ class ReopenPreCheckScreen[TAuth, TReturn](Screen[bool | Exception]):
                     True,  # if it was saved before,
                     # then allow_cache_credentials is definitely true
                 )
-            # self.call_after_refresh(self._call_check_auth)
-            self.dismiss(
-                self.submitter.bug_exists(self.app_args.bug_to_reopen)
+            self.run_worker(
+                # early bind
+                lambda b=self.app_args.bug_to_reopen: self.submitter.bug_exists(
+                    b
+                ),
+                name="bug_existence_check",
+                exit_on_error=False,
+                thread=True,
             )
         except Exception as e:
             self.dismiss(e)
@@ -82,3 +88,19 @@ class ReopenPreCheckScreen[TAuth, TReturn](Screen[bool | Exception]):
             yield Label(
                 f"Checking Launchpad auth and making sure {self.app_args.bug_to_reopen} exists...",
             )
+
+    def on_worker_state_changed(self, event: Worker.StateChanged):
+        if event.worker.name != "bug_existence_check":
+            return
+
+        match event.state:
+            case WorkerState.SUCCESS:
+                assert type(event.worker.result) is bool
+                self.dismiss(event.worker.result)
+            case WorkerState.ERROR:
+                if isinstance(event.worker.error, Exception):
+                    self.dismiss(event.worker.error)
+                else:
+                    self.dismiss(False)
+            case _:
+                pass

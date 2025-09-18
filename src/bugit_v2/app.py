@@ -181,16 +181,16 @@ class BugitApp(App[None]):
             case AppState(session=None, job_id=None, bug_report=None):
                 # init, nothing has been selected yet
                 if b := self.args.bug_to_reopen:
-                    rv = await self.push_screen_wait(
+                    check_result = await self.push_screen_wait(
                         ReopenPreCheckScreen(self.submitter_class(), self.args)
                     )
-                    if rv:
+                    if check_result is True:
                         self.notify(f"Bug '{b}' exists!")
                     else:
-                        self.exit(
-                            return_code=1,
-                            message=f"Bug '{b}' doesn't exist or you don't have permission",
-                        )
+                        msg = f"Bug '{b}' doesn't exist or you don't have permission. "
+                        if isinstance(check_result, Exception):
+                            msg += f"Error is: {repr(check_result)}"
+                        self.exit(return_code=1, message=msg)
 
                 def after_session_select(
                     rv: Path | Literal[NullSelection.NO_SESSION] | None,

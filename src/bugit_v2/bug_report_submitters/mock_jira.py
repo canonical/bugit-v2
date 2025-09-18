@@ -7,7 +7,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import cast, final, override
 
-from jira import JIRA
+from jira import JIRA, JIRAError
 from jira.resources import Component
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
@@ -111,7 +111,7 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
                         json.dump(asdict(self.auth), f)
             self.jira.issue(bug_id)
             return True
-        except Exception as e:
+        except JIRAError as e:
             print(e)
             return False
 
