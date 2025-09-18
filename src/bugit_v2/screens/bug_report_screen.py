@@ -219,12 +219,12 @@ class BugReportScreen(Screen[BugReport]):
             id="bug_report_metadata_header",
         ):
             if self.session == NullSelection.NO_SESSION:
-                yield Label("- [$warning]No session selected")
+                yield Label("- [$warning-darken-2]No session selected")
             else:
                 yield Label(f"- Test Plan: {self.session.testplan_id}")
 
             if self.job_id == NullSelection.NO_JOB:
-                yield Label("- [$warning]No job selected")
+                yield Label("- [$warning-darken-2]No job selected")
             else:
                 yield Label(f"- Job ID: {self.job_id}")
 
