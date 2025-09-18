@@ -19,8 +19,11 @@ class ReopenPreCheckScreen[TAuth, TReturn](Screen[bool | Exception]):
     app_args: Final[AppArgs]
     submitter: Final[BugReportSubmitter[TAuth, TReturn]]
 
-    CSS_PATH = "styles.tcss"
+    # static var, did a check already happen?
+    # don't check over and over again
+    already_checked = False
 
+    CSS_PATH = "styles.tcss"
     CSS = """
     ReopenPreCheckScreen {
         align: center middle;
@@ -82,20 +85,28 @@ class ReopenPreCheckScreen[TAuth, TReturn](Screen[bool | Exception]):
         yield SimpleHeader()
         if self.app_args.submitter == "jira":
             yield Label(
-                f"Checking Jira auth and making sure {self.app_args.bug_to_reopen} exists...",
+                f"Checking Jira auth and making sure [u]{self.app_args.bug_to_reopen}[/] exists before reopening...",
+                classes="mw75",
             )
         else:
             yield Label(
-                f"Checking Launchpad auth and making sure {self.app_args.bug_to_reopen} exists...",
+                f"Checking Launchpad auth and making sure [u]{self.app_args.bug_to_reopen}[/] exists before reopening...",
+                classes="mw75",
             )
 
     def on_worker_state_changed(self, event: Worker.StateChanged):
         if event.worker.name != "bug_existence_check":
             return
 
+        ReopenPreCheckScreen.already_checked = True
         match event.state:
             case WorkerState.SUCCESS:
-                assert type(event.worker.result) is bool
+                assert (
+                    type(
+                        event.worker.result  # pyright: ignore[reportUnknownArgumentType]
+                    )
+                    is bool
+                )
                 self.dismiss(event.worker.result)
             case WorkerState.ERROR:
                 if isinstance(event.worker.error, Exception):

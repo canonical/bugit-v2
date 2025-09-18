@@ -180,7 +180,10 @@ class BugitApp(App[None]):
         match self.state:
             case AppState(session=None, job_id=None, bug_report=None):
                 # init, nothing has been selected yet
-                if b := self.args.bug_to_reopen:
+                if (
+                    b := self.args.bug_to_reopen is not None
+                    and not ReopenPreCheckScreen.already_checked
+                ):
                     check_result = await self.push_screen_wait(
                         ReopenPreCheckScreen(self.submitter_class(), self.args)
                     )
