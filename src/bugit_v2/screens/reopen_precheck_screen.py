@@ -3,22 +3,32 @@ from typing import Final, final, override
 from textual import work
 from textual.app import ComposeResult
 from textual.screen import Screen
+from textual.widgets import Label
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
 )
+from bugit_v2.components.header import SimpleHeader
 from bugit_v2.models.app_args import AppArgs
 
 
 # must finish auth here instead of waiting until the submitter
 @final
-class ReopenPreCheckScreen[A, R](Screen[bool | Exception]):
+class ReopenPreCheckScreen[TAuth, TReturn](Screen[bool | Exception]):
     app_args: Final[AppArgs]
-    submitter: Final[BugReportSubmitter[A, R]]
+    submitter: Final[BugReportSubmitter[TAuth, TReturn]]
+
+    CSS_PATH = "styles.tcss"
+
+    CSS = """
+    ReopenPreCheckScreen {
+        align: center middle;
+    }
+    """
 
     def __init__(
         self,
-        submitter: BugReportSubmitter[A, R],
+        submitter: BugReportSubmitter[TAuth, TReturn],
         app_args: AppArgs,
         name: str | None = None,
         id: str | None = None,
@@ -54,14 +64,21 @@ class ReopenPreCheckScreen[A, R](Screen[bool | Exception]):
                     True,  # if it was saved before,
                     # then allow_cache_credentials is definitely true
                 )
-
-            if self.submitter.bug_exists(self.app_args.bug_to_reopen):
-                self.dismiss(True)
-            else:
-                self.dismiss(False)
+            # self.call_after_refresh(self._call_check_auth)
+            self.dismiss(
+                self.submitter.bug_exists(self.app_args.bug_to_reopen)
+            )
         except Exception as e:
             self.dismiss(e)
 
     @override
     def compose(self) -> ComposeResult:
-        return super().compose()
+        yield SimpleHeader()
+        if self.app_args.submitter == "jira":
+            yield Label(
+                f"Checking Jira auth and making sure {self.app_args.bug_to_reopen} exists...",
+            )
+        else:
+            yield Label(
+                f"Checking Launchpad auth and making sure {self.app_args.bug_to_reopen} exists...",
+            )

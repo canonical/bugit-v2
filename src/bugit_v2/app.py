@@ -26,6 +26,7 @@ from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import BugReport
 from bugit_v2.screens.bug_report_screen import BugReportScreen
 from bugit_v2.screens.job_selection_screen import JobSelectionScreen
+from bugit_v2.screens.reopen_precheck_screen import ReopenPreCheckScreen
 from bugit_v2.screens.session_selection_screen import SessionSelectionScreen
 from bugit_v2.screens.submission_progress_screen import (
     ReturnScreenChoice,
@@ -169,7 +170,8 @@ class BugitApp(App[None]):
             # if not in a snap the code is already in the system anyways
             super()._handle_exception(error)
 
-    def watch_state(self) -> None:
+    @work
+    async def watch_state(self) -> None:
         """Push different screens based on the state"""
 
         def _write_state(new_state: AppState):
@@ -178,6 +180,18 @@ class BugitApp(App[None]):
         match self.state:
             case AppState(session=None, job_id=None, bug_report=None):
                 # init, nothing has been selected yet
+                if b := self.args.bug_to_reopen:
+                    rv = await self.push_screen_wait(
+                        ReopenPreCheckScreen(self.submitter_class(), self.args)
+                    )
+                    if rv:
+                        self.notify(f"Bug '{b}' exists!")
+                    else:
+                        self.exit(
+                            return_code=1,
+                            message=f"Bug '{b}' doesn't exist or you don't have permission",
+                        )
+
                 def after_session_select(
                     rv: Path | Literal[NullSelection.NO_SESSION] | None,
                 ):

@@ -220,17 +220,20 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
     def bug_exists(self, bug_id: str) -> bool:
         assert self.auth
 
-        if not self.jira:
-            self.jira = JIRA(
-                server=JIRA_SERVER_ADDRESS,
-                basic_auth=(self.auth.email, self.auth.token),
-                validate=True,
-            )
-
         try:
+            if not self.jira:
+                self.jira = JIRA(
+                    server=JIRA_SERVER_ADDRESS,
+                    basic_auth=(self.auth.email, self.auth.token),
+                    validate=True,
+                )
+                if self.allow_cache_credentials:
+                    with open(f"/tmp/{self.name}-credentials.json", "w") as f:
+                        json.dump(asdict(self.auth), f)
             self.jira.issue(bug_id)
             return True
-        except Exception:
+        except Exception as e:
+            print(e)
             return False
 
     @override
