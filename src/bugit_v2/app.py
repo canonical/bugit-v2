@@ -307,7 +307,7 @@ class BugitApp(App[None]):
             case AppState(
                 session=Session() | NullSelection.NO_SESSION as session,
                 job_id=str() | NullSelection.NO_JOB as job_id,
-                bug_report=BugReport() as br,
+                bug_report=BugReport() | PartialBugReport() as br,
             ):
                 # returning from the end of submission screen
                 # handle the button selections
@@ -324,52 +324,19 @@ class BugitApp(App[None]):
                             self.exit()
                         case "session":
                             self.bug_report_backup = None
+                            self.partial_bug_report_backup = None
                             self.state = AppState()
                         case "job" if session != NullSelection.NO_SESSION:
                             # this is only available when there's a session
                             self.bug_report_backup = None
-                            self.state = AppState(session)
-                        case "report_editor":
-                            self.bug_report_backup = br
-                            self.state = AppState(session, job_id)
-                        case _:
-                            raise RuntimeError()
-
-                self.push_screen(
-                    SubmissionProgressScreen(
-                        br,
-                        self.submitter_class(),
-                    ),
-                    after_submission_finished,
-                )
-
-            case AppState(
-                session=Session() | NullSelection.NO_SESSION as session,
-                job_id=str() | NullSelection.NO_JOB as job_id,
-                bug_report=PartialBugReport() as br,
-            ):
-                # returning from the end of submission screen
-                # handle the button selections
-                def after_submission_finished(
-                    return_screen: ReturnScreenChoice | None,
-                ):
-                    # already submitted, flush the stale backup
-                    match return_screen:
-                        case None:
-                            raise RuntimeError(
-                                "Submission screen should not return None"
-                            )
-                        case "quit":
-                            self.exit()
-                        case "session":
-                            self.partial_bug_report_backup = None
-                            self.state = AppState()
-                        case "job" if session != NullSelection.NO_SESSION:
-                            # this is only available when there's a session
                             self.partial_bug_report_backup = None
                             self.state = AppState(session)
                         case "report_editor":
-                            self.partial_bug_report_backup = br
+                            if isinstance(br, PartialBugReport):
+                                self.partial_bug_report_backup = br
+                            else:
+                                self.bug_report_backup = br
+
                             self.state = AppState(session, job_id)
                         case _:
                             raise RuntimeError()
@@ -417,7 +384,7 @@ class BugitApp(App[None]):
             case AppState(
                 session=Session() | NullSelection.NO_SESSION,
                 job_id=str() | NullSelection.NO_JOB,
-                bug_report=BugReport(),
+                bug_report=BugReport() | PartialBugReport(),
             ):
                 self.notify(
                     title="Cannot go back while a submission is happening",
