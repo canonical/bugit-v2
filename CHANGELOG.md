@@ -3,6 +3,9 @@
 ## Added
 
 - CLI arguments to pre-fill values like CID, SKU, tags, etc. Bugit will hold on to these values and fill them in at the bug report screen. **Note that any human-entered value has higher precedence than CLI values.** So if a submission failed and bugit returned to the editor, the CLI values will be overridden by the values entered by the user.
+- Log collector progress watchers. Now there's a progress message every 30seconds for very slow log collectors
+- Experimental reopen editor
+- Upgraded to textual 6.1
 
 # 0.2.3
 
