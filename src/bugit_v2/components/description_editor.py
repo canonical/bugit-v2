@@ -1,5 +1,5 @@
+import datetime
 import os
-import time
 from pathlib import Path
 from typing import final, override
 
@@ -125,9 +125,12 @@ class DescriptionEditor(Widget):
         old_label = btn.label
 
         try:
-            file_path = (
-                Path(os.curdir) / f"bug-description-{int(time.time())}.txt"
-            )
+            timestamp = (
+                datetime.datetime.now()
+                .isoformat(timespec="seconds")
+                .replace(":", ".")
+            )  # this produces a checkbox-style timestamp
+            file_path = Path(os.curdir) / f"bug-description-{timestamp}.txt"
             with open(file_path, "w") as file:
                 file.write(content)
                 btn.label = "Saved!"
