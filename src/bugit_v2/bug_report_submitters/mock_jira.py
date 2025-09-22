@@ -5,11 +5,10 @@ import time
 from collections.abc import Generator, Mapping, Sequence
 from dataclasses import asdict
 from pathlib import Path
-from typing import cast, final
+from typing import cast, final, override
 
-from jira import JIRA
+from jira import JIRA, JIRAError
 from jira.resources import Component
-from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
@@ -20,7 +19,7 @@ from bugit_v2.bug_report_submitters.jira_submitter import (
     JiraBasicAuth,
     JiraSubmitterError,
 )
-from bugit_v2.models.bug_report import BugReport, Severity
+from bugit_v2.models.bug_report import BugReport, PartialBugReport, Severity
 
 JIRA_SERVER_ADDRESS = os.getenv(
     "JIRA_SERVER", "https://warthogs.atlassian.net"
@@ -97,6 +96,26 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
                 )
 
     @override
+    def bug_exists(self, bug_id: str) -> bool:
+        assert self.auth
+
+        try:
+            if not self.jira:
+                self.jira = JIRA(
+                    server=JIRA_SERVER_ADDRESS,
+                    basic_auth=(self.auth.email, self.auth.token),
+                    validate=True,
+                )
+                if self.allow_cache_credentials:
+                    with open(f"/tmp/{self.name}-credentials.json", "w") as f:
+                        json.dump(asdict(self.auth), f)
+            self.jira.issue(bug_id)
+            return True
+        except JIRAError as e:
+            print(e)
+            return False
+
+    @override
     def submit(
         self, bug_report: BugReport
     ) -> Generator[str | AdvanceMessage, None, None]:
@@ -165,6 +184,12 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         time.sleep(2)
         yield AdvanceMessage("OK! Created `issue id`")
         self.mock_issue = "mock_issue"
+
+    @override
+    def reopen(
+        self, bug_report: PartialBugReport, bug_id: str
+    ) -> Generator[str | AdvanceMessage, None, None]:
+        return super().reopen(bug_report, bug_id)
 
     @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:

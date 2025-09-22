@@ -2,6 +2,8 @@ import os
 import re
 import subprocess as sp
 
+from bugit_v2.utils import is_snap
+
 
 def bugit_is_in_devmode() -> bool:
     # technically bugit won't even install if --devmode is not specified
@@ -31,7 +33,7 @@ def before_entry_check():
     if os.getuid() != 0:
         raise SystemExit("Please run this app with \033[4msudo\033[0m")
 
-    if "SNAP" in os.environ and not bugit_is_in_devmode():
+    if is_snap() and not bugit_is_in_devmode():
         raise SystemExit(
             "Bugit is not installed in devmode. Please reinstall with --devmode specified."
         )

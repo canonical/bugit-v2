@@ -31,13 +31,11 @@ from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import (
     ISSUE_FILE_TIMES,
-    SEVERITIES,
-    BugReport,
     LogName,
+    PartialBugReport,
     pretty_issue_file_times,
-    pretty_severities,
 )
-from bugit_v2.utils.constants import FEATURE_MAP, VENDOR_MAP, NullSelection
+from bugit_v2.utils.constants import NullSelection
 
 
 class ValidSpaceSeparatedTags(Validator):
@@ -78,10 +76,10 @@ class NonEmpty(Validator):
 
 
 @final
-class BugReportScreen(Screen[BugReport]):
+class ReopenBugEditorScreen(Screen[PartialBugReport]):
     session: Final[Session | Literal[NullSelection.NO_SESSION]]
     job_id: Final[str | Literal[NullSelection.NO_JOB]]
-    existing_report: Final[BugReport | None]
+    existing_report: Final[PartialBugReport | None]
     app_args: Final[AppArgs]
     elem_id_to_border_title: Final[Mapping[str, tuple[str, str]]]
 
@@ -92,22 +90,15 @@ class BugReportScreen(Screen[BugReport]):
     # TODO: rename this, it does more than just holding titles now
 
     CSS = """
-    BugReportScreen {
+    ReopenBugEditorScreen {
         width: 100%;
         height: 100%;
-    }
-
-    #impacted_features {
-        height: 25;
-    }
-
-    #impacted_vendors {
-        height: 17;
     }
 
     #submit_button {
         width: 100%;
         padding: 0;
+        margin-top: 1;
     }
 
     #description {
@@ -128,17 +119,14 @@ class BugReportScreen(Screen[BugReport]):
 
     # inputs that have validators
     # the keys should appear in elem_id_to_border_title
-    validation_status = var(
-        {"title": False, "platform_tags": True, "project": False}
-    )
+    validation_status = var({"platform_tags": True, "tags": True})
 
     def __init__(
         self,
         session: Session | Literal[NullSelection.NO_SESSION],
         job_id: str | Literal[NullSelection.NO_JOB],
         app_args: AppArgs,
-        existing_report: BugReport | None = None,
-        # ---
+        existing_report: PartialBugReport | None = None,
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
@@ -150,10 +138,6 @@ class BugReportScreen(Screen[BugReport]):
         self.app_args = app_args
 
         self.elem_id_to_border_title = {
-            "title": (
-                "[b]Bug Title",
-                f"This is the title in {'Jira' if app_args.submitter == 'jira' else 'Launchpad'}",
-            ),
             "description": (
                 "[b]Bug Description",
                 "Include all the details :)",
@@ -161,15 +145,11 @@ class BugReportScreen(Screen[BugReport]):
             "issue_file_time": ("[b]When was this issue filed?", ""),
             "platform_tags": ("[b]Platform Tags", ""),
             "assignee": ("[b]Assignee", ""),
-            "severity": ("[b]How bad is it?", ""),
-            "project": ("[b]Project Name", ""),
             "additional_tags": ("[b]Additional Tags", ""),
             "logs_to_include": (
                 "[b]Select some logs to include",
                 "Green = Selected",
             ),
-            "impacted_features": ("[b]Impacted Features", ""),
-            "impacted_vendors": ("[b]Impacted Vendors", ""),
         }
 
         self.initial_report = {
@@ -213,7 +193,7 @@ class BugReportScreen(Screen[BugReport]):
     def compose(self) -> ComposeResult:
         yield SimpleHeader()
         with Collapsible(
-            title=f"[bold]{'Jira' if self.app_args.submitter == 'jira' else 'Launchpad'} Bug Report for...[/bold]",
+            title=f"[bold]Reopen {'Jira' if self.app_args.submitter == 'jira' else 'Launchpad'} Bug Report for...[/bold]",
             collapsed=False,
             classes="nb",
             id="bug_report_metadata_header",
@@ -229,13 +209,6 @@ class BugReportScreen(Screen[BugReport]):
                 yield Label(f"- Job ID: {self.job_id}")
 
         with VerticalScroll(classes="center"):
-            yield Input(
-                placeholder="Short title for this bug",
-                id="title",
-                classes="default_box",
-                validators=[NonEmpty()],
-            )
-
             with HorizontalGroup():
                 yield DescriptionEditor(
                     classes="ha", id="description", disabled=True
@@ -256,12 +229,6 @@ class BugReportScreen(Screen[BugReport]):
                         classes="default_box",
                     )
                     yield Input(
-                        id="project",
-                        placeholder="SOMERVILLE, STELLA, ...",
-                        classes="default_box",
-                        validators=[NoSpaces(), NonEmpty()],
-                    )
-                    yield Input(
                         id="platform_tags",
                         placeholder='Tags like "numbat-hello", space separated',
                         classes="default_box",
@@ -280,29 +247,6 @@ class BugReportScreen(Screen[BugReport]):
                             if self.app_args.submitter == "jira"
                             else "Assignee's Launchpad ID"
                         ),
-                        classes="default_box",
-                    )
-
-                    highest_display_name = (
-                        "Highest (Jira)"
-                        if self.app_args.submitter == "jira"
-                        else "Critical (LP)"
-                    )
-                    yield RadioSet(
-                        *(
-                            RadioButton(
-                                (
-                                    highest_display_name
-                                    if severity == "highest"
-                                    else display_name
-                                ),
-                                name=severity,
-                                value=severity
-                                == "highest",  # default to critical
-                            )
-                            for severity, display_name in pretty_severities.items()
-                        ),
-                        id="severity",
                         classes="default_box",
                     )
 
@@ -343,19 +287,6 @@ class BugReportScreen(Screen[BugReport]):
                         id="logs_to_include",
                     )
 
-            yield SelectionWithPreview(
-                FEATURE_MAP,
-                Label("[i][$primary]These features will be tagged"),
-                id="impacted_features",
-                classes="default_box",
-            )
-            yield SelectionWithPreview(
-                VENDOR_MAP,
-                Label("[i][$primary]These vendors will be tagged"),
-                id="impacted_vendors",
-                classes="default_box",
-            )
-
             yield Button(
                 "Waiting for basic machine info to be collected...",
                 id="submit_button",
@@ -376,14 +307,15 @@ class BugReportScreen(Screen[BugReport]):
             thread=True,
             exit_on_error=False,  # still allow editing
         )
-        self.query_exactly_one("#title", Input).focus()
 
-        if self.existing_report is not None:
-            self._restore_existing_report()
-        else:
-            # app_args values have lower precedence
-            # use them only when there's no existing report
-            self._prefill_with_app_args()
+        # fill the app_args values first, they have lower precedence
+        self._prefill_with_app_args()
+
+        if not self.existing_report:
+            return
+
+        # restore existing report, take over the CLI values
+        self._restore_existing_report()
 
     @work
     @on(Button.Pressed, "#submit_button")
@@ -484,22 +416,16 @@ class BugReportScreen(Screen[BugReport]):
         else:
             btn.label = "Submit Bug Report"
 
-    def _build_bug_report(self) -> BugReport:
-        selected_severity_button = self.query_exactly_one(
-            "#severity", RadioSet
-        ).pressed_button
+    def _build_bug_report(self) -> PartialBugReport:
         selected_issue_file_time_button = self.query_exactly_one(
             "#issue_file_time", RadioSet
         ).pressed_button
 
         # shouldn't fail at runtime, major logic error if they do
-        assert selected_severity_button
-        assert selected_severity_button.name in SEVERITIES
         assert selected_issue_file_time_button
         assert selected_issue_file_time_button.name in ISSUE_FILE_TIMES
 
-        return BugReport(
-            title=self.query_exactly_one("#title", Input).value.strip(),
+        return PartialBugReport(
             checkbox_session=(
                 None
                 if self.session == NullSelection.NO_SESSION
@@ -509,8 +435,6 @@ class BugReportScreen(Screen[BugReport]):
                 "#description", DescriptionEditor
             ).text.strip(),
             assignee=self.query_exactly_one("#assignee", Input).value.strip(),
-            project=self.query_exactly_one("#project", Input).value.strip(),
-            severity=selected_severity_button.name,
             issue_file_time=selected_issue_file_time_button.name,
             additional_tags=self.query_exactly_one("#additional_tags", Input)
             .value.strip()
@@ -518,12 +442,6 @@ class BugReportScreen(Screen[BugReport]):
             platform_tags=self.query_exactly_one("#platform_tags", Input)
             .value.strip()
             .split(),
-            impacted_features=self.query_exactly_one(
-                "#impacted_features", SelectionWithPreview
-            ).selected_values,
-            impacted_vendors=self.query_exactly_one(
-                "#impacted_vendors", SelectionWithPreview
-            ).selected_values,
             logs_to_include=cast(
                 SelectionList[LogName],
                 self.query_exactly_one("#logs_to_include", SelectionList),
@@ -534,10 +452,6 @@ class BugReportScreen(Screen[BugReport]):
         if self.app_args.assignee:
             self.query_exactly_one("#assignee", Input).value = (
                 self.app_args.assignee
-            )
-        if self.app_args.project:
-            self.query_exactly_one("#project", Input).value = (
-                self.app_args.project
             )
         if len(self.app_args.platform_tags) > 0:
             self.query_exactly_one("#platform_tags", Input).value = " ".join(

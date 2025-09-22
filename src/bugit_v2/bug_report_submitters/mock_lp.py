@@ -1,11 +1,10 @@
 from collections.abc import Generator
 from pathlib import Path
-from typing import Any, final
+from typing import Any, final, override
 from unittest.mock import MagicMock
 
 from launchpadlib.launchpad import Launchpad
 from launchpadlib.uris import LPNET_WEB_ROOT, QASTAGING_WEB_ROOT
-from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
@@ -16,7 +15,7 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
     SERVICE_ROOT,
     LaunchpadAuthModal,
 )
-from bugit_v2.models.bug_report import BugReport
+from bugit_v2.models.bug_report import BugReport, PartialBugReport
 
 LAUNCHPAD_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
 # 'staging' doesn't seem to work
@@ -35,7 +34,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
         "low": "Low",
         "lowest": "Wishlist",
     }
-    steps = 7
+    steps = 6
     lp_client: Launchpad | None = None
     auth_modal = LaunchpadAuthModal
 
@@ -77,6 +76,10 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 f"Series '{series}' doesn't exist. Original error: {e}"
             )
             raise ValueError(error_message)
+
+    @override
+    def bug_exists(self, bug_id: str) -> bool:
+        return False
 
     @override
     def submit(
@@ -163,6 +166,12 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 bug_url = f"{QASTAGING_WEB_ROOT}bugs/{bug.id}"
 
         yield AdvanceMessage(f"Bug URL is: {bug_url}")
+
+    @override
+    def reopen(
+        self, bug_report: PartialBugReport, bug_id: str
+    ) -> Generator[str | AdvanceMessage, None, None]:
+        return super().reopen(bug_report, bug_id)
 
     @property
     @override

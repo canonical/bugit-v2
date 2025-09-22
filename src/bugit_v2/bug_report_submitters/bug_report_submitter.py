@@ -5,10 +5,10 @@ from pathlib import Path
 
 from textual.screen import ModalScreen
 
-from bugit_v2.models.bug_report import BugReport, Severity
+from bugit_v2.models.bug_report import BugReport, PartialBugReport, Severity
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class AdvanceMessage:
     """
     Indicates to the submission screen that the progress bar
@@ -59,6 +59,16 @@ class BugReportSubmitter[TAuth, TReturn](abc.ABC):
                 what message to yield. The number of steps here should match
                 the number in self.steps
         """
+        pass
+
+    @abc.abstractmethod
+    def bug_exists(self, bug_id: str) -> bool:
+        pass
+
+    @abc.abstractmethod
+    def reopen(
+        self, bug_report: PartialBugReport, bug_id: str
+    ) -> Generator[str | AdvanceMessage, None, TReturn]:
         pass
 
     @abc.abstractmethod

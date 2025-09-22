@@ -1,4 +1,3 @@
-import os
 import shutil
 import time
 from pathlib import Path
@@ -11,7 +10,7 @@ from textual.containers import Center, HorizontalGroup, VerticalGroup
 from textual.reactive import var
 from textual.screen import Screen
 from textual.timer import Timer
-from textual.widgets import Button, Footer, Header, Label, ProgressBar, RichLog
+from textual.widgets import Button, Footer, Label, ProgressBar, RichLog
 from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
@@ -20,9 +19,11 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
 )
 from bugit_v2.components.confirm_dialog import ConfirmScreen
+from bugit_v2.components.header import SimpleHeader
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
-from bugit_v2.models.bug_report import BugReport, LogName
-from bugit_v2.utils import is_prod
+from bugit_v2.models.app_args import AppArgs
+from bugit_v2.models.bug_report import BugReport, LogName, PartialBugReport
+from bugit_v2.utils import is_prod, is_snap
 
 ReturnScreenChoice = Literal["job", "session", "quit", "report_editor"]
 RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
@@ -36,7 +37,9 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     The progress screen shown while submission/log collection is happening
     """
 
-    bug_report: BugReport
+    bug_report: BugReport | PartialBugReport
+    app_args: AppArgs
+
     finished = var(False)
 
     attachment_workers: dict[str, Worker[str | None]]
@@ -61,18 +64,15 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     #menu_after_finish {
         display: none;
     }
-
-    RichLog {
-        padding: 0 1;
-    }
     """
 
     CSS_PATH = "styles.tcss"
 
     def __init__(
         self,
-        bug_report: BugReport,
+        bug_report: BugReport | PartialBugReport,
         submitter: BugReportSubmitter[TAuth, TReturn],
+        app_args: AppArgs,
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
@@ -84,6 +84,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         self.attachment_worker_checker_timers = {}
         self.upload_workers = {}
         self.progress_start_time = time.time()  # doesn't have to precise
+        self.app_args = app_args
 
         super().__init__(name, id, classes)
 
@@ -304,10 +305,21 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     def create_bug(self) -> None:
         """Do the entire bug creation sequence. This should be run in a worker"""
         assert self.log_widget
+        # assert isinstance(self.bug_report, BugReport)
+
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
         display_name = self.submitter.display_name or self.submitter.name
 
-        for step_result in self.submitter.submit(self.bug_report):
+        match self.bug_report:
+            case BugReport() as b:
+                submission_step_iterator = self.submitter.submit(b)
+            case PartialBugReport() as p:
+                assert self.app_args.bug_to_reopen
+                submission_step_iterator = self.submitter.reopen(
+                    p, self.app_args.bug_to_reopen
+                )
+
+        for step_result in submission_step_iterator:
             match step_result:
                 case str():
                     # general logs
@@ -327,7 +339,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         ]
         if len(running_collectors) > 0:
             self._log_with_time(
-                f"[blue]Finished bug creation[/]. Waiting for {len(running_collectors)} log collector(s) to finish"
+                f"[blue]Finished bug creation. Waiting for {len(running_collectors)} log collector(s) to finish"
             )
             for c in running_collectors:
                 if c.name in LOG_NAME_TO_COLLECTOR:
@@ -339,7 +351,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     )
         else:
             self._log_with_time(
-                "[blue]Finished bug creation[/], starting to upload attachments..."
+                "[blue]Finished bug creation, starting to upload attachments..."
             )
 
     def is_finished(self) -> bool:
@@ -409,7 +421,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         ]
 
         if not all_upload_ok:
-            if "SNAP" in os.environ:
+            if is_snap():
                 attachment_dir = (
                     "/tmp/snap-private-tmp/snap.bugit-v2/tmp"
                     / self.attachment_dir
@@ -491,7 +503,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
     @override
     def compose(self) -> ComposeResult:
-        yield Header(classes="dt", icon="〇")
+        yield SimpleHeader()
 
         with Center(classes="lrm1"):
             with HorizontalGroup():

@@ -7,9 +7,10 @@ from textual.binding import Binding
 from textual.containers import Vertical, VerticalScroll
 from textual.reactive import reactive
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Header, Label
+from textual.widgets import Button, Footer, Label
 from typing_extensions import override
 
+from bugit_v2.components.header import SimpleHeader
 from bugit_v2.utils.constants import NullSelection
 
 
@@ -30,7 +31,8 @@ class SessionSelectionScreen(Screen[Path | Literal[NullSelection.NO_SESSION]]):
 
     @override
     def compose(self) -> ComposeResult:
-        yield Header(icon="〇")
+        # textual's header crashes for some reason
+        yield SimpleHeader()
         with Vertical(classes="w100 h100 center", id="after_load_container"):
             yield Label("[b][$primary]Select a Session")
             yield VerticalScroll(

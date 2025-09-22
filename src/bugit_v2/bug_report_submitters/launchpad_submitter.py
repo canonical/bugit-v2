@@ -2,29 +2,32 @@ import os
 import time
 from collections.abc import Generator
 from pathlib import Path
-from typing import Any, Callable, Literal, cast, final
+from typing import Any, Callable, Literal, cast, final, override
 
 from launchpadlib.credentials import (
     Credentials,
     EndUserDeclinedAuthorization,
     EndUserNoAuthorization,
-    HTTPError,
     RequestTokenAuthorizationEngine,
 )
 from launchpadlib.launchpad import Launchpad
 from launchpadlib.uris import LPNET_WEB_ROOT, QASTAGING_WEB_ROOT
+from lazr.restfulclient.errors import HTTPError
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Center, HorizontalGroup, VerticalGroup
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Label, RichLog
-from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
     BugReportSubmitter,
 )
-from bugit_v2.models.bug_report import BugReport, pretty_issue_file_times
+from bugit_v2.models.bug_report import (
+    BugReport,
+    PartialBugReport,
+    pretty_issue_file_times,
+)
 from bugit_v2.utils import is_prod
 
 LP_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
@@ -246,7 +249,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         "lowest": "Wishlist",
     }
     display_name = "Launchpad"
-    steps = 7
+    steps = 6
     auth_modal = LaunchpadAuthModal
     # parallel upload will cause an irrecoverable segfault
     # and completely kill the shell
@@ -291,6 +294,10 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 f"Series '{series}' doesn't exist. Original error: {e}"
             )
             raise ValueError(error_message)
+
+    @override
+    def bug_exists(self, bug_id: str) -> bool:
+        return False
 
     @override
     def submit(
@@ -379,6 +386,12 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         yield "Saved bug settings"
 
         yield AdvanceMessage(f"Bug URL is: {self.bug_url}")
+
+    @override
+    def reopen(
+        self, bug_report: PartialBugReport, bug_id: str
+    ) -> Generator[str | AdvanceMessage, None, None]:
+        return super().reopen(bug_report, bug_id)
 
     @override
     def upload_attachment(self, attachment_file: Path) -> str | None:

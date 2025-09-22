@@ -15,6 +15,7 @@ app = Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
     pretty_exceptions_enable=not is_prod(),
     pretty_exceptions_show_locals=not is_prod(),
+    no_args_is_help=True,
     add_completion=False,  # the built-in ones doesn't work in snap
 )
 

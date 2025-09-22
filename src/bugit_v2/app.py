@@ -1,16 +1,15 @@
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, final
 
 import typer
 from textual import work
-from textual.app import App, ComposeResult
+from textual.app import App
 from textual.binding import Binding
+from textual.content import Content
 from textual.driver import Driver
 from textual.reactive import var
 from textual.types import CSSPathType
-from textual.widgets import Footer, Header, LoadingIndicator
 from typing_extensions import Annotated, override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
@@ -24,15 +23,17 @@ from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
 from bugit_v2.models.app_args import AppArgs
-from bugit_v2.models.bug_report import BugReport
+from bugit_v2.models.bug_report import BugReport, PartialBugReport
 from bugit_v2.screens.bug_report_screen import BugReportScreen
 from bugit_v2.screens.job_selection_screen import JobSelectionScreen
+from bugit_v2.screens.reopen_bug_editor_screen import ReopenBugEditorScreen
+from bugit_v2.screens.reopen_precheck_screen import ReopenPreCheckScreen
 from bugit_v2.screens.session_selection_screen import SessionSelectionScreen
 from bugit_v2.screens.submission_progress_screen import (
     ReturnScreenChoice,
     SubmissionProgressScreen,
 )
-from bugit_v2.utils import is_prod
+from bugit_v2.utils import is_prod, is_snap
 from bugit_v2.utils.constants import NullSelection
 from bugit_v2.utils.validations import before_entry_check, is_cid
 
@@ -82,7 +83,7 @@ def assignee_str_check(value: str | None) -> str | None:
     return value.strip()
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class AppState:
     """
     The global app state. Check the watch_state function to see all possible
@@ -91,7 +92,7 @@ class AppState:
 
     session: Session | Literal[NullSelection.NO_SESSION] | None = None
     job_id: str | Literal[NullSelection.NO_JOB] | None = None
-    bug_report: BugReport | None = None
+    bug_report: BugReport | PartialBugReport | None = None
 
 
 @final
@@ -103,6 +104,7 @@ class BugitApp(App[None]):
         BugReportSubmitter[Any, Any]  # pyright: ignore[reportExplicitAny]
     ]
     bug_report_backup: BugReport | None = None
+    partial_bug_report_backup: PartialBugReport | None = None
     BINDINGS = [Binding("alt+left", "go_back", "Go Back")]
 
     def __init__(
@@ -126,35 +128,94 @@ class BugitApp(App[None]):
 
         super().__init__(driver_class, css_path, watch_css, ansi_color)
 
-    @work
-    async def on_mount(self) -> None:
+    @work(thread=True)
+    def on_mount(self) -> None:
         self.theme = "solarized-light"
         if is_prod():
-            self.title = "BugIt V2"
+            self.title = "Bugit V2"
         else:
-            self.title = "BugIt V2 🐛🐛 DEBUG MODE 🐛🐛"
+            self.title = "Bugit V2 🐛🐛 DEBUG MODE 🐛🐛"
 
+        # snap checkbox takes a while to respond especially if it's the
+        # 1st use after reboot
         if (version := get_checkbox_version()) is not None:
             self.sub_title = f"Checkbox {version}"
 
     @override
+    def format_title(self, title: str, sub_title: str) -> Content:
+        match (title, sub_title, self.args.bug_to_reopen):
+            case (str(t), str(s), str(b)):
+                return Content.assemble(
+                    Content(t),
+                    (" - ", "dim"),
+                    Content(s).stylize("$secondary"),
+                    (" - ", "dim"),
+                    Content(f"Reopen {b}").stylize("dim"),
+                )
+            case (str(t), str(s), None) if s:
+                return Content.assemble(
+                    Content(t),
+                    (" - ", "dim"),
+                    Content(s).stylize("$secondary"),
+                )
+            case (str(t), str(s), None) if not s:
+                return Content(t)
+            case _:
+                return self.app.format_title(title, sub_title)
+
+    @override
     def _handle_exception(self, error: Exception) -> None:
-        if is_prod() or "SNAP" in os.environ:
+        if is_prod() or is_snap():
             raise SystemExit(error)
         else:
             # don't use pretty exception in prod, it shows local vars
             # if not in a snap the code is already in the system anyways
             super()._handle_exception(error)
 
-    def watch_state(self) -> None:
+    @work
+    async def watch_state(self) -> None:
         """Push different screens based on the state"""
 
         def _write_state(new_state: AppState):
             self.state = new_state
 
+        def _pick_editor(
+            session: Session | Literal[NullSelection.NO_SESSION],
+            job_id: str | Literal[NullSelection.NO_JOB],
+        ):
+            return (
+                ReopenBugEditorScreen(
+                    session,
+                    job_id,
+                    self.args,
+                    self.partial_bug_report_backup,
+                )
+                if self.args.bug_to_reopen
+                else BugReportScreen(
+                    session,
+                    job_id,
+                    self.args,
+                    self.bug_report_backup,
+                )
+            )
+
         match self.state:
             case AppState(session=None, job_id=None, bug_report=None):
                 # init, nothing has been selected yet
+                if (
+                    b := self.args.bug_to_reopen
+                ) is not None and not ReopenPreCheckScreen.already_checked:
+                    check_result = await self.push_screen_wait(
+                        ReopenPreCheckScreen(self.submitter_class(), self.args)
+                    )
+                    if check_result is True:
+                        self.notify(f"Bug '{b}' exists!")
+                    else:
+                        msg = f"Bug '{b}' doesn't exist or you don't have permission. "
+                        if isinstance(check_result, Exception):
+                            msg += f"Error is: {repr(check_result)}"
+                        self.exit(return_code=1, message=msg)
+
                 def after_session_select(
                     rv: Path | Literal[NullSelection.NO_SESSION] | None,
                 ):
@@ -186,12 +247,7 @@ class BugitApp(App[None]):
             ):
                 # selected no session, skip to editor with absolutely nothing
                 self.push_screen(
-                    BugReportScreen(
-                        session,
-                        job_id,
-                        self.args,
-                        self.bug_report_backup,
-                    ),
+                    _pick_editor(session, job_id),
                     lambda bug_report: _write_state(
                         AppState(
                             session,
@@ -208,12 +264,7 @@ class BugitApp(App[None]):
                 # has session, but chose the no job object
                 # skip to editor with session
                 self.push_screen(
-                    BugReportScreen(
-                        session,
-                        job_id,
-                        self.args,
-                        self.bug_report_backup,
-                    ),
+                    _pick_editor(session, job_id),
                     lambda bug_report: _write_state(
                         AppState(session, job_id, bug_report)
                     ),
@@ -226,12 +277,7 @@ class BugitApp(App[None]):
                 # normal case, session and job_id were selected
                 # go to editor with info
                 self.push_screen(
-                    BugReportScreen(
-                        session,
-                        job_id,
-                        self.args,
-                        self.bug_report_backup,
-                    ),
+                    _pick_editor(session, job_id),
                     lambda bug_report: _write_state(
                         AppState(session, job_id, bug_report)
                     ),
@@ -239,7 +285,7 @@ class BugitApp(App[None]):
             case AppState(
                 session=Session() | NullSelection.NO_SESSION as session,
                 job_id=str() | NullSelection.NO_JOB as job_id,
-                bug_report=BugReport() as br,
+                bug_report=BugReport() | PartialBugReport() as br,
             ):
                 # returning from the end of submission screen
                 # handle the button selections
@@ -247,7 +293,6 @@ class BugitApp(App[None]):
                     return_screen: ReturnScreenChoice | None,
                 ):
                     # already submitted, flush the stale backup
-                    self.bug_report_backup = None
                     match return_screen:
                         case None:
                             raise RuntimeError(
@@ -256,20 +301,27 @@ class BugitApp(App[None]):
                         case "quit":
                             self.exit()
                         case "session":
+                            self.bug_report_backup = None
+                            self.partial_bug_report_backup = None
                             self.state = AppState()
                         case "job" if session != NullSelection.NO_SESSION:
                             # this is only available when there's a session
+                            self.bug_report_backup = None
+                            self.partial_bug_report_backup = None
                             self.state = AppState(session)
                         case "report_editor":
-                            self.bug_report_backup = br
+                            if isinstance(br, PartialBugReport):
+                                self.partial_bug_report_backup = br
+                            else:
+                                self.bug_report_backup = br
+
                             self.state = AppState(session, job_id)
                         case _:
                             raise RuntimeError()
 
                 self.push_screen(
                     SubmissionProgressScreen(
-                        br,
-                        self.submitter_class(),
+                        br, self.submitter_class(), self.args
                     ),
                     after_submission_finished,
                 )
@@ -309,7 +361,7 @@ class BugitApp(App[None]):
             case AppState(
                 session=Session() | NullSelection.NO_SESSION,
                 job_id=str() | NullSelection.NO_JOB,
-                bug_report=BugReport(),
+                bug_report=BugReport() | PartialBugReport(),
             ):
                 self.notify(
                     title="Cannot go back while a submission is happening",
@@ -319,12 +371,6 @@ class BugitApp(App[None]):
                 raise RuntimeError(
                     f"Impossible state when going back: {self.state}"
                 )
-
-    @override
-    def compose(self) -> ComposeResult:
-        yield Header(icon="〇")
-        yield LoadingIndicator()
-        yield Footer()
 
 
 @cli_app.command("lp", help="Submit a bug to Launchpad")
@@ -395,10 +441,9 @@ def launchpad_mode(
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
 ):
     before_entry_check()
-    app = BugitApp(
-        AppArgs("lp", cid, sku, project, assignee, platform_tags, tags)
-    )
-    app.run()
+    BugitApp(
+        AppArgs("lp", None, cid, sku, project, assignee, platform_tags, tags)
+    ).run()
 
 
 @cli_app.command("jira", help="Submit a bug to Jira")
@@ -469,10 +514,10 @@ def jira_mode(
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
 ):
     before_entry_check()
-    app = BugitApp(
-        AppArgs("jira", cid, sku, project, assignee, platform_tags, tags)
-    )
-    app.run()
+    BugitApp(
+        # reopen is disabled for now
+        AppArgs("jira", None, cid, sku, project, assignee, platform_tags, tags)
+    ).run()
 
 
 if __name__ == "__main__":

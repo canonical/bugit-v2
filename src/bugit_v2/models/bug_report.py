@@ -51,7 +51,7 @@ LOG_NAMES: tuple[LogName, ...] = LogName.__args__
 # pretty log names should be specified in the LogCollector class
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class BugReport:
     """
     The data model for a bug report.
@@ -75,6 +75,33 @@ class BugReport:
     logs_to_include: Sequence[LogName] = field(default_factory=list[LogName])
     impacted_features: Sequence[str] = field(default_factory=list[str])
     impacted_vendors: Sequence[str] = field(default_factory=list[str])
+
+    def get_with_type[T](self, attr: str, expected_type: type[T]) -> T:
+        value = getattr(self, attr)  # pyright: ignore[reportAny]
+        if isinstance(value, expected_type):
+            return value
+        raise TypeError(
+            f"Expected {expected_type}, but got {type(value)}"  # pyright: ignore[reportAny]
+        )
+
+
+@dataclass(slots=True, frozen=True)
+class PartialBugReport:
+    """
+    The data model for a partial bug report used when reopening a bug.
+    Avoid attaching methods to this class unless it's a simple getter
+    """
+
+    # required
+    description: str
+    issue_file_time: IssueFileTime
+    # optionals
+    checkbox_session: Session | None
+    assignee: str | None = None  # appear as unassigned if None
+    platform_tags: Sequence[str] = field(default_factory=list[str])
+    additional_tags: Sequence[str] = field(default_factory=list[str])
+    # selections
+    logs_to_include: Sequence[LogName] = field(default_factory=list[LogName])
 
     def get_with_type[T](self, attr: str, expected_type: type[T]) -> T:
         value = getattr(self, attr)  # pyright: ignore[reportAny]
