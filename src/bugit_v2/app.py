@@ -375,17 +375,6 @@ class BugitApp(App[None]):
 
 @cli_app.command("lp", help="Submit a bug to Launchpad")
 def launchpad_mode(
-    reopen: Annotated[
-        int | None,
-        typer.Option(
-            "-r",
-            "--reopen",
-            help=(
-                "Reopen a bug on Launchpad. "
-                "The value for this option should look like 2025684 i.e. just a number"
-            ),
-        ),
-    ] = None,
     cid: Annotated[
         str | None,
         typer.Option(
@@ -453,25 +442,12 @@ def launchpad_mode(
 ):
     before_entry_check()
     BugitApp(
-        AppArgs(
-            "lp", str(reopen), cid, sku, project, assignee, platform_tags, tags
-        )
+        AppArgs("lp", None, cid, sku, project, assignee, platform_tags, tags)
     ).run()
 
 
 @cli_app.command("jira", help="Submit a bug to Jira")
 def jira_mode(
-    reopen: Annotated[
-        str | None,
-        typer.Option(
-            "-r",
-            "--reopen",
-            help=(
-                "Reopen a bug on Jira. "
-                "The value for this option should look like STELLA-1234"
-            ),
-        ),
-    ] = None,
     cid: Annotated[
         str | None,
         typer.Option(
@@ -539,9 +515,8 @@ def jira_mode(
 ):
     before_entry_check()
     BugitApp(
-        AppArgs(
-            "jira", reopen, cid, sku, project, assignee, platform_tags, tags
-        )
+        # reopen is disabled for now
+        AppArgs("jira", None, cid, sku, project, assignee, platform_tags, tags)
     ).run()
 
 
