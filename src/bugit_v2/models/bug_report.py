@@ -78,7 +78,7 @@ class BugReport:
 
     def get_with_type[T](self, attr: str, expected_type: type[T]) -> T:
         value = getattr(self, attr)  # pyright: ignore[reportAny]
-        if type(value) is expected_type:  # pyright: ignore[reportAny]
+        if isinstance(value, expected_type):
             return value
         raise TypeError(
             f"Expected {expected_type}, but got {type(value)}"  # pyright: ignore[reportAny]
