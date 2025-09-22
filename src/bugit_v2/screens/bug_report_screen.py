@@ -378,14 +378,12 @@ class BugReportScreen(Screen[BugReport]):
         )
         self.query_exactly_one("#title", Input).focus()
 
-        # fill the app_args values first, they have lower precedence
-        self._prefill_with_app_args()
-
-        if not self.existing_report:
-            return
-
-        # restore existing report, take over the CLI values
-        self._restore_existing_report()
+        if self.existing_report is not None:
+            self._restore_existing_report()
+        else:
+            # app_args values have lower precedence
+            # use them only when there's no existing report
+            self._prefill_with_app_args()
 
     @work
     @on(Button.Pressed, "#submit_button")
