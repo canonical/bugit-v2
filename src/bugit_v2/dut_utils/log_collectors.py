@@ -62,8 +62,22 @@ def nvidia_bug_report(
 ) -> str:
     if is_snap():
         executable = "/var/lib/snapd/hostfs/usr/bin/nvidia-bug-report.sh"
+        env = os.environ | {
+            "PATH": ":".join(
+                [
+                    "/var/lib/snapd/hostfs/usr/local/sbin",
+                    "/var/lib/snapd/hostfs/usr/local/bin",
+                    "/var/lib/snapd/hostfs/usr/sbin",
+                    "/var/lib/snapd/hostfs/usr/bin",
+                    "/var/lib/snapd/hostfs/sbin",
+                    "/var/lib/snapd/hostfs/bin",
+                ]
+            ),
+            "LD_LIBRARY_PATH": "/var/lib/snapd/hostfs/lib/$ARCH",
+        }
     else:
         executable = "nvidia-bug-report.sh"
+        env = os.environ
     return sp.check_output(
         [
             executable,
@@ -73,6 +87,7 @@ def nvidia_bug_report(
         ],
         text=True,
         timeout=COMMAND_TIMEOUT,
+        env=env,
     )
 
 
