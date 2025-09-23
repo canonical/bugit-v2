@@ -442,7 +442,7 @@ class BugReportScreen(Screen[BugReport]):
                 self.autosave_timer.stop()
 
             self.query_exactly_one("#dirty_label", Label).update(
-                "[green]Autosave scheduled!"
+                "[grey]Autosave scheduled..."
             )
             self.autosave_timer = self.set_timer(
                 delay, lambda: f(*args, **kwargs)
@@ -485,7 +485,7 @@ class BugReportScreen(Screen[BugReport]):
             try:
                 with open(self.autosave_filename, "w") as f:
                     json.dump(asdict(self._build_bug_report()), f)
-                label.update("Progress Saved")
+                label.update("[green]Progress Saved")
             except Exception as e:
                 label.update(f"[red]Autosave failed! {e}")
 
@@ -676,19 +676,3 @@ class BugReportScreen(Screen[BugReport]):
                             pass
                 case _:
                     pass
-
-    # def _poll_and_auto_save(self, interval: int = 2):
-    #     while True:
-    #         try:
-    #             with open(self.autosave_filename, "w") as f:
-    #                 json.dump(asdict(self._build_bug_report()), f)
-    #         except Exception:
-    #             pass
-    #         finally:
-    #             self.app.call_from_thread(
-    #                 lambda: self._set_report_dirty(False)
-    #             )
-    #         time.sleep(interval)
-
-    # def _set_report_dirty(self, value: bool):
-    #     self.report_dirty = value
