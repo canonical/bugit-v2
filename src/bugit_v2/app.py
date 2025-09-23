@@ -84,9 +84,9 @@ def assignee_str_check(value: str | None) -> str | None:
 
 
 @dataclass(slots=True, frozen=True)
-class AppState:
+class NavigationState:
     """
-    The global app state. Check the watch_state function to see all possible
+    The global state for navigation. Check the watch_state function to see all possible
     state combinations
     """
 
@@ -97,7 +97,7 @@ class AppState:
 
 @final
 class BugitApp(App[None]):
-    state = var(AppState())
+    nav_state = var(NavigationState())
     args: AppArgs
     # Any doesn't matter here
     submitter_class: type[
@@ -173,11 +173,11 @@ class BugitApp(App[None]):
             super()._handle_exception(error)
 
     @work
-    async def watch_state(self) -> None:
+    async def watch_nav_state(self) -> None:
         """Push different screens based on the state"""
 
-        def _write_state(new_state: AppState):
-            self.state = new_state
+        def _write_state(new_state: NavigationState):
+            self.nav_state = new_state
 
         def _pick_editor(
             session: Session | Literal[NullSelection.NO_SESSION],
@@ -199,8 +199,8 @@ class BugitApp(App[None]):
                 )
             )
 
-        match self.state:
-            case AppState(session=None, job_id=None, bug_report=None):
+        match self.nav_state:
+            case NavigationState(session=None, job_id=None, bug_report=None):
                 # init, nothing has been selected yet
                 if (
                     b := self.args.bug_to_reopen
@@ -221,9 +221,11 @@ class BugitApp(App[None]):
                 ):
                     match rv:
                         case Path():
-                            self.state = AppState(Session(rv))
+                            self.nav_state = NavigationState(Session(rv))
                         case NullSelection.NO_SESSION:
-                            self.state = AppState(rv, NullSelection.NO_JOB)
+                            self.nav_state = NavigationState(
+                                rv, NullSelection.NO_JOB
+                            )
                         case None:
                             raise RuntimeError(
                                 "Session selection should not return None"
@@ -232,15 +234,17 @@ class BugitApp(App[None]):
                 self.push_screen(
                     SessionSelectionScreen(), after_session_select
                 )
-            case AppState(
+            case NavigationState(
                 session=Session() as session, job_id=None, bug_report=None
             ):
                 # selected a normal session, should go to job selection
                 self.push_screen(
                     JobSelectionScreen(session),
-                    lambda job_id: _write_state(AppState(session, job_id)),
+                    lambda job_id: _write_state(
+                        NavigationState(session, job_id)
+                    ),
                 )
-            case AppState(
+            case NavigationState(
                 session=NullSelection.NO_SESSION as session,
                 job_id=NullSelection.NO_JOB as job_id,
                 bug_report=None,
@@ -249,14 +253,14 @@ class BugitApp(App[None]):
                 self.push_screen(
                     _pick_editor(session, job_id),
                     lambda bug_report: _write_state(
-                        AppState(
+                        NavigationState(
                             session,
                             job_id,
                             bug_report,
                         )
                     ),
                 )
-            case AppState(
+            case NavigationState(
                 session=Session() as session,
                 job_id=NullSelection.NO_JOB as job_id,
                 bug_report=None,
@@ -266,10 +270,10 @@ class BugitApp(App[None]):
                 self.push_screen(
                     _pick_editor(session, job_id),
                     lambda bug_report: _write_state(
-                        AppState(session, job_id, bug_report)
+                        NavigationState(session, job_id, bug_report)
                     ),
                 )
-            case AppState(
+            case NavigationState(
                 session=Session() as session,
                 job_id=str() as job_id,
                 bug_report=None,
@@ -279,10 +283,10 @@ class BugitApp(App[None]):
                 self.push_screen(
                     _pick_editor(session, job_id),
                     lambda bug_report: _write_state(
-                        AppState(session, job_id, bug_report)
+                        NavigationState(session, job_id, bug_report)
                     ),
                 )
-            case AppState(
+            case NavigationState(
                 session=Session() | NullSelection.NO_SESSION as session,
                 job_id=str() | NullSelection.NO_JOB as job_id,
                 bug_report=BugReport() | PartialBugReport() as br,
@@ -303,19 +307,19 @@ class BugitApp(App[None]):
                         case "session":
                             self.bug_report_backup = None
                             self.partial_bug_report_backup = None
-                            self.state = AppState()
+                            self.nav_state = NavigationState()
                         case "job" if session != NullSelection.NO_SESSION:
                             # this is only available when there's a session
                             self.bug_report_backup = None
                             self.partial_bug_report_backup = None
-                            self.state = AppState(session)
+                            self.nav_state = NavigationState(session)
                         case "report_editor":
                             if isinstance(br, PartialBugReport):
                                 self.partial_bug_report_backup = br
                             else:
                                 self.bug_report_backup = br
 
-                            self.state = AppState(session, job_id)
+                            self.nav_state = NavigationState(session, job_id)
                         case _:
                             raise RuntimeError()
 
@@ -327,7 +331,7 @@ class BugitApp(App[None]):
                 )
 
             case _:
-                raise RuntimeError(f"Impossible state: {self.state}")
+                raise RuntimeError(f"Impossible state: {self.nav_state}")
 
     def action_go_back(self) -> None:
         """Handles the `Go Back` button
@@ -335,30 +339,30 @@ class BugitApp(App[None]):
         This function should only reassign (not modify) the state object and
         let textual automatically re-render
         """
-        match self.state:
-            case AppState(session=None):
+        match self.nav_state:
+            case NavigationState(session=None):
                 self.notify("Already at the beginning")
                 return
-            case AppState(session=Session(), job_id=None):
+            case NavigationState(session=Session(), job_id=None):
                 # returning from job selection
-                self.state = AppState(None, None)
-            case AppState(
+                self.nav_state = NavigationState(None, None)
+            case NavigationState(
                 session=NullSelection.NO_SESSION,
                 job_id=NullSelection.NO_JOB,
                 bug_report=None,
             ):
                 # returning from editor with nothing selected
                 # just go back to the beginning
-                self.state = AppState(None, None)
-            case AppState(
+                self.nav_state = NavigationState(None, None)
+            case NavigationState(
                 session=Session() as session,
                 job_id=str() | NullSelection.NO_JOB,
                 bug_report=None,
             ):
                 # returning from editor with explicit job selection
                 # go back to job selection
-                self.state = AppState(session, None)
-            case AppState(
+                self.nav_state = NavigationState(session, None)
+            case NavigationState(
                 session=Session() | NullSelection.NO_SESSION,
                 job_id=str() | NullSelection.NO_JOB,
                 bug_report=BugReport() | PartialBugReport(),
@@ -369,7 +373,7 @@ class BugitApp(App[None]):
                 )
             case _:
                 raise RuntimeError(
-                    f"Impossible state when going back: {self.state}"
+                    f"Impossible state when going back: {self.nav_state}"
                 )
 
 
