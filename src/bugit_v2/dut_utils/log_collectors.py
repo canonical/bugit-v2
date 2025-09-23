@@ -73,7 +73,14 @@ def nvidia_bug_report(
                     "/var/lib/snapd/hostfs/bin",
                 ]
             ),
-            "LD_LIBRARY_PATH": "/var/lib/snapd/hostfs/lib/$ARCH",
+            "LD_LIBRARY_PATH": ":".join(
+                [
+                    # $ARCH is exported from /snap/local/scripts/env_wrapper.sh
+                    # the shell script is always called before bug starts
+                    f"/var/lib/snapd/hostfs/lib/{os.environ['ARCH']}",
+                    f"/var/lib/snapd/hostfs/usr/lib/{os.environ['ARCH']}",
+                ]
+            ),
         }
     else:
         executable = "nvidia-bug-report.sh"
