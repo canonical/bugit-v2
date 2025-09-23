@@ -1,11 +1,16 @@
+import json
+import time
 from collections.abc import Mapping
-from typing import Final, Literal, cast, final
+from dataclasses import asdict
+from functools import wraps
+from typing import Callable, Final, Literal, cast, final
 
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import HorizontalGroup, VerticalGroup, VerticalScroll
 from textual.reactive import var
 from textual.screen import Screen
+from textual.timer import Timer
 from textual.validation import ValidationResult, Validator
 from textual.widgets import (
     Button,
@@ -16,6 +21,7 @@ from textual.widgets import (
     RadioButton,
     RadioSet,
     SelectionList,
+    TextArea,
 )
 from textual.widgets.selection_list import Selection
 from textual.worker import Worker, WorkerState
@@ -88,6 +94,9 @@ class BugReportScreen(Screen[BugReport]):
 
     initial_report: dict[str, str]
 
+    # report_dirty = var(False)
+    autosave_filename: str
+    autosave_timer: Timer | None = None
     # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
     # id should match the property name in the BugReport object
     # TODO: rename this, it does more than just holding titles now
@@ -149,6 +158,8 @@ class BugReportScreen(Screen[BugReport]):
         self.job_id = job_id
         self.existing_report = existing_report
         self.app_args = app_args
+
+        self.autosave_filename = f"bugit-v2-autosave-{int(time.time())}.json"
 
         self.elem_id_to_border_title = {
             "title": (
@@ -214,7 +225,7 @@ class BugReportScreen(Screen[BugReport]):
 
     @override
     def compose(self) -> ComposeResult:
-        yield SimpleHeader()
+        yield SimpleHeader(Label(id="dirty_label"))
         with Collapsible(
             title=f"[bold]{'Jira' if self.app_args.submitter == 'jira' else 'Launchpad'} Bug Report for...[/bold]",
             collapsed=False,
@@ -422,6 +433,23 @@ class BugReportScreen(Screen[BugReport]):
         if ok:
             self.dismiss(self._build_bug_report())
 
+    def debounce[**P](
+        self, f: Callable[P, None], delay: int
+    ) -> Callable[P, None]:
+        @wraps(f)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> None:
+            if self.autosave_timer is not None:
+                self.autosave_timer.stop()
+
+            self.query_exactly_one("#dirty_label", Label).update(
+                "[green]Autosave scheduled!"
+            )
+            self.autosave_timer = self.set_timer(
+                delay, lambda: f(*args, **kwargs)
+            )
+
+        return wrapper
+
     @on(Input.Blurred)
     @on(Input.Changed)
     def show_invalid_reasons(self, event: Input.Changed) -> None:
@@ -446,6 +474,23 @@ class BugReportScreen(Screen[BugReport]):
             **self.validation_status,
             event.input.id: event.validation_result.is_valid,
         }
+
+    @on(Input.Changed)
+    @on(TextArea.Changed)
+    def trigger_autosave(self):
+        def f():
+            # these steps are only executed when the real autosave happens
+            # otherwise it's cancelled
+            label = self.query_exactly_one("#dirty_label", Label)
+            try:
+                with open(self.autosave_filename, "w") as f:
+                    json.dump(asdict(self._build_bug_report()), f)
+                label.update("Progress Saved")
+            except Exception as e:
+                label.update(f"[red]Autosave failed! {e}")
+
+        # run auto save 1 second after the user stops typing
+        self.debounce(f, 1)()
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         if (
@@ -631,3 +676,19 @@ class BugReportScreen(Screen[BugReport]):
                             pass
                 case _:
                     pass
+
+    # def _poll_and_auto_save(self, interval: int = 2):
+    #     while True:
+    #         try:
+    #             with open(self.autosave_filename, "w") as f:
+    #                 json.dump(asdict(self._build_bug_report()), f)
+    #         except Exception:
+    #             pass
+    #         finally:
+    #             self.app.call_from_thread(
+    #                 lambda: self._set_report_dirty(False)
+    #             )
+    #         time.sleep(interval)
+
+    # def _set_report_dirty(self, value: bool):
+    #     self.report_dirty = value
