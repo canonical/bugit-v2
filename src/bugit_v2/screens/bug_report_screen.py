@@ -3,6 +3,7 @@ import time
 from collections.abc import Mapping
 from dataclasses import asdict
 from functools import wraps
+from pathlib import Path
 from typing import Callable, Final, Literal, cast, final
 
 from textual import on, work
@@ -44,7 +45,12 @@ from bugit_v2.models.bug_report import (
     pretty_issue_file_times,
     pretty_severities,
 )
-from bugit_v2.utils.constants import FEATURE_MAP, VENDOR_MAP, NullSelection
+from bugit_v2.utils.constants import (
+    AUTOSAVE_DIR,
+    FEATURE_MAP,
+    VENDOR_MAP,
+    NullSelection,
+)
 
 
 class ValidSpaceSeparatedTags(Validator):
@@ -90,16 +96,15 @@ class BugReportScreen(Screen[BugReport]):
     job_id: Final[str | Literal[NullSelection.NO_JOB]]
     existing_report: Final[BugReport | None]
     app_args: Final[AppArgs]
+    # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
+    # id should match the property name in the BugReport object
+    # TODO: rename this, it does more than just holding titles now
     elem_id_to_border_title: Final[Mapping[str, tuple[str, str]]]
 
     initial_report: dict[str, str]
 
-    # report_dirty = var(False)
-    autosave_filename: str
     autosave_timer: Timer | None = None
-    # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
-    # id should match the property name in the BugReport object
-    # TODO: rename this, it does more than just holding titles now
+    autosave_file: Path
 
     CSS = """
     BugReportScreen {
@@ -159,7 +164,7 @@ class BugReportScreen(Screen[BugReport]):
         self.existing_report = existing_report
         self.app_args = app_args
 
-        self.autosave_filename = f"bugit-v2-autosave-{int(time.time())}.json"
+        self.autosave_file = AUTOSAVE_DIR / (str(int(time.time())) + ".json")
 
         self.elem_id_to_border_title = {
             "title": (
@@ -485,7 +490,8 @@ class BugReportScreen(Screen[BugReport]):
             # otherwise it's cancelled
             label = self.query_exactly_one("#dirty_label", Label)
             try:
-                with open(self.autosave_filename, "w") as f:
+                # filename is just a unix timestamp in seconds
+                with open(self.autosave_file, "w") as f:
                     report = self._build_bug_report()
                     d = asdict(report)
                     # don't save the session object, just the path
