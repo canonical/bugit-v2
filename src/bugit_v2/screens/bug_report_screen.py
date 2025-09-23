@@ -496,9 +496,13 @@ class BugReportScreen(Screen[BugReport]):
                     d = asdict(report)
                     # don't save the session object, just the path
                     if report.checkbox_session:
-                        d["checkbox_session"] = (
-                            report.checkbox_session.session_path
+                        d["checkbox_session"] = str(
+                            report.checkbox_session.session_path.absolute()
                         )
+                    if self.job_id == NullSelection.NO_JOB:
+                        d["job_id"] = None
+                    else:
+                        d["job_id"] = self.job_id
                     json.dump(d, f)
                 label.update("[green]Progress Saved")
             except Exception as e:

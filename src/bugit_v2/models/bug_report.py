@@ -1,6 +1,9 @@
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Final, Literal
+
+from pydantic import BaseModel
 
 from bugit_v2.checkbox_utils import Session
 
@@ -110,3 +113,22 @@ class PartialBugReport:
         raise TypeError(
             f"Expected {expected_type}, but got {type(value)}"  # pyright: ignore[reportAny]
         )
+
+
+class BugReportAutoSaveData(BaseModel):
+    title: str
+    description: str
+    project: str
+    severity: Severity
+    issue_file_time: IssueFileTime
+    checkbox_session: Path | None
+    job_id: str | None
+    assignee: str | None
+    platform_tags: list[str]
+    additional_tags: list[str]
+    status: BugStatus
+    series: str | None
+    # selections
+    logs_to_include: list[LogName]
+    impacted_features: list[str]
+    impacted_vendors: list[str]
