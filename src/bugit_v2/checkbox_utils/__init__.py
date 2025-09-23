@@ -73,6 +73,8 @@ class Session:
 
     description: str
     testplan_id: str
+    session_path: Path
+    failed_jobs: Sequence[str]
 
     def __init__(self, session_path: Path):
         self.session_path = session_path

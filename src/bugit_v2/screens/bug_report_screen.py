@@ -477,6 +477,8 @@ class BugReportScreen(Screen[BugReport]):
 
     @on(Input.Changed)
     @on(TextArea.Changed)
+    @on(SelectionList.SelectedChanged)
+    @on(RadioSet.Changed)
     def trigger_autosave(self):
         def f():
             # these steps are only executed when the real autosave happens
@@ -484,7 +486,14 @@ class BugReportScreen(Screen[BugReport]):
             label = self.query_exactly_one("#dirty_label", Label)
             try:
                 with open(self.autosave_filename, "w") as f:
-                    json.dump(asdict(self._build_bug_report()), f)
+                    report = self._build_bug_report()
+                    d = asdict(report)
+                    # don't save the session object, just the path
+                    if report.checkbox_session:
+                        d["checkbox_session"] = (
+                            report.checkbox_session.session_path
+                        )
+                    json.dump(d, f)
                 label.update("[green]Progress Saved")
             except Exception as e:
                 label.update(f"[red]Autosave failed! {e}")
