@@ -48,7 +48,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                         BugReportAutoSaveData.model_validate_json(f.read())
                     )
                 except pydantic.ValidationError as e:
-                    print(e)
+                    self.log.error(e)
 
         super().__init__(name, id, classes)
 
@@ -95,7 +95,6 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
 
     @on(Switch.Changed, "#mode_toggle")
     def change_mode(self, event: Switch.Changed):
-        print("called!")
         self.is_relative = event.switch.value
 
     @on(Button.Pressed)
