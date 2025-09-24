@@ -19,16 +19,14 @@ def pretty_date(d: dt.datetime) -> str:
     elif diff.days == 1:
         return "1 day ago"
     elif diff.days > 1:
-        return f"{diff.days:.1f} days {diff.seconds:.1f} ago"
+        return f"{diff.days:.2f} days {diff.seconds:.2f} ago"
     elif s <= 1:
         return "just now"
     elif s < 60:
-        return "{:.1f} seconds ago".format(s)
-    elif s < 120:
-        return "1 minute ago"
+        return "{:.2f} seconds ago".format(s)
     elif s < 3600:
-        return "{:.1f} minutes ago".format(s / 60)
+        return "{:.2f} minutes ago".format(s / 60)
     elif s < 7200:
         return "1 hour ago"
     else:
-        return "{:.1f} hours ago".format(s / 3600)
+        return "{:.2f} hours ago".format(s / 3600)
