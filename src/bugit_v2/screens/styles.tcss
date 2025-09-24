@@ -178,3 +178,7 @@ Checkbox.-on>.toggle--button {
 .hidden {
     display: none;
 }
+
+Checkbox {
+    background: $background 100%;
+}

@@ -13,9 +13,10 @@ from textual.containers import (
     VerticalGroup,
     VerticalScroll,
 )
+from textual.content import Content
 from textual.reactive import reactive
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Label, Rule, Switch
+from textual.widgets import Button, Checkbox, Footer, Label, Rule
 
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.models.bug_report import BugReportAutoSaveData
@@ -58,13 +59,16 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
         with Vertical(classes="w100 h100 center"):
             with VerticalGroup(classes="round_box lrp2"):
                 yield Label("[b][$primary]Select a Recovery File")
+                yield Label(
+                    "These are saved by the editor's autosave function"
+                )
                 yield Rule(classes="m0 boost", line_style="ascii")
                 with HorizontalGroup():
-                    yield Switch(
+                    yield Checkbox(
                         id="mode_toggle",
-                        animate=False,
-                        classes="nb mr1",
+                        classes="mr1 nb",
                         value=self.is_relative,
+                        compact=True,
                     )
                     yield Label(
                         "Relative Timestamp"
@@ -74,9 +78,10 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                     with Right():
                         yield Button(
                             "Start a new bug report (Don't recover)",
-                            name="no_recovery",
+                            id="no_recovery",
                             tooltip="This will not delete any of the existing recovery files",
                             compact=True,
+                            classes="editor_button",
                         )
 
             yield VerticalScroll(
@@ -93,19 +98,19 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
 
         yield Footer()
 
-    @on(Switch.Changed, "#mode_toggle")
-    def change_mode(self, event: Switch.Changed):
-        self.is_relative = event.switch.value
+    @on(Checkbox.Changed, "#mode_toggle")
+    def change_mode(self, event: Checkbox.Changed):
+        self.is_relative = event.checkbox.value
 
     @on(Button.Pressed)
     def finish_selection(self, event: Button.Pressed):
-        assert event.button.name
-        if event.button.name == "no_recovery":
+        if event.button.id == "no_recovery":
             self.dismiss(None)
         else:
+            assert event.button.name
             self.dismiss(self.valid_autosave_data[event.button.name])
 
-    def _button_text(self, filename: str):
+    def _button_text(self, filename: str) -> Content:
         assert filename in self.valid_autosave_data
         lines: list[str] = []
         if self.is_relative:
@@ -125,6 +130,23 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                 ).strftime("%Y-%m-%dT%H:%M:%SZ"),
             )
 
+        if session_path := self.valid_autosave_data[filename].checkbox_session:
+            lines.append(f"[grey]- {os.path.basename(session_path)}")
+        else:
+            lines.append("[grey]- No session selected")
+
         if job_id := self.valid_autosave_data[filename].job_id:
-            lines.append(f"[grey]{job_id}")
-        return "\n".join(lines)  #
+            lines.append(f"[grey]- {job_id}")
+        else:
+            lines.append("[grey]- No job selected")
+
+        assert len(lines) == 3
+        # can't use css inside button text
+        # have to manually pad the length
+        max_len = len(max(lines, key=len))
+        return Content("\n").join(
+            Content.from_markup(line).pad_right(
+                0 if i == 0 else max_len - len(line)
+            )
+            for i, line in enumerate(lines)
+        )
