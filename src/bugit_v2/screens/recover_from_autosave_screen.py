@@ -8,13 +8,14 @@ from textual import on
 from textual.app import ComposeResult
 from textual.containers import (
     HorizontalGroup,
+    Right,
     Vertical,
     VerticalGroup,
     VerticalScroll,
 )
 from textual.reactive import reactive
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Label, Switch
+from textual.widgets import Button, Footer, Label, Rule, Switch
 
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.models.bug_report import BugReportAutoSaveData
@@ -55,8 +56,9 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
     def compose(self) -> ComposeResult:
         yield SimpleHeader()
         with Vertical(classes="w100 h100 center"):
-            with VerticalGroup(classes="m1"):
+            with VerticalGroup(classes="round_box lrp2"):
                 yield Label("[b][$primary]Select a Recovery File")
+                yield Rule(classes="m0 boost", line_style="ascii")
                 with HorizontalGroup():
                     yield Switch(
                         id="mode_toggle",
@@ -69,14 +71,15 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                         if self.is_relative
                         else "Absolute Timestamp"
                     )
+                    with Right():
+                        yield Button(
+                            "Start a new bug report (Don't recover)",
+                            name="no_recovery",
+                            tooltip="This will not delete any of the existing recovery files",
+                            compact=True,
+                        )
 
             yield VerticalScroll(
-                Button(
-                    "Start a new bug report (Don't recover)",
-                    name="no_recovery",
-                    tooltip="This will not delete any of the existing recovery files",
-                    classes="mb1 session_button",
-                ),
                 *(
                     Button(
                         self._button_text(filename),

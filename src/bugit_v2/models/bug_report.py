@@ -78,6 +78,8 @@ class BugReport:
     logs_to_include: Sequence[LogName] = field(default_factory=list[LogName])
     impacted_features: Sequence[str] = field(default_factory=list[str])
     impacted_vendors: Sequence[str] = field(default_factory=list[str])
+    # for recovery only
+    source: Literal["editor", "recovery"] = "editor"
 
     def get_with_type[T](self, attr: str, expected_type: type[T]) -> T:
         value = getattr(self, attr)  # pyright: ignore[reportAny]
@@ -154,4 +156,5 @@ def recover_from_autosave(
         autosave_data.logs_to_include,
         autosave_data.impacted_features,
         autosave_data.impacted_vendors,
+        "recovery",
     )
