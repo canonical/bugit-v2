@@ -154,11 +154,11 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
 
         self.initial_report = {
             "Summary": "",
-            "Steps to reproduce": "",
-            "Expected result": "",
-            "Actual result": "",
-            "Failure rate": "",
-            "Affected test cases": "",
+            "Steps to Reproduce": "",
+            "Expected Result": "",
+            "Actual Result": "",
+            "Failure Rate": "",
+            "Affected Test Cases": "",
             "Additional Information": "",
         }
 
@@ -168,7 +168,7 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
         if job_id == NullSelection.NO_JOB:
             return
 
-        self.initial_report["Affected test cases"] = job_id
+        self.initial_report["Affected Test Cases"] = job_id
         job_output = session.get_job_output(job_id)
         if job_output is None:
             self.initial_report["Job Output"] = (
