@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, final
@@ -26,6 +27,9 @@ from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import BugReport, PartialBugReport
 from bugit_v2.screens.bug_report_screen import BugReportScreen
 from bugit_v2.screens.job_selection_screen import JobSelectionScreen
+from bugit_v2.screens.recover_from_autosave_screen import (
+    RecoverFromAutoSaveScreen,
+)
 from bugit_v2.screens.reopen_bug_editor_screen import ReopenBugEditorScreen
 from bugit_v2.screens.reopen_precheck_screen import ReopenPreCheckScreen
 from bugit_v2.screens.session_selection_screen import SessionSelectionScreen
@@ -34,7 +38,7 @@ from bugit_v2.screens.submission_progress_screen import (
     SubmissionProgressScreen,
 )
 from bugit_v2.utils import is_prod, is_snap
-from bugit_v2.utils.constants import NullSelection
+from bugit_v2.utils.constants import AUTOSAVE_DIR, NullSelection
 from bugit_v2.utils.validations import before_entry_check, is_cid
 
 cli_app = typer.Typer(
@@ -215,6 +219,16 @@ class BugitApp(App[None]):
                         if isinstance(check_result, Exception):
                             msg += f"Error is: {repr(check_result)}"
                         self.exit(return_code=1, message=msg)
+
+                # show the recovery screen if there's no backup
+                if (
+                    self.bug_report_backup is None
+                    and len(os.listdir(AUTOSAVE_DIR)) != 0
+                ):
+                    await self.push_screen_wait(
+                        RecoverFromAutoSaveScreen(AUTOSAVE_DIR)
+                    )
+                    return
 
                 def after_session_select(
                     rv: Path | Literal[NullSelection.NO_SESSION] | None,

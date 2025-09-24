@@ -33,7 +33,7 @@ class SessionSelectionScreen(Screen[Path | Literal[NullSelection.NO_SESSION]]):
     def compose(self) -> ComposeResult:
         # textual's header crashes for some reason
         yield SimpleHeader()
-        with Vertical(classes="w100 h100 center", id="after_load_container"):
+        with Vertical(classes="w100 h100 center"):
             yield Label("[b][$primary]Select a Session")
             yield VerticalScroll(
                 Button(

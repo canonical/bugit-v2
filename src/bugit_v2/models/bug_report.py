@@ -132,3 +132,26 @@ class BugReportAutoSaveData(BaseModel):
     logs_to_include: list[LogName]
     impacted_features: list[str]
     impacted_vendors: list[str]
+
+
+def recover_from_autosave(
+    autosave_data: BugReportAutoSaveData,
+) -> BugReport:
+    # job_id is handled separately
+    return BugReport(
+        autosave_data.title,
+        autosave_data.description,
+        autosave_data.project,
+        autosave_data.severity,
+        autosave_data.issue_file_time,
+        autosave_data.checkbox_session
+        and Session(autosave_data.checkbox_session),
+        autosave_data.assignee,
+        autosave_data.platform_tags,
+        autosave_data.additional_tags,
+        autosave_data.status,
+        autosave_data.series,
+        autosave_data.logs_to_include,
+        autosave_data.impacted_features,
+        autosave_data.impacted_vendors,
+    )
