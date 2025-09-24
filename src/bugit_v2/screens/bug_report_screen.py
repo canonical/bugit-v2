@@ -188,6 +188,7 @@ class BugReportScreen(Screen[BugReport]):
         if job_id == NullSelection.NO_JOB:
             return
 
+        self.initial_report["Affected test cases"] = job_id
         job_output = session.get_job_output(job_id)
         if job_output is None:
             self.initial_report["Job Output"] = (
