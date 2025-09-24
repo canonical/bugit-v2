@@ -24,7 +24,11 @@ from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
 from bugit_v2.models.app_args import AppArgs
-from bugit_v2.models.bug_report import BugReport, PartialBugReport
+from bugit_v2.models.bug_report import (
+    BugReport,
+    PartialBugReport,
+    recover_from_autosave,
+)
 from bugit_v2.screens.bug_report_screen import BugReportScreen
 from bugit_v2.screens.job_selection_screen import JobSelectionScreen
 from bugit_v2.screens.recover_from_autosave_screen import (
@@ -225,10 +229,20 @@ class BugitApp(App[None]):
                     self.bug_report_backup is None
                     and len(os.listdir(AUTOSAVE_DIR)) != 0
                 ):
-                    await self.push_screen_wait(
+                    rv = await self.push_screen_wait(
                         RecoverFromAutoSaveScreen(AUTOSAVE_DIR)
                     )
-                    return
+                    if rv is not None:
+                        recovered = recover_from_autosave(rv)
+                        self.bug_report_backup = recovered
+                        # trigger this watcher again to actually go to the editor page
+                        self.nav_state = NavigationState(
+                            recovered.checkbox_session
+                            or NullSelection.NO_SESSION,
+                            rv.job_id or NullSelection.NO_JOB,
+                            None,
+                        )
+                        return
 
                 def after_session_select(
                     rv: Path | Literal[NullSelection.NO_SESSION] | None,

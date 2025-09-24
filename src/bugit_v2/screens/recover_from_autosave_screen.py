@@ -28,6 +28,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
     CSS_PATH = "styles.tcss"
 
     is_relative = reactive[bool](False, recompose=True)
+    valid_autosave_data: dict[str, BugReportAutoSaveData]
 
     def __init__(
         self,
@@ -37,8 +38,9 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
         classes: str | None = None,
     ) -> None:
         self.autosave_dir = autosave_dir
-        self.valid_autosave_data: dict[str, BugReportAutoSaveData] = {}
-        for file in os.listdir(autosave_dir):
+        self.valid_autosave_data = {}
+        # file names are already timestamps, can just use string sort
+        for file in sorted(os.listdir(autosave_dir), reverse=True):
             with open(autosave_dir / file) as f:
                 try:
                     self.valid_autosave_data[file] = (
@@ -71,13 +73,14 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
             yield VerticalScroll(
                 Button(
                     "Start a new bug report (Don't recover)",
+                    name="no_recovery",
                     tooltip="This will not delete any of the existing recovery files",
                     classes="mb1 session_button",
                 ),
                 *(
                     Button(
                         self._button_text(filename),
-                        name=filename,
+                        name=filename,  # can't have slashes in id
                         classes="mb1 session_button",
                     )
                     for filename in self.valid_autosave_data.keys()
@@ -91,6 +94,14 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
     def change_mode(self, event: Switch.Changed):
         print("called!")
         self.is_relative = event.switch.value
+
+    @on(Button.Pressed)
+    def finish_selection(self, event: Button.Pressed):
+        assert event.button.name
+        if event.button.name == "no_recovery":
+            self.dismiss(None)
+        else:
+            self.dismiss(self.valid_autosave_data[event.button.name])
 
     def _button_text(self, filename: str):
         assert filename in self.valid_autosave_data
@@ -114,4 +125,4 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
 
         if job_id := self.valid_autosave_data[filename].job_id:
             lines.append(f"[grey]{job_id}")
-        return "\n".join(lines)
+        return "\n".join(lines)  #
