@@ -164,6 +164,7 @@
 .session_button {
     padding: 0 1;
     width: 70%;
+    text-overflow: fold;
 }
 
 Input.-invalid {

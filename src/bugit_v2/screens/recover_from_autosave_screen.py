@@ -58,9 +58,9 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
         yield SimpleHeader()
         with Vertical(classes="w100 h100 center"):
             with VerticalGroup(classes="round_box lrp2"):
-                yield Label("[b][$primary]Select a Recovery File")
+                yield Label("[b][$primary]Resume from a Recovery File")
                 yield Label(
-                    "These are saved by the editor's autosave function"
+                    "These were automatically saved by the bug report editor"
                 )
                 yield Rule(classes="m0 boost", line_style="ascii")
                 with HorizontalGroup():
@@ -115,7 +115,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
         lines: list[str] = []
         if self.is_relative:
             lines.append(
-                "[$primary]"
+                "Saved [$primary]"
                 + pretty_date(
                     datetime.datetime.fromtimestamp(
                         os.stat(self.autosave_dir / filename).st_ctime
@@ -124,29 +124,30 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
             )
         else:
             lines.append(
-                "[$primary]"
+                "Saved at [$primary]"
                 + datetime.datetime.fromtimestamp(
                     os.stat(self.autosave_dir / filename).st_ctime
                 ).strftime("%Y-%m-%dT%H:%M:%SZ"),
             )
 
         if session_path := self.valid_autosave_data[filename].checkbox_session:
-            lines.append(f"[grey]- {os.path.basename(session_path)}")
+            lines.append(f"[grey]{os.path.basename(session_path)}")
         else:
-            lines.append("[grey]- No session selected")
+            lines.append("[i][grey]No session selected")
 
         if job_id := self.valid_autosave_data[filename].job_id:
-            lines.append(f"[grey]- {job_id}")
+            lines.append(f"[grey]{job_id}")
         else:
-            lines.append("[grey]- No job selected")
+            lines.append("[i][grey]No job selected")
 
-        assert len(lines) == 3
-        # can't use css inside button text
-        # have to manually pad the length
-        max_len = len(max(lines, key=len))
-        return Content("\n").join(
-            Content.from_markup(line).pad_right(
-                0 if i == 0 else max_len - len(line)
-            )
-            for i, line in enumerate(lines)
-        )
+        return Content("\n").join(Content.from_markup(line) for line in lines)
+        # assert len(lines) == 3
+        # # can't use css inside button text
+        # # have to manually pad the length
+        # max_len = len(max(lines, key=len))
+        # return Content("\n").join(
+        #     Content.from_markup(line).pad_right(
+        #         0 if i == 0 else max_len - len(line)
+        #     )
+        #     for i, line in enumerate(lines)
+        # )
