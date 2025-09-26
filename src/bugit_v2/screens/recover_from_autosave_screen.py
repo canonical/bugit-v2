@@ -54,6 +54,10 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
 
         super().__init__(name, id, classes)
 
+    def on_mount(self):
+        if len(self.valid_autosave_data) == 0:
+            self.dismiss(None)
+
     @override
     def compose(self) -> ComposeResult:
         yield SimpleHeader()
