@@ -187,13 +187,3 @@ Checkbox.-on>.toggle--button {
 Checkbox {
     background: $background 100%;
 }
-
-.button_1_char {
-    border: none;
-    min-width: 1;
-    height: auto;
-}
-
-.row {
-    height: 6;
-}

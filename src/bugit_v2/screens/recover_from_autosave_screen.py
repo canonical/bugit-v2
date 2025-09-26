@@ -8,7 +8,6 @@ from textual import on
 from textual.app import ComposeResult
 from textual.containers import (
     HorizontalGroup,
-    Middle,
     Right,
     Vertical,
     VerticalGroup,
@@ -72,13 +71,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                         value=self.is_relative,
                         compact=True,
                     )
-                    yield Label(
-                        (
-                            "Relative Timestamp"
-                            if self.is_relative
-                            else "Absolute Timestamp"
-                        )
-                    )
+                    yield Label("Relative Timestamp")
                 with HorizontalGroup():
                     yield Checkbox(
                         id="show_delete_toggle",
@@ -89,7 +82,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                     yield Label("Lock Delete Button")
                     with Right():
                         yield Button(
-                            "Start a new bug report (Don't recover)",
+                            "Start a New Bug Report (Don't recover)",
                             id="no_recovery",
                             tooltip="This will not delete any of the existing recovery files",
                             compact=True,
@@ -102,20 +95,22 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                         yield Button(
                             self._button_text(filename),
                             name=filename,  # can't have slashes in id
+                            flat=True,
                             classes="session_button mr1 ha",
                         )
-                        with Middle():
-                            yield Button(
-                                "⌫",
-                                variant="error",
-                                tooltip=(
-                                    "Delete this backup"
-                                    + (" (locked)" if self.lock_delete else "")
-                                ),
-                                classes="button_1_char",
-                                disabled=self.lock_delete,
-                                compact=True,
-                            )
+
+                        yield Button(
+                            "⌫",
+                            name=f"delete:{filename}",
+                            variant="error",
+                            flat=True,
+                            tooltip=(
+                                "Delete this backup"
+                                + (" (locked)" if self.lock_delete else "")
+                            ),
+                            classes="h100 center",
+                            disabled=self.lock_delete,
+                        )
 
         yield Footer()
 
@@ -128,11 +123,22 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
         self.lock_delete = event.checkbox.value
 
     @on(Button.Pressed)
-    def finish_selection(self, event: Button.Pressed):
+    async def handle_buttons(self, event: Button.Pressed):
         if event.button.id == "no_recovery":
             self.dismiss(None)
+            return
+
+        assert event.button.name
+
+        if event.button.name.startswith("delete:"):
+            savefile_name = event.button.name.removeprefix("delete:")
+            os.remove(self.autosave_dir / savefile_name)
+            del self.valid_autosave_data[savefile_name]
+            if len(self.valid_autosave_data) == 0:
+                self.dismiss(None)
+            else:
+                await self.recompose()
         else:
-            assert event.button.name
             self.dismiss(self.valid_autosave_data[event.button.name])
 
     def _button_text(self, filename: str) -> Content:
