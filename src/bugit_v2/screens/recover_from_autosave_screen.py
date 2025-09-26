@@ -8,6 +8,7 @@ from textual import on
 from textual.app import ComposeResult
 from textual.containers import (
     HorizontalGroup,
+    Middle,
     Right,
     Vertical,
     VerticalGroup,
@@ -30,6 +31,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
     CSS_PATH = "styles.tcss"
 
     is_relative = reactive[bool](False, recompose=True)
+    lock_delete = reactive[bool](True, recompose=True)
     valid_autosave_data: dict[str, BugReportAutoSaveData]
 
     def __init__(
@@ -71,10 +73,20 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                         compact=True,
                     )
                     yield Label(
-                        "Relative Timestamp"
-                        if self.is_relative
-                        else "Absolute Timestamp"
+                        (
+                            "Relative Timestamp"
+                            if self.is_relative
+                            else "Absolute Timestamp"
+                        )
                     )
+                with HorizontalGroup():
+                    yield Checkbox(
+                        id="show_delete_toggle",
+                        classes="mr1 nb",
+                        value=self.lock_delete,
+                        compact=True,
+                    )
+                    yield Label("Lock Delete Button")
                     with Right():
                         yield Button(
                             "Start a new bug report (Don't recover)",
@@ -84,23 +96,36 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                             classes="editor_button",
                         )
 
-            yield VerticalScroll(
-                *(
-                    Button(
-                        self._button_text(filename),
-                        name=filename,  # can't have slashes in id
-                        classes="mb1 session_button",
-                    )
-                    for filename in self.valid_autosave_data.keys()
-                ),
-                classes="w100 center",
-            )
+            with VerticalScroll(classes="w100 center"):
+                for filename in self.valid_autosave_data.keys():
+                    with HorizontalGroup(classes="center row"):
+                        yield Button(
+                            self._button_text(filename),
+                            name=filename,  # can't have slashes in id
+                            classes="session_button mr1 ha",
+                        )
+                        with Middle():
+                            yield Button(
+                                "⌫",
+                                variant="error",
+                                tooltip=(
+                                    "Delete this backup"
+                                    + (" (locked)" if self.lock_delete else "")
+                                ),
+                                classes="button_1_char",
+                                disabled=self.lock_delete,
+                                compact=True,
+                            )
 
         yield Footer()
 
     @on(Checkbox.Changed, "#mode_toggle")
     def change_mode(self, event: Checkbox.Changed):
         self.is_relative = event.checkbox.value
+
+    @on(Checkbox.Changed, "#show_delete_toggle")
+    def toggle_delete(self, event: Checkbox.Changed):
+        self.lock_delete = event.checkbox.value
 
     @on(Button.Pressed)
     def finish_selection(self, event: Button.Pressed):
@@ -115,7 +140,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
         lines: list[str] = []
         if self.is_relative:
             lines.append(
-                "Saved [$primary]"
+                "Saved "
                 + pretty_date(
                     datetime.datetime.fromtimestamp(
                         os.stat(self.autosave_dir / filename).st_ctime
@@ -124,7 +149,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
             )
         else:
             lines.append(
-                "Saved at [$primary]"
+                "Saved at "
                 + datetime.datetime.fromtimestamp(
                     os.stat(self.autosave_dir / filename).st_ctime
                 ).strftime("%Y-%m-%dT%H:%M:%SZ"),
