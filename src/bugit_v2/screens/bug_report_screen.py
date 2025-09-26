@@ -30,6 +30,7 @@ from bugit_v2.dut_utils.info_getters import get_standard_info
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import (
+    BUG_STATUSES,
     ISSUE_FILE_TIMES,
     SEVERITIES,
     BugReport,
@@ -168,6 +169,7 @@ class BugReportScreen(Screen[BugReport]):
                 "[b]Select some logs to include",
                 "Green = Selected",
             ),
+            "status": ("[b]Bug status on Launchpad", ""),
             "impacted_features": ("[b]Impacted Features", ""),
             "impacted_vendors": ("[b]Impacted Vendors", ""),
         }
@@ -344,6 +346,21 @@ class BugReportScreen(Screen[BugReport]):
                         id="logs_to_include",
                     )
 
+            # always make it query-able, but visually hide it when not using lp
+            yield RadioSet(
+                *(
+                    RadioButton(
+                        status,
+                        name=status,
+                        value=status == "New",  # default to New
+                    )
+                    for status in BUG_STATUSES
+                ),
+                id="status",
+                classes="default_box"
+                + ("" if self.app_args.submitter == "lp" else " hidden"),
+            )
+
             yield SelectionWithPreview(
                 FEATURE_MAP,
                 Label("[i][$primary]These features will be tagged"),
@@ -492,12 +509,17 @@ class BugReportScreen(Screen[BugReport]):
         selected_issue_file_time_button = self.query_exactly_one(
             "#issue_file_time", RadioSet
         ).pressed_button
+        selected_status_button = self.query_exactly_one(
+            "#status", RadioSet
+        ).pressed_button
 
         # shouldn't fail at runtime, major logic error if they do
         assert selected_severity_button
         assert selected_severity_button.name in SEVERITIES
         assert selected_issue_file_time_button
         assert selected_issue_file_time_button.name in ISSUE_FILE_TIMES
+        assert selected_status_button
+        assert selected_status_button.name in BUG_STATUSES
 
         return BugReport(
             title=self.query_exactly_one("#title", Input).value.strip(),
@@ -512,6 +534,7 @@ class BugReportScreen(Screen[BugReport]):
             assignee=self.query_exactly_one("#assignee", Input).value.strip(),
             project=self.query_exactly_one("#project", Input).value.strip(),
             severity=selected_severity_button.name,
+            status=selected_status_button.name,
             issue_file_time=selected_issue_file_time_button.name,
             additional_tags=self.query_exactly_one("#additional_tags", Input)
             .value.strip()

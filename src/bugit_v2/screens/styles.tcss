@@ -164,3 +164,7 @@ Checkbox.-on>.toggle--button {
     color: $text-success;
     background: $text-success 50%;
 }
+
+.hidden {
+    display: none;
+}
