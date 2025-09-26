@@ -42,13 +42,15 @@ class SessionSelectionScreen(Screen[Path | Literal[NullSelection.NO_SESSION]]):
                     # tooltip != None is used to check if this special
                     # button is clicked, do not remove
                     tooltip="Choose this to skip to report editor",
-                    classes="mb1 session_button",
+                    classes="session_button",
+                    flat=True,
                 ),
                 *(
                     Button(
                         os.path.basename(session),
                         name=str(session),
-                        classes="mb1 session_button",
+                        classes="session_button",
+                        flat=True,
                     )
                     for session in self.session_dirs
                 ),
