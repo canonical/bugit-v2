@@ -21,6 +21,10 @@ class DescriptionEditor(Widget):
     .right {
         align: right middle;
     }
+
+    .mr1 {
+        margin-right: 1;
+    }
     """
 
     def __init__(
@@ -68,7 +72,7 @@ class DescriptionEditor(Widget):
                     "Save as Text File",
                     id="save_as_text_file",
                     compact=True,
-                    classes="editor_button wa",
+                    classes="editor_button mr1",
                     tooltip="Save the description to the current directory as a .txt file",
                 ),
                 classes="right",
