@@ -69,7 +69,7 @@ class BugReport:
     assignee: str | None = None  # appear as unassigned if None
     platform_tags: Sequence[str] = field(default_factory=list[str])
     additional_tags: Sequence[str] = field(default_factory=list[str])
-    status: BugStatus = "Confirmed"  # only used in launchpad
+    status: BugStatus = "New"  # only used in launchpad
     series: str | None = None  # only used in launchpad
     # selections
     logs_to_include: Sequence[LogName] = field(default_factory=list[LogName])
