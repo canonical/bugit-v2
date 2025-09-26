@@ -18,7 +18,8 @@ class HeaderIcon(Widget):
         padding: 0 1;
         width: 8;
         content-align: left middle;
-        background: $primary 10%
+        background: $primary 10%;
+        margin-right: 1
     }
 
     HeaderIcon:hover {
@@ -94,16 +95,18 @@ class SimpleHeader(Widget):
 
     def __init__(
         self,
-        *,
+        *children: Widget,
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
     ):
-        super().__init__(name=name, id=id, classes=classes)
+        super().__init__(*children, name=name, id=id, classes=classes)
 
     @override
     def compose(self) -> ComposeResult:
         yield HeaderIcon()
+        for c in self.children:
+            yield c
         yield RightAlignTitle()
 
     def format_title(self) -> Content:

@@ -1,6 +1,9 @@
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Final, Literal
+
+from pydantic import BaseModel
 
 from bugit_v2.checkbox_utils import Session
 
@@ -75,6 +78,8 @@ class BugReport:
     logs_to_include: Sequence[LogName] = field(default_factory=list[LogName])
     impacted_features: Sequence[str] = field(default_factory=list[str])
     impacted_vendors: Sequence[str] = field(default_factory=list[str])
+    # for recovery only
+    source: Literal["editor", "recovery"] = "editor"
 
     def get_with_type[T](self, attr: str, expected_type: type[T]) -> T:
         value = getattr(self, attr)  # pyright: ignore[reportAny]
@@ -110,3 +115,46 @@ class PartialBugReport:
         raise TypeError(
             f"Expected {expected_type}, but got {type(value)}"  # pyright: ignore[reportAny]
         )
+
+
+class BugReportAutoSaveData(BaseModel):
+    title: str
+    description: str
+    project: str
+    severity: Severity
+    issue_file_time: IssueFileTime
+    checkbox_session: Path | None
+    job_id: str | None
+    assignee: str | None
+    platform_tags: list[str]
+    additional_tags: list[str]
+    status: BugStatus
+    series: str | None
+    # selections
+    logs_to_include: list[LogName]
+    impacted_features: list[str]
+    impacted_vendors: list[str]
+
+
+def recover_from_autosave(
+    autosave_data: BugReportAutoSaveData,
+) -> BugReport:
+    # job_id is handled separately
+    return BugReport(
+        autosave_data.title,
+        autosave_data.description,
+        autosave_data.project,
+        autosave_data.severity,
+        autosave_data.issue_file_time,
+        autosave_data.checkbox_session
+        and Session(autosave_data.checkbox_session),
+        autosave_data.assignee,
+        autosave_data.platform_tags,
+        autosave_data.additional_tags,
+        autosave_data.status,
+        autosave_data.series,
+        autosave_data.logs_to_include,
+        autosave_data.impacted_features,
+        autosave_data.impacted_vendors,
+        "recovery",
+    )

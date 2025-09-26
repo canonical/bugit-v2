@@ -1,5 +1,7 @@
 import enum
+import os
 from collections.abc import Mapping
+from pathlib import Path
 
 FEATURE_MAP: Mapping[str, tuple[str, ...]] = {
     "Audio": ("hwe-audio",),
@@ -71,6 +73,10 @@ VENDOR_MAP: Mapping[str, tuple[str, ...]] = {
     "Telit": ("ihv-telit",),
 }
 
+AUTOSAVE_DIR = Path(os.getenv("$SNAP_DATA", "/tmp")) / "bugit-v2-autosave"
+if not AUTOSAVE_DIR.exists():
+    os.makedirs(AUTOSAVE_DIR)
+
 
 class NullSelection(enum.Enum):
     """
@@ -80,3 +86,4 @@ class NullSelection(enum.Enum):
 
     NO_SESSION = enum.auto()
     NO_JOB = enum.auto()
+    NO_BACKUP = enum.auto()

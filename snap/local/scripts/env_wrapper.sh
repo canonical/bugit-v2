@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# this whole thing is here to export the PERL5LIB variable
+# this whole thing is here to export the ARCH variable
 # originally from checkbox
+# variables exported here are accessible everywhere inside bugit-v2
+# specifying them in the pipx version is not necessary
 case "$SNAP_ARCH" in
 "amd64")
 	export ARCH='x86_64-linux-gnu'

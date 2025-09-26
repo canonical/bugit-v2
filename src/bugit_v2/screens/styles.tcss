@@ -52,6 +52,10 @@
     align: center middle;
 }
 
+.ccenter {
+    content-align: center middle;
+}
+
 .right {
     align: right middle;
 }
@@ -62,6 +66,10 @@
 
 .tbm1 {
     margin: 1 0;
+}
+
+.m0 {
+    margin: 0;
 }
 
 .m1 {
@@ -112,8 +120,6 @@
     padding: 0 2;
 }
 
-
-
 .transparent_background {
     background: white 0%;
 }
@@ -132,6 +138,10 @@
     border: round $primary;
 }
 
+.round_box {
+    border: round $primary;
+}
+
 .editor_button {
     background-tint: $primary 10%;
 }
@@ -139,6 +149,10 @@
 .primary {
     color: $primary;
     background: #fff 0%;
+}
+
+.boost {
+    color: $boost 700%;
 }
 
 .selection-list--button-selected {
@@ -154,6 +168,7 @@
 .session_button {
     padding: 0 1;
     width: 70%;
+    text-overflow: fold;
 }
 
 Input.-invalid {
@@ -167,4 +182,8 @@ Checkbox.-on>.toggle--button {
 
 .hidden {
     display: none;
+}
+
+Checkbox {
+    background: $background 100%;
 }

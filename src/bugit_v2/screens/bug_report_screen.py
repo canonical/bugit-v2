@@ -1,11 +1,22 @@
+import json
+import time
 from collections.abc import Mapping
-from typing import Final, Literal, cast, final
+from dataclasses import asdict
+from functools import wraps
+from pathlib import Path
+from typing import Callable, Final, Literal, cast, final
 
 from textual import on, work
 from textual.app import ComposeResult
-from textual.containers import HorizontalGroup, VerticalGroup, VerticalScroll
+from textual.containers import (
+    HorizontalGroup,
+    Right,
+    VerticalGroup,
+    VerticalScroll,
+)
 from textual.reactive import var
 from textual.screen import Screen
+from textual.timer import Timer
 from textual.validation import ValidationResult, Validator
 from textual.widgets import (
     Button,
@@ -16,6 +27,7 @@ from textual.widgets import (
     RadioButton,
     RadioSet,
     SelectionList,
+    TextArea,
 )
 from textual.widgets.selection_list import Selection
 from textual.worker import Worker, WorkerState
@@ -38,7 +50,12 @@ from bugit_v2.models.bug_report import (
     pretty_issue_file_times,
     pretty_severities,
 )
-from bugit_v2.utils.constants import FEATURE_MAP, VENDOR_MAP, NullSelection
+from bugit_v2.utils.constants import (
+    AUTOSAVE_DIR,
+    FEATURE_MAP,
+    VENDOR_MAP,
+    NullSelection,
+)
 
 
 class ValidSpaceSeparatedTags(Validator):
@@ -84,13 +101,15 @@ class BugReportScreen(Screen[BugReport]):
     job_id: Final[str | Literal[NullSelection.NO_JOB]]
     existing_report: Final[BugReport | None]
     app_args: Final[AppArgs]
+    # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
+    # id should match the property name in the BugReport object
+    # TODO: rename this, it does more than just holding titles now
     elem_id_to_border_title: Final[Mapping[str, tuple[str, str]]]
 
     initial_report: dict[str, str]
 
-    # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
-    # id should match the property name in the BugReport object
-    # TODO: rename this, it does more than just holding titles now
+    autosave_timer: Timer | None = None
+    autosave_file: Path
 
     CSS = """
     BugReportScreen {
@@ -149,6 +168,8 @@ class BugReportScreen(Screen[BugReport]):
         self.job_id = job_id
         self.existing_report = existing_report
         self.app_args = app_args
+
+        self.autosave_file = AUTOSAVE_DIR / (str(int(time.time())) + ".json")
 
         self.elem_id_to_border_title = {
             "title": (
@@ -214,7 +235,7 @@ class BugReportScreen(Screen[BugReport]):
 
     @override
     def compose(self) -> ComposeResult:
-        yield SimpleHeader()
+        yield SimpleHeader(Label(id="dirty_label"))
         with Collapsible(
             title=f"[bold]{'Jira' if self.app_args.submitter == 'jira' else 'Launchpad'} Bug Report for...[/bold]",
             collapsed=False,
@@ -321,30 +342,41 @@ class BugReportScreen(Screen[BugReport]):
                             c for c in LOG_NAME_TO_COLLECTOR.values()
                         ]
 
-                    yield SelectionList[LogName](
-                        *(
-                            Selection[LogName](
-                                collector.display_name,
-                                collector.name,
-                                collector.collect_by_default,
-                                id=collector.name,
-                                # disable nvidia collector
-                                # unless get_standard_info finds an nvidia card
-                                disabled=collector.name == "nvidia-bug-report",
+                    with VerticalGroup():
+                        yield SelectionList[LogName](
+                            *(
+                                Selection[LogName](
+                                    collector.display_name,
+                                    collector.name,
+                                    collector.collect_by_default,
+                                    id=collector.name,
+                                    # disable nvidia collector
+                                    # unless get_standard_info finds an nvidia card
+                                    disabled=collector.name
+                                    == "nvidia-bug-report",
+                                )
+                                for collector in sorted(
+                                    collectors,
+                                    key=lambda a: (
+                                        # prioritize collect_by_default ones
+                                        0
+                                        if a.collect_by_default
+                                        else 1
+                                    ),
+                                )
+                            ),
+                            classes="default_box",
+                            id="logs_to_include",
+                        )
+                        yield Right(
+                            Button(
+                                "Clear",
+                                compact=True,
+                                tooltip="Clear log selection",
+                                classes="editor_button mr1",
+                                id="clear_log_selection",
                             )
-                            for collector in sorted(
-                                collectors,
-                                key=lambda a: (
-                                    # prioritize collect_by_default ones
-                                    0
-                                    if a.collect_by_default
-                                    else 1
-                                ),
-                            )
-                        ),
-                        classes="default_box",
-                        id="logs_to_include",
-                    )
+                        )
 
             # always make it query-able, but visually hide it when not using lp
             yield RadioSet(
@@ -422,6 +454,23 @@ class BugReportScreen(Screen[BugReport]):
         if ok:
             self.dismiss(self._build_bug_report())
 
+    def _debounce[**P, R](
+        self, f: Callable[P, R], delay: int
+    ) -> Callable[P, None]:
+        @wraps(f)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> None:
+            if self.autosave_timer is not None:
+                self.autosave_timer.stop()
+
+            self.query_exactly_one("#dirty_label", Label).update(
+                "[grey]Autosave scheduled..."
+            )
+            self.autosave_timer = self.set_timer(
+                delay, lambda: f(*args, **kwargs)
+            )
+
+        return wrapper
+
     @on(Input.Blurred)
     @on(Input.Changed)
     def show_invalid_reasons(self, event: Input.Changed) -> None:
@@ -446,6 +495,43 @@ class BugReportScreen(Screen[BugReport]):
             **self.validation_status,
             event.input.id: event.validation_result.is_valid,
         }
+
+    @on(Input.Changed)
+    @on(TextArea.Changed)
+    @on(SelectionList.SelectedChanged)
+    @on(RadioSet.Changed)
+    def trigger_autosave(self):
+        def f():
+            # these steps are only executed when the real autosave happens
+            # otherwise it's cancelled
+            label = self.query_exactly_one("#dirty_label", Label)
+            try:
+                # filename is just a unix timestamp in seconds
+                with open(self.autosave_file, "w") as f:
+                    report = self._build_bug_report()
+                    d = asdict(report)
+                    # don't save the session object, just the path
+                    if report.checkbox_session:
+                        d["checkbox_session"] = str(
+                            report.checkbox_session.session_path.absolute()
+                        )
+                    if self.job_id == NullSelection.NO_JOB:
+                        d["job_id"] = None
+                    else:
+                        d["job_id"] = self.job_id
+                    json.dump(d, f)
+                label.update("[green]Progress Saved")
+            except Exception as e:
+                label.update(f"[red]Autosave failed! {e}")
+
+        # run auto save 1 second after the user stops typing
+        self._debounce(lambda: self.run_worker(f, thread=True), 1)()
+
+    @on(Button.Pressed, "#clear_log_selection")
+    def clear_log_selection(self, _: Button.Pressed):
+        self.query_exactly_one(
+            "#logs_to_include", SelectionList
+        ).deselect_all()
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         if (
