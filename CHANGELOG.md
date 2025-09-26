@@ -6,7 +6,6 @@
 - Recovery from autosave: If autosave files exist on the system, bugit will show a recovery screen asking the user whether they want to use any of the previous saved files.
 - Added a clear button for the log selection list
 
-
 # 0.2.4
 
 ## Added
@@ -17,8 +16,11 @@
 - Upgraded to textual 6.1
 - New header style
 - Not specifying any subcommand will now show a help page instead of just an error
-- Fixed the issue of Checkbox version not appearing in the header
-- Fixed an issue where the nvidia log collector is not getting all the information
+
+## Fixed
+- Checkbox version not appearing in the header
+- Nvidia log collector not getting all the information (lots of missing command or .so files)
+- Missing bug status chooser in the editor when using th launchpad submitted
 
 # 0.2.3
 
