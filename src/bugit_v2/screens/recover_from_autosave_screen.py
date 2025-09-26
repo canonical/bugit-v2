@@ -141,13 +141,3 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
             lines.append("[i][grey]No job selected")
 
         return Content("\n").join(Content.from_markup(line) for line in lines)
-        # assert len(lines) == 3
-        # # can't use css inside button text
-        # # have to manually pad the length
-        # max_len = len(max(lines, key=len))
-        # return Content("\n").join(
-        #     Content.from_markup(line).pad_right(
-        #         0 if i == 0 else max_len - len(line)
-        #     )
-        #     for i, line in enumerate(lines)
-        # )
