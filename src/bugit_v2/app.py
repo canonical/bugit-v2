@@ -1,4 +1,3 @@
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, final
@@ -100,19 +99,30 @@ class NavigationState:
 
     session: Session | Literal[NullSelection.NO_SESSION] | None = None
     job_id: str | Literal[NullSelection.NO_JOB] | None = None
-    bug_report: BugReport | PartialBugReport | None = None
+    bug_report_init_state: (
+        BugReport | Literal[NullSelection.NO_BACKUP] | None
+    ) = None
+    bug_report_to_submit: BugReport | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class ReopenNavigationState:
+    session: Session | Literal[NullSelection.NO_SESSION] | None = None
+    job_id: str | Literal[NullSelection.NO_JOB] | None = None
+    bug_report_to_submit: PartialBugReport | None = None
+    bug_report_init_state: PartialBugReport | None = None
 
 
 @final
 class BugitApp(App[None]):
-    nav_state = var(NavigationState())
+    nav_state = var[NavigationState | ReopenNavigationState](NavigationState())
     args: AppArgs
     # Any doesn't matter here
     submitter_class: type[
         BugReportSubmitter[Any, Any]  # pyright: ignore[reportExplicitAny]
     ]
-    bug_report_backup: BugReport | None = None
-    partial_bug_report_backup: PartialBugReport | None = None
+    # bug_report_backup: BugReport | None = None
+    partial_bug_report_to_submit_backup: PartialBugReport | None = None
     BINDINGS = [Binding("alt+left", "go_back", "Go Back")]
 
     def __init__(
@@ -183,6 +193,7 @@ class BugitApp(App[None]):
     @work
     async def watch_nav_state(self) -> None:
         """Push different screens based on the state"""
+        print(self.nav_state)
 
         def _write_state(new_state: NavigationState):
             self.nav_state = new_state
@@ -196,20 +207,20 @@ class BugitApp(App[None]):
                     session,
                     job_id,
                     self.args,
-                    self.partial_bug_report_backup,
+                    self.partial_bug_report_to_submit_backup,
                 )
                 if self.args.bug_to_reopen
                 else BugReportScreen(
                     session,
                     job_id,
                     self.args,
-                    self.bug_report_backup,
+                    # self.bug_report_to_submit_backup,
                 )
             )
 
         match self.nav_state:
-            case NavigationState(session=None, job_id=None, bug_report=None):
-                # init, nothing has been selected yet
+            case ReopenNavigationState():
+                # not used right now
                 if (
                     b := self.args.bug_to_reopen
                 ) is not None and not ReopenPreCheckScreen.already_checked:
@@ -224,35 +235,50 @@ class BugitApp(App[None]):
                             msg += f"Error is: {repr(check_result)}"
                         self.exit(return_code=1, message=msg)
 
+            case NavigationState(
+                session=None,
+                job_id=None,
+                bug_report_to_submit=None,
+                bug_report_init_state=None,
+            ):
                 # show the recovery screen if there's no backup
-                if (
-                    self.bug_report_backup is None
-                    and len(os.listdir(AUTOSAVE_DIR)) != 0
-                ):
-                    rv = await self.push_screen_wait(
-                        RecoverFromAutoSaveScreen(AUTOSAVE_DIR)
+                recovery_file = await self.push_screen_wait(
+                    RecoverFromAutoSaveScreen(AUTOSAVE_DIR)
+                )
+                if recovery_file is None:
+                    self.nav_state = NavigationState(
+                        None, None, NullSelection.NO_BACKUP, None
                     )
-                    if rv is not None:
-                        recovered = recover_from_autosave(rv)
-                        self.bug_report_backup = recovered
-                        # trigger this watcher again to actually go to the editor page
-                        self.nav_state = NavigationState(
-                            recovered.checkbox_session
-                            or NullSelection.NO_SESSION,
-                            rv.job_id or NullSelection.NO_JOB,
-                            None,
-                        )
-                        return
+                    return
+
+                recovered_report = recover_from_autosave(recovery_file)
+                # trigger this watcher again to actually go to the editor page
+                self.nav_state = NavigationState(
+                    recovered_report.checkbox_session
+                    or NullSelection.NO_SESSION,
+                    recovery_file.job_id or NullSelection.NO_JOB,
+                    recovered_report,
+                )
+
+            case NavigationState(
+                session=None,
+                job_id=None,
+                bug_report_to_submit=None,
+                bug_report_init_state=NullSelection.NO_BACKUP,
+            ):
 
                 def after_session_select(
                     rv: Path | Literal[NullSelection.NO_SESSION] | None,
                 ):
+                    print(rv)
                     match rv:
                         case Path():
                             self.nav_state = NavigationState(Session(rv))
                         case NullSelection.NO_SESSION:
                             self.nav_state = NavigationState(
-                                rv, NullSelection.NO_JOB
+                                rv,
+                                NullSelection.NO_JOB,
+                                NullSelection.NO_BACKUP,
                             )
                         case None:
                             raise RuntimeError(
@@ -262,62 +288,70 @@ class BugitApp(App[None]):
                 self.push_screen(
                     SessionSelectionScreen(), after_session_select
                 )
+
             case NavigationState(
-                session=Session() as session, job_id=None, bug_report=None
+                session=Session() as session,
+                job_id=None,
+                bug_report_to_submit=None,
+                bug_report_init_state=None
+                | NullSelection.NO_BACKUP,  # job selection is only possible without init value
             ):
                 # selected a normal session, should go to job selection
                 self.push_screen(
                     JobSelectionScreen(session),
                     lambda job_id: _write_state(
-                        NavigationState(session, job_id)
-                    ),
-                )
-            case NavigationState(
-                session=NullSelection.NO_SESSION as session,
-                job_id=NullSelection.NO_JOB as job_id,
-                bug_report=None,
-            ):
-                # selected no session, skip to editor with absolutely nothing
-                self.push_screen(
-                    _pick_editor(session, job_id),
-                    lambda bug_report: _write_state(
                         NavigationState(
-                            session,
-                            job_id,
-                            bug_report,
+                            session, job_id, NullSelection.NO_BACKUP
                         )
                     ),
                 )
-            case NavigationState(
-                session=Session() as session,
-                job_id=NullSelection.NO_JOB as job_id,
-                bug_report=None,
-            ):
-                # has session, but chose the no job object
-                # skip to editor with session
-                self.push_screen(
-                    _pick_editor(session, job_id),
-                    lambda bug_report: _write_state(
-                        NavigationState(session, job_id, bug_report)
-                    ),
+
+            case (
+                NavigationState(
+                    session=NullSelection.NO_SESSION as session,
+                    job_id=NullSelection.NO_JOB as job_id,
+                    bug_report_to_submit=None,
+                    bug_report_init_state=BugReport()
+                    | NullSelection.NO_BACKUP as init_state,
                 )
-            case NavigationState(
-                session=Session() as session,
-                job_id=str() as job_id,
-                bug_report=None,
+                | NavigationState(
+                    session=Session() as session,
+                    job_id=NullSelection.NO_JOB as job_id,
+                    bug_report_to_submit=None,
+                    bug_report_init_state=BugReport()
+                    | NullSelection.NO_BACKUP as init_state,
+                )
+                | NavigationState(
+                    session=Session() as session,
+                    job_id=str() as job_id,
+                    bug_report_to_submit=None,
+                    bug_report_init_state=BugReport()
+                    | NullSelection.NO_BACKUP as init_state,
+                )
             ):
                 # normal case, session and job_id were selected
                 # go to editor with info
                 self.push_screen(
-                    _pick_editor(session, job_id),
-                    lambda bug_report: _write_state(
-                        NavigationState(session, job_id, bug_report)
+                    BugReportScreen(
+                        session,
+                        job_id,
+                        self.args,
+                        (
+                            None
+                            if init_state == NullSelection.NO_BACKUP
+                            else init_state
+                        ),
+                    ),
+                    lambda bug_report_to_submit: _write_state(
+                        NavigationState(
+                            session, job_id, None, bug_report_to_submit
+                        )
                     ),
                 )
             case NavigationState(
                 session=Session() | NullSelection.NO_SESSION as session,
                 job_id=str() | NullSelection.NO_JOB as job_id,
-                bug_report=BugReport() | PartialBugReport() as br,
+                bug_report_to_submit=BugReport() as report,
             ):
                 # returning from the end of submission screen
                 # handle the button selections
@@ -333,27 +367,22 @@ class BugitApp(App[None]):
                         case "quit":
                             self.exit()
                         case "session":
-                            self.bug_report_backup = None
-                            self.partial_bug_report_backup = None
                             self.nav_state = NavigationState()
                         case "job" if session != NullSelection.NO_SESSION:
-                            # this is only available when there's a session
-                            self.bug_report_backup = None
-                            self.partial_bug_report_backup = None
-                            self.nav_state = NavigationState(session)
+                            self.nav_state = NavigationState(
+                                session, None, NullSelection.NO_BACKUP
+                            )
                         case "report_editor":
-                            if isinstance(br, PartialBugReport):
-                                self.partial_bug_report_backup = br
-                            else:
-                                self.bug_report_backup = br
-
-                            self.nav_state = NavigationState(session, job_id)
+                            # restore the report
+                            self.nav_state = NavigationState(
+                                session, job_id, report
+                            )
                         case _:
                             raise RuntimeError()
 
                 self.push_screen(
                     SubmissionProgressScreen(
-                        br, self.submitter_class(), self.args
+                        report, self.submitter_class(), self.args
                     ),
                     after_submission_finished,
                 )
@@ -368,24 +397,36 @@ class BugitApp(App[None]):
         let textual automatically re-render
         """
         match self.nav_state:
-            case NavigationState(session=None):
-                self.notify("Already at the beginning")
-                return
-            case NavigationState(session=Session(), job_id=None):
-                # returning from job selection
-                self.nav_state = NavigationState(None, None)
             case NavigationState(
+                session=None,
+                job_id=None,
+                bug_report_init_state=None,
+                bug_report_to_submit=None,
+            ):
+                # backup selection screen
+                self.notify("Already at the beginning")
+            case NavigationState(session=None):
+                self.nav_state = NavigationState()
+            case NavigationState(
+                bug_report_init_state=BugReport()
+            ) | NavigationState(
                 session=NullSelection.NO_SESSION,
                 job_id=NullSelection.NO_JOB,
-                bug_report=None,
+                bug_report_to_submit=None,
             ):
-                # returning from editor with nothing selected
-                # just go back to the beginning
-                self.nav_state = NavigationState(None, None)
+                # 1. started with a backup
+                # 2. returning from editor with nothing selected
+                # go to backup selection
+                self.nav_state = NavigationState()
+            case NavigationState(session=Session(), job_id=None):
+                # returning from job selection
+                self.nav_state = NavigationState(
+                    None, None, NullSelection.NO_BACKUP, None
+                )
             case NavigationState(
                 session=Session() as session,
                 job_id=str() | NullSelection.NO_JOB,
-                bug_report=None,
+                bug_report_init_state=NullSelection.NO_BACKUP,
             ):
                 # returning from editor with explicit job selection
                 # go back to job selection
@@ -393,7 +434,7 @@ class BugitApp(App[None]):
             case NavigationState(
                 session=Session() | NullSelection.NO_SESSION,
                 job_id=str() | NullSelection.NO_JOB,
-                bug_report=BugReport() | PartialBugReport(),
+                bug_report_to_submit=BugReport() | PartialBugReport(),
             ):
                 self.notify(
                     title="Cannot go back while a submission is happening",

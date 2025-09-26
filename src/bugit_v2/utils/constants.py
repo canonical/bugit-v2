@@ -86,3 +86,4 @@ class NullSelection(enum.Enum):
 
     NO_SESSION = enum.auto()
     NO_JOB = enum.auto()
+    NO_BACKUP = enum.auto()
