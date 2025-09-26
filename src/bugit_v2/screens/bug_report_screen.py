@@ -357,8 +357,11 @@ class BugReportScreen(Screen[BugReport]):
                     for status in BUG_STATUSES
                 ),
                 id="status",
-                classes="default_box"
-                + ("" if self.app_args.submitter == "lp" else " hidden"),
+                classes=(
+                    "default_box"
+                    if self.app_args.submitter == "lp"
+                    else "hidden"
+                ),
             )
 
             yield SelectionWithPreview(
