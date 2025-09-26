@@ -8,7 +8,12 @@ from typing import Callable, Final, Literal, cast, final
 
 from textual import on, work
 from textual.app import ComposeResult
-from textual.containers import HorizontalGroup, VerticalGroup, VerticalScroll
+from textual.containers import (
+    HorizontalGroup,
+    Right,
+    VerticalGroup,
+    VerticalScroll,
+)
 from textual.reactive import var
 from textual.screen import Screen
 from textual.timer import Timer
@@ -337,30 +342,41 @@ class BugReportScreen(Screen[BugReport]):
                             c for c in LOG_NAME_TO_COLLECTOR.values()
                         ]
 
-                    yield SelectionList[LogName](
-                        *(
-                            Selection[LogName](
-                                collector.display_name,
-                                collector.name,
-                                collector.collect_by_default,
-                                id=collector.name,
-                                # disable nvidia collector
-                                # unless get_standard_info finds an nvidia card
-                                disabled=collector.name == "nvidia-bug-report",
+                    with VerticalGroup():
+                        yield SelectionList[LogName](
+                            *(
+                                Selection[LogName](
+                                    collector.display_name,
+                                    collector.name,
+                                    collector.collect_by_default,
+                                    id=collector.name,
+                                    # disable nvidia collector
+                                    # unless get_standard_info finds an nvidia card
+                                    disabled=collector.name
+                                    == "nvidia-bug-report",
+                                )
+                                for collector in sorted(
+                                    collectors,
+                                    key=lambda a: (
+                                        # prioritize collect_by_default ones
+                                        0
+                                        if a.collect_by_default
+                                        else 1
+                                    ),
+                                )
+                            ),
+                            classes="default_box",
+                            id="logs_to_include",
+                        )
+                        yield Right(
+                            Button(
+                                "Clear",
+                                compact=True,
+                                tooltip="Clear log selection",
+                                classes="editor_button mr1",
+                                id="clear_log_selection",
                             )
-                            for collector in sorted(
-                                collectors,
-                                key=lambda a: (
-                                    # prioritize collect_by_default ones
-                                    0
-                                    if a.collect_by_default
-                                    else 1
-                                ),
-                            )
-                        ),
-                        classes="default_box",
-                        id="logs_to_include",
-                    )
+                        )
 
             # always make it query-able, but visually hide it when not using lp
             yield RadioSet(
@@ -510,6 +526,12 @@ class BugReportScreen(Screen[BugReport]):
 
         # run auto save 1 second after the user stops typing
         self.debounce(lambda: self.run_worker(f, thread=True), 1)()
+
+    @on(Button.Pressed, "#clear_log_selection")
+    def clear_log_selection(self, _: Button.Pressed):
+        self.query_exactly_one(
+            "#logs_to_include", SelectionList
+        ).deselect_all()
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         if (
