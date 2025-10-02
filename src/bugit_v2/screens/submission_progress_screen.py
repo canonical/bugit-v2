@@ -289,7 +289,6 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     self._log_with_time(
                         f"[red]FAIL[/red] failed to upload {f}: {repr(e)}"
                     )
-                    raise e  # mark the worker as failed
                 finally:
                     progress_bar.advance()
 
