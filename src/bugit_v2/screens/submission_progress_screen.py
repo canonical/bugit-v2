@@ -42,7 +42,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
     finished = var(False)
 
-    attachment_workers: dict[str, Worker[str | None]]
+    attachment_workers: dict[LogName, Worker[str | None]]
     attachment_worker_checker_timers: dict[str, Timer]
     upload_workers: dict[str, Worker[str | None]]
     bug_creation_worker: Worker[None] | None = None
@@ -53,6 +53,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
     submitter: Final[BugReportSubmitter[TAuth, TReturn]]
     BUG_CREATION_WORKER_NAME = "bug_creation"
+    SEQUENTIAL_UPLOAD_WORKER_NAME = "sequential_all"
 
     CSS = """
     SubmissionProgressScreen {
@@ -255,7 +256,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                 finally:
                     progress_bar.advance()
 
-            self.attachment_workers[str(file_name)] = self.run_worker(
+            self.upload_workers[str(file_name)] = self.run_worker(
                 # closure workaround
                 # https://stackoverflow.com/a/1107260
                 # bind the value early
@@ -300,13 +301,13 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     f"These attachments failed to upload: {', '.join(failed_attachments)}"
                 )
 
-        self.attachment_workers["sequential_all"] = self.run_worker(
-            # closure workaround
-            # https://stackoverflow.com/a/1107260
-            # bind the value early
-            upload_all,
-            thread=True,  # not async
-            exit_on_error=False,  # hold onto the err, don't crash
+        self.upload_workers[self.SEQUENTIAL_UPLOAD_WORKER_NAME] = (
+            self.run_worker(
+                upload_all,
+                name=self.SEQUENTIAL_UPLOAD_WORKER_NAME,  # just for completeness
+                thread=True,  # not async
+                exit_on_error=False,  # hold onto the err, don't crash
+            )
         )
 
     def create_bug(self) -> None:
@@ -344,9 +345,13 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         running_collectors = [
             w for w in self.attachment_workers.values() if w.is_running
         ]
+        num_attachments = sum(1 for _ in self.attachment_dir.iterdir())
         if len(running_collectors) > 0:
             self._log_with_time(
                 f"[blue]Finished bug creation. Waiting for {len(running_collectors)} log collector(s) to finish"
+            )
+            self._log_with_time(
+                f"[blue]{num_attachments} attachment(s) will start to upload after they are done"
             )
             for c in running_collectors:
                 if c.name in LOG_NAME_TO_COLLECTOR:
@@ -358,7 +363,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     )
         else:
             self._log_with_time(
-                "[blue]Finished bug creation, starting to upload attachments..."
+                f"[blue]Finished bug creation, uploading {num_attachments} attachment(s)..."
             )
 
     def is_finished(self) -> bool:
