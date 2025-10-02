@@ -271,6 +271,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
 
         def upload_all():
+            failed_attachments: list[str] = []
             for f in self.attachment_dir.iterdir():
                 try:
                     self._log_with_time(f"Uploading: {f}")
@@ -286,11 +287,18 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                             f"[green]OK[/] [b]Uploaded {f}[/b]"
                         )
                 except Exception as e:
+                    failed_attachments.append(f.name)
                     self._log_with_time(
                         f"[red]FAIL[/red] failed to upload {f}: {repr(e)}"
                     )
                 finally:
                     progress_bar.advance()
+
+            if len(failed_attachments) != 0:
+                # force an error here to mark the worker as failed
+                raise RuntimeError(
+                    f"These attachments failed to upload: {', '.join(failed_attachments)}"
+                )
 
         self.attachment_workers["sequential_all"] = self.run_worker(
             # closure workaround
