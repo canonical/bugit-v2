@@ -6,13 +6,11 @@ from typing import Any, Callable, Literal, cast, final, override
 
 from launchpadlib.credentials import (
     Credentials,
-    EndUserDeclinedAuthorization,
-    EndUserNoAuthorization,
     RequestTokenAuthorizationEngine,
 )
 from launchpadlib.launchpad import Launchpad
 from launchpadlib.uris import LPNET_WEB_ROOT, QASTAGING_WEB_ROOT
-from lazr.restfulclient.errors import HTTPError
+from lazr.restfulclient.errors import HTTPError, Unauthorized
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Center, HorizontalGroup, VerticalGroup
@@ -69,22 +67,16 @@ class GraphicalAuthorizeRequestTokenWithURL(RequestTokenAuthorizationEngine):
         self.check_finish_button_status = check_finish_button_status
 
     def check_end_user_authorization(self, credentials: Credentials) -> None:
-        """This is the same as AuthorizeRequestTokenWithURL"""
+        """
+        Only check if the authorization has succeeded.
+        No retry, no prompting another URL, etc.
+        """
         try:
             credentials.exchange_request_token_for_access_token(self.web_root)
         except HTTPError as e:
-            if e.response.status == 403:
-                # content is apparently a byte-string
-                raise EndUserDeclinedAuthorization(bytes(e.content).decode())
-            else:
-                if e.response.status == 401:
-                    raise EndUserNoAuthorization(bytes(e.content).decode())
-                else:
-                    # There was an error accessing the server.
-                    self.log_widget.write(
-                        "Unexpected response from Launchpad:"
-                    )
-                    self.log_widget.write(repr(e))
+            self.log_widget.write("Unexpected response from Launchpad:")
+            self.log_widget.write(repr(e))
+            raise e
 
     @override
     def make_end_user_authorize_token(
@@ -313,11 +305,29 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         ), "At this point auth should already be valid"
 
         yield f"Logging into Launchpad: {SERVICE_ROOT}"
-        self.lp_client = Launchpad.login_with(
-            LP_APP_NAME,
-            SERVICE_ROOT,
-            credentials_file=LP_AUTH_FILE_PATH,
-        )  # this blocks until ready
+        try:
+            self.lp_client = Launchpad.login_with(
+                LP_APP_NAME,
+                SERVICE_ROOT,
+                credentials_file=LP_AUTH_FILE_PATH,
+            )  # this blocks until ready
+            # as weird as this looks it seems to force a lp refresh
+            print(self.lp_client.me)
+        except Unauthorized as e:
+            # delete the auth file, it expired
+            os.remove(LP_AUTH_FILE_PATH)
+            raise RuntimeError(
+                "\n".join(
+                    [
+                        "Launchpad auth failed or expired.",
+                        "Bugit will now return to the editor.",
+                        "The authentication screen will reappear when you re-submit this report.",
+                        "Original Error:",
+                        repr(e),
+                        str(e.content),
+                    ]
+                )
+            )
         yield AdvanceMessage("Launchpad auth succeeded")
 
         assignee = None
