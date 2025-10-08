@@ -315,7 +315,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
             print(self.lp_client.me)
         except Unauthorized as e:
             # delete the auth file, it expired
-            os.remove(LP_AUTH_FILE_PATH)
+            LP_AUTH_FILE_PATH.unlink(True)
             raise RuntimeError(
                 "\n".join(
                     [

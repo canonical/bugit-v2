@@ -136,7 +136,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
 
         if event.button.name.startswith("delete:"):
             savefile_name = event.button.name.removeprefix("delete:")
-            os.remove(self.autosave_dir / savefile_name)
+            (self.autosave_dir / savefile_name).unlink()
             del self.valid_autosave_data[savefile_name]
             if len(self.valid_autosave_data) == 0:
                 self.dismiss(None)
