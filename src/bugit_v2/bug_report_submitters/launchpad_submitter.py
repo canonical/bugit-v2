@@ -10,7 +10,7 @@ from launchpadlib.credentials import (
 )
 from launchpadlib.launchpad import Launchpad
 from launchpadlib.uris import LPNET_WEB_ROOT, QASTAGING_WEB_ROOT
-from lazr.restfulclient.errors import HTTPError
+from lazr.restfulclient.errors import HTTPError, Unauthorized
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Center, HorizontalGroup, VerticalGroup
@@ -305,11 +305,16 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         ), "At this point auth should already be valid"
 
         yield f"Logging into Launchpad: {SERVICE_ROOT}"
-        self.lp_client = Launchpad.login_with(
-            LP_APP_NAME,
-            SERVICE_ROOT,
-            credentials_file=LP_AUTH_FILE_PATH,
-        )  # this blocks until ready
+        try:
+            self.lp_client = Launchpad.login_with(
+                LP_APP_NAME,
+                SERVICE_ROOT,
+                credentials_file=LP_AUTH_FILE_PATH,
+            )  # this blocks until ready
+        except Unauthorized as e:
+            # delete the auth file, it expired
+            LP_AUTH_FILE_PATH.unlink(True)
+            raise e
         yield AdvanceMessage("Launchpad auth succeeded")
 
         assignee = None
