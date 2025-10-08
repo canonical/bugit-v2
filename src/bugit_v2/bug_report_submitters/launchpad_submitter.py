@@ -67,7 +67,10 @@ class GraphicalAuthorizeRequestTokenWithURL(RequestTokenAuthorizationEngine):
         self.check_finish_button_status = check_finish_button_status
 
     def check_end_user_authorization(self, credentials: Credentials) -> None:
-        """This is the same as AuthorizeRequestTokenWithURL"""
+        """
+        Only check if the authorization has succeeded.
+        No retry, no prompting another URL, etc.
+        """
         try:
             credentials.exchange_request_token_for_access_token(self.web_root)
         except HTTPError as e:
