@@ -126,7 +126,7 @@ def journal_logs(
             bad = True
 
     if bad:
-        os.remove(filepath)
+        filepath.unlink(True)
         raise ValueError(
             "Not going to attach an empty journalctl file. "
             + "Is the DUT using a much newer version of journalctl?"
