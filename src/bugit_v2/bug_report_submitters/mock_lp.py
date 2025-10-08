@@ -1,3 +1,4 @@
+import os
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any, final, override
@@ -5,6 +6,7 @@ from unittest.mock import MagicMock
 
 from launchpadlib.launchpad import Launchpad
 from launchpadlib.uris import LPNET_WEB_ROOT, QASTAGING_WEB_ROOT
+from lazr.restfulclient.errors import Unauthorized
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
@@ -12,12 +14,12 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 )
 from bugit_v2.bug_report_submitters.launchpad_submitter import (
     LP_APP_NAME,
+    LP_AUTH_FILE_PATH,
     SERVICE_ROOT,
     LaunchpadAuthModal,
 )
 from bugit_v2.models.bug_report import BugReport, PartialBugReport
 
-LAUNCHPAD_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
 # 'staging' doesn't seem to work
 # only 'qastaging' and 'production' works
 VALID_SERVICE_ROOTS = ("production", "qastaging")
@@ -92,15 +94,33 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
         )
         assert LP_APP_NAME, "BUGIT_APP_NAME was not specified"
         assert (
-            LAUNCHPAD_AUTH_FILE_PATH.exists()
+            LP_AUTH_FILE_PATH.exists()
         ), "At this point auth should already be valid"
 
         yield f"Logging into Launchpad: {SERVICE_ROOT}"
-        self.lp_client = Launchpad.login_with(
-            LP_APP_NAME,
-            SERVICE_ROOT,
-            credentials_file=LAUNCHPAD_AUTH_FILE_PATH,
-        )  # this blocks until ready
+        try:
+            self.lp_client = Launchpad.login_with(
+                LP_APP_NAME,
+                SERVICE_ROOT,
+                credentials_file=LP_AUTH_FILE_PATH,
+            )  # this blocks until ready
+            # as weird as this looks it seems to force a lp refresh
+            print(self.lp_client.me)
+        except Unauthorized as e:
+            # delete the auth file, it expired
+            os.remove(LP_AUTH_FILE_PATH)
+            raise RuntimeError(
+                "\n".join(
+                    [
+                        "Launchpad auth failed or expired.",
+                        "Bugit will now return to the editor.",
+                        "The authentication screen will reappear when you re-submit this report.",
+                        "Original Error:",
+                        repr(e),
+                        str(e.content),
+                    ]
+                )
+            )
         yield AdvanceMessage("Launchpad auth succeeded")
 
         assignee = None
@@ -180,8 +200,8 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
 
     @override
     def get_cached_credentials(self) -> Path | None:
-        if LAUNCHPAD_AUTH_FILE_PATH.exists():
-            return LAUNCHPAD_AUTH_FILE_PATH
+        if LP_AUTH_FILE_PATH.exists():
+            return LP_AUTH_FILE_PATH
         return None
 
     @override

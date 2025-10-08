@@ -311,10 +311,23 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 SERVICE_ROOT,
                 credentials_file=LP_AUTH_FILE_PATH,
             )  # this blocks until ready
+            # as weird as this looks it seems to force a lp refresh
+            print(self.lp_client.me)
         except Unauthorized as e:
             # delete the auth file, it expired
-            LP_AUTH_FILE_PATH.unlink(True)
-            raise e
+            os.remove(LP_AUTH_FILE_PATH)
+            raise RuntimeError(
+                "\n".join(
+                    [
+                        "Launchpad auth failed or expired.",
+                        "Bugit will now return to the editor.",
+                        "The authentication screen will reappear when you re-submit this report.",
+                        "Original Error:",
+                        repr(e),
+                        str(e.content),
+                    ]
+                )
+            )
         yield AdvanceMessage("Launchpad auth succeeded")
 
         assignee = None
