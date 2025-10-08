@@ -313,7 +313,6 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     def create_bug(self) -> None:
         """Do the entire bug creation sequence. This should be run in a worker"""
         assert self.log_widget
-        # assert isinstance(self.bug_report, BugReport)
 
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
         display_name = self.submitter.display_name or self.submitter.name

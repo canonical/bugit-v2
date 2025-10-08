@@ -6,8 +6,6 @@ from typing import Any, Callable, Literal, cast, final, override
 
 from launchpadlib.credentials import (
     Credentials,
-    EndUserDeclinedAuthorization,
-    EndUserNoAuthorization,
     RequestTokenAuthorizationEngine,
 )
 from launchpadlib.launchpad import Launchpad
@@ -73,18 +71,9 @@ class GraphicalAuthorizeRequestTokenWithURL(RequestTokenAuthorizationEngine):
         try:
             credentials.exchange_request_token_for_access_token(self.web_root)
         except HTTPError as e:
-            if e.response.status == 403:
-                # content is apparently a byte-string
-                raise EndUserDeclinedAuthorization(bytes(e.content).decode())
-            else:
-                if e.response.status == 401:
-                    raise EndUserNoAuthorization(bytes(e.content).decode())
-                else:
-                    # There was an error accessing the server.
-                    self.log_widget.write(
-                        "Unexpected response from Launchpad:"
-                    )
-                    self.log_widget.write(repr(e))
+            self.log_widget.write("Unexpected response from Launchpad:")
+            self.log_widget.write(repr(e))
+            raise e
 
     @override
     def make_end_user_authorize_token(
