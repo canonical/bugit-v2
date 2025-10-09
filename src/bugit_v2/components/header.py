@@ -133,10 +133,14 @@ class SimpleHeader(Widget):
             self.query_exactly_one(RightAlignTitle).update(self.format_title())
 
         self.watch(
-            self.app, "title", set_title
-        )  # pyright: ignore[reportUnknownArgumentType]
+            self.app,  # pyright: ignore[reportUnknownArgumentType]
+            "title",
+            set_title,
+        )
         self.watch(
-            self.app, "sub_title", set_title
-        )  # pyright: ignore[reportUnknownArgumentType]
+            self.app,  # pyright: ignore[reportUnknownArgumentType]
+            "sub_title",
+            set_title,
+        )
         self.watch(self.screen, "title", set_title)
         self.watch(self.screen, "sub_title", set_title)
