@@ -6,6 +6,7 @@ https://git.launchpad.net/bugit/tree/bugit/bug_assistant.py
 """
 
 import os
+import platform
 import re
 import shutil
 import subprocess as sp
@@ -45,7 +46,7 @@ def get_amd_gpu_info() -> str | None:
                 ["lspci", "-Dnm", "-d", "1002{}".format(klass)], text=True
             )
             .strip()
-            .split("\n")
+            .splitlines()
         )
         if len(pcis) == 0 or pcis[0] == "":
             continue
@@ -147,8 +148,6 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
         vbios = get_amd_gpu_info()
         standard_info["AMD VBIOS"] = vbios or "Cannot capture VBIOS version"
 
-    standard_info["Kernel Version"] = sp.check_output(
-        ["uname", "-r"], text=True, timeout=command_timeout
-    ).strip()
+    standard_info["Kernel Version"] = platform.uname().release
 
     return standard_info
