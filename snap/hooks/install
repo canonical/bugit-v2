@@ -1,8 +1,15 @@
 #!/bin/sh
 #
-# This hook allows software requiring sudo (including bugit) to be run without
-# having to input password.
+# This hook allows bugit to run in sudo mode without asking for a password
+# NOTE: this hook will cause the installation to fail if --devmode is not
+#       specified
+
+
+if ! touch /etc/sudoers.d/bugit-v2; then
+    echo "You need to install this app with --devmode"
+    echo "Try running 'sudo snap install bugit --devmode'"
+    exit 1
+fi
 
 set -e
-
 echo "%sudo ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/bugit-v2
