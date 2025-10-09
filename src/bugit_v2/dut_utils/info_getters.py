@@ -80,15 +80,6 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
             break
 
     if "Image" not in standard_info:
-        out = sp.check_output(["ubuntu-report", "show"], text=True)
-        for line in out.splitlines():
-            if "DCD" in line:
-                standard_info["Image"] = (
-                    line.split(":")[-1].strip().replace('"', "")
-                )
-                break
-
-    if "Image" not in standard_info:
         standard_info["Image"] = "Failed to get build stamp"
 
     for dmi_key in (

@@ -546,7 +546,7 @@ class BugReportScreen(Screen[BugReport]):
         if event.worker.state != WorkerState.SUCCESS:
             self.notify(
                 title="Failed to collect basic machine info",
-                message=repr(event.worker.error),
+                message=str(event.worker.error),
             )
             return
 
