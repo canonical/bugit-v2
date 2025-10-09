@@ -75,8 +75,8 @@ def nvidia_bug_report(
             ),
             "LD_LIBRARY_PATH": ":".join(
                 [
-                    # $ARCH is exported from /snap/local/scripts/env_wrapper.sh
-                    # the shell script is always called before bug starts
+                    # $ARCH is exported from bugit-v2/snap/local/scripts/env_wrapper.sh
+                    # the shell script is always called before bugit starts
                     f"/var/lib/snapd/hostfs/lib/{os.environ['ARCH']}",
                     f"/var/lib/snapd/hostfs/usr/lib/{os.environ['ARCH']}",
                 ]

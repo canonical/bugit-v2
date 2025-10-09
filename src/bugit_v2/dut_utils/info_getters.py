@@ -6,6 +6,7 @@ https://git.launchpad.net/bugit/tree/bugit/bug_assistant.py
 """
 
 import os
+import platform
 import re
 import shutil
 import subprocess as sp
@@ -13,41 +14,23 @@ from collections import Counter
 
 
 def get_cpu_info() -> str:
-    """Parse /proc/cpuinfo and return cpu model information."""
-    cpus: list[dict[str, str]] = []
-    cpuinfo: dict[str, str] = {}
-    parse_line = re.compile(r"(.*?)\s+:\s+(.*)").match
-    processor_line = re.compile(r"^(p|P)rocessor")
-
+    cpu_names = Counter[str]()
     with open("/proc/cpuinfo") as file:
         for line in file:
-            if processor_line.match(line) and cpuinfo:
-                cpus.append(cpuinfo)
-                cpuinfo = {}
-            match = parse_line(line)
-            if match:
-                key, value = match.groups()
-                cpuinfo[key] = value
-    cpus.append(cpuinfo)
+            clean_line = line.strip()
+            if clean_line.startswith(("model name", "Processor")):
+                cpu_name = clean_line.split(":", maxsplit=1)[-1].strip()
+                cpu_names[cpu_name] += 1
 
-    cpu_names = Counter[str]()
-    for cpu in cpus:
-        if "model name" in cpu:
-            cpu_name = " ".join(cpu["model name"].split())
-            cpu_names[cpu_name] += 1
-        elif "Processor" in cpu:
-            cpu_name = " ".join(cpu["Processor"].split())
-            cpu_names[cpu_name] += 1
-
-    cpu_names_str = [
+    cpu_name_strings = [
         "{} ({}x)".format(cpu_name, count)
         for cpu_name, count in cpu_names.items()
     ]
 
-    return "\n".join(cpu_names_str)
+    return "\n".join(cpu_name_strings)
 
 
-def get_amdgpu_info() -> str | None:
+def get_amd_gpu_info() -> str | None:
     paths = sp.check_output(
         ["find", "/sys/devices/", "-name", "vbios_version"], text=True
     ).split()
@@ -63,7 +46,7 @@ def get_amdgpu_info() -> str | None:
                 ["lspci", "-Dnm", "-d", "1002{}".format(klass)], text=True
             )
             .strip()
-            .split("\n")
+            .splitlines()
         )
         if len(pcis) == 0 or pcis[0] == "":
             continue
@@ -99,15 +82,15 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
     if "Image" not in standard_info:
         standard_info["Image"] = "Failed to get build stamp"
 
-    for dmi_value in (
+    for dmi_key in (
         "system-manufacturer",
         "system-product-name",
         "bios-version",
     ):
         standard_info[
-            " ".join(word.capitalize() for word in dmi_value.split("-"))
+            " ".join(word.capitalize() for word in dmi_key.split("-"))
         ] = sp.check_output(
-            ["dmidecode", "-s", dmi_value], text=True, timeout=command_timeout
+            ["dmidecode", "-s", dmi_key], text=True, timeout=command_timeout
         ).strip()
 
     standard_info["CPU"] = get_cpu_info()
@@ -136,9 +119,9 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
                     nvidia_log.stdout,
                 )
             ) is not None:
-                standard_info["nvidia-driver"] = nvidia_driver_match.group(1)
+                standard_info["NVIDIA Driver"] = nvidia_driver_match.group(1)
             else:
-                standard_info["nvidia-driver"] = nvidia_err
+                standard_info["NVIDIA Driver"] = nvidia_err
 
             if (
                 nvidia_vbios_match := re.search(
@@ -146,21 +129,16 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
                     nvidia_log.stdout,
                 )
             ) is not None:
-                standard_info["nvidia-driver"] = nvidia_vbios_match.group(1)
+                standard_info["NVIDIA Driver"] = nvidia_vbios_match.group(1)
             else:
-                standard_info["nvidia-driver"] = nvidia_err
+                standard_info["NVIDIA Driver"] = nvidia_err
         else:
-            standard_info["nvidia-info"] = nvidia_err
+            standard_info["NVIDIA Driver"] = nvidia_err
 
     if "AMD" in standard_info["GPU"]:
-        vbios = get_amdgpu_info()
-        if vbios:
-            standard_info["amd-vbios"] = vbios
-        else:
-            standard_info["amd-vbios"] = "Cannot capture VBIOS version"
+        vbios = get_amd_gpu_info()
+        standard_info["AMD VBIOS"] = vbios or "Cannot capture VBIOS version"
 
-    standard_info["Kernel Version"] = sp.check_output(
-        ["uname", "-r"], text=True, timeout=command_timeout
-    ).strip()
+    standard_info["Kernel Version"] = platform.uname().release
 
     return standard_info
