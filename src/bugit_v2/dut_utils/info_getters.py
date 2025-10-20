@@ -54,7 +54,7 @@ def get_amd_gpu_info() -> str | None:
             for pci in pcis:
                 p = pci.split()
                 if len(p) > 3 and p[0] in path:
-                    v = sp.check_output(["cat", path]).strip()
+                    v = sp.check_output(["cat", path], text=True).strip()
                     vbios += f"{v.strip()}[{pci.split()[3].upper()}] "
     return vbios
 
