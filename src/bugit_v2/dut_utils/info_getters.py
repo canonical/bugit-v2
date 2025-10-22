@@ -115,6 +115,7 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
             ],
             text=True,
             timeout=command_timeout,
+            capture_output=True,
         )
 
         if nvidia_log.returncode == 0:
