@@ -8,9 +8,10 @@ https://git.launchpad.net/bugit/tree/bugit/bug_assistant.py
 import os
 import platform
 import re
-import shutil
 import subprocess as sp
 from collections import Counter
+
+from bugit_v2.utils import is_snap
 
 
 def get_cpu_info() -> str:
@@ -104,10 +105,14 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
         [line for line in lspci_output if "[03" in line]
     )
 
-    if "NVIDIA" in standard_info["GPU"] and shutil.which("nvidia-smi"):
+    if "NVIDIA" in standard_info["GPU"]:
         nvidia_err = "Cannot capture driver or VBIOS version"
         nvidia_log = sp.run(
-            ["nvidia-smi", "-q"],
+            [
+                ("/var/lib/snapd/hostfs/usr/bin/" if is_snap() else "")
+                + "nvidia-smi",
+                "-q",
+            ],
             text=True,
             timeout=command_timeout,
         )
