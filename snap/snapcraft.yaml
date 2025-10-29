@@ -64,7 +64,11 @@ apps:
 
   dump-standard-info:
     # redirect stderr to suppress errors
-    command: bin/python3 $SNAP/src/bugit_v2/dump_standard_info.py
+    command: bin/python3 $SNAP/src/bugit_v2/scripts/dump_standard_info.py
+
+  list-sessions:
+    # redirect stderr to suppress errors
+    command: bin/python3 $SNAP/src/bugit_v2/scripts/list_sessions.py
 
 parts:
   launcher:
