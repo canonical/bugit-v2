@@ -32,10 +32,7 @@ def print_json():
 
     d: list[dict[str, str]] = []
     for session_path in valid_sessions:
-        # rich_print(f"[yellow]Session directory[/]: [bold white]{session_path}")
         session = Session(session_path)
-        # rich_print(f"[yellow]Test Plan[/]: [bold white]{session.testplan_id}")
-        # print(z
         d.append(
             {
                 "session_path": str(session_path),
