@@ -8,7 +8,7 @@ from rich import print as rich_print
 from typer import Typer
 
 from bugit_v2.dut_utils.info_getters import get_standard_info
-from bugit_v2.utils import is_prod
+from bugit_v2.utils import is_prod, is_snap
 from bugit_v2.utils.validations import before_entry_check
 
 app = Typer(
@@ -16,7 +16,7 @@ app = Typer(
     pretty_exceptions_enable=not is_prod(),
     pretty_exceptions_show_locals=not is_prod(),
     no_args_is_help=True,
-    add_completion=False,  # the built-in ones doesn't work in snap
+    add_completion=not is_snap(),  # the built-in ones doesn't work in snap
 )
 
 
