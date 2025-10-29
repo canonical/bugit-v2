@@ -127,7 +127,10 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
             ) is not None:
                 standard_info["NVIDIA Driver"] = nvidia_driver_match.group(1)
             else:
-                standard_info["NVIDIA Driver"] = nvidia_err
+                standard_info["NVIDIA Driver"] = (
+                    nvidia_err
+                    + ", no driver version was listed in nvidia-smi -q"
+                )
 
             if (
                 nvidia_vbios_match := re.search(
@@ -135,15 +138,23 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
                     nvidia_log.stdout,
                 )
             ) is not None:
-                standard_info["NVIDIA Driver"] = nvidia_vbios_match.group(1)
+                standard_info["NVIDIA VBIOS"] = nvidia_vbios_match.group(1)
             else:
-                standard_info["NVIDIA Driver"] = nvidia_err
+                standard_info["NVIDIA VBIOS"] = (
+                    nvidia_err
+                    + ", no VBIOS version was listed in nvidia-smi -q"
+                )
         else:
-            standard_info["NVIDIA Driver"] = nvidia_err
+            standard_info["NVIDIA Driver"] = (
+                nvidia_err
+                + f", nvidia-smi -q returned {nvidia_log.returncode}"
+            )
 
     if "AMD" in standard_info["GPU"]:
         vbios = get_amd_gpu_info()
-        standard_info["AMD VBIOS"] = vbios or "Cannot capture VBIOS version"
+        standard_info["AMD VBIOS"] = (
+            vbios or "Cannot capture AMD VBIOS version"
+        )
 
     standard_info["Kernel Version"] = platform.uname().release
 
