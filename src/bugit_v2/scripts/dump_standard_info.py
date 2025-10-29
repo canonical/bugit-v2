@@ -26,7 +26,10 @@ def print_json():
     print(json.dumps(info))
 
 
-@app.command("pretty", help="Print the info in a human-friendly format")
+@app.command(
+    "pretty",
+    help="Print the info in a human-friendly format. Pipe the output to 'cat' to remove colors.",
+)
 def print_text():
     info = get_standard_info()
     for k, v in info.items():
