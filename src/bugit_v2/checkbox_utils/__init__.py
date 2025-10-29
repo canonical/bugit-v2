@@ -1,6 +1,7 @@
 import base64
 import gzip
 import json
+import os
 import shutil
 import subprocess
 from collections.abc import Mapping, Sequence
@@ -11,7 +12,7 @@ from typing_extensions import override
 
 from bugit_v2.utils import is_snap
 
-DEFAULT_ROOT: Final = Path("/")
+SESSION_ROOT_DIR: Final = Path("/var/tmp/checkbox-ng/sessions")
 
 
 def get_checkbox_version() -> str | None:
@@ -43,6 +44,25 @@ def get_checkbox_version() -> str | None:
             return subprocess.check_output(
                 [checkbox_bin, "--version"], text=True
             ).strip()
+
+
+def get_valid_sessions() -> list[Path]:
+    """Get a list of valid sessions in /var/tmp/checkbox-ng
+
+    This is achieved by looking at which session directory has non-empty
+    io-logs. If it's empty, it's either tossed by checkbox or didn't even
+    reach the test case where it dumps the udev database, thus invalid
+    """
+    if not SESSION_ROOT_DIR.exists():
+        return []
+    valid_session_dirs: list[Path] = []
+    for d in os.listdir(SESSION_ROOT_DIR):
+        try:
+            if len(os.listdir(SESSION_ROOT_DIR / d / "io-logs")) != 0:
+                valid_session_dirs.append(SESSION_ROOT_DIR / d)
+        except FileNotFoundError:
+            continue
+    return valid_session_dirs
 
 
 JobOutcome = Literal["pass", "fail", "skip"]
