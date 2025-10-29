@@ -57,11 +57,13 @@ def print_text():
         rich_print("[red]No sessions were found on this device")
         exit()
 
-    for session_path in valid_sessions:
+    for idx, session_path in enumerate(valid_sessions):
         rich_print(f"[yellow]Session directory[/]: [bold white]{session_path}")
         session = Session(session_path)
         rich_print(f"[yellow]Test Plan[/]: [bold white]{session.testplan_id}")
-        print()
+        if idx != len(valid_sessions) - 1:
+            # print a separator if not the last one
+            print()
 
 
 if __name__ == "__main__":
