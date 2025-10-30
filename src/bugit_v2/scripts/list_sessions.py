@@ -1,9 +1,10 @@
 import json
-import sys
 from pathlib import Path
 
+import typer
 from rich import print as rich_print
 from typer import Typer
+from typing_extensions import Annotated
 
 from bugit_v2.checkbox_utils import Session, get_valid_sessions
 from bugit_v2.utils import is_prod, is_snap
@@ -20,47 +21,43 @@ app = Typer(
 )
 
 
-@app.command("json", help="Print the info in JSON format")
-def print_json():
-    valid_sessions = get_valid_sessions()
-
-    if len(valid_sessions) == 0:
-        rich_print(
-            "[red]No sessions were found on this device", file=sys.stderr
-        )
-        exit()
-
-    d: list[dict[str, str]] = []
-    for session_path in valid_sessions:
-        session = Session(session_path)
-        d.append(
-            {
-                "session_path": str(session_path),
-                "test_plan": session.testplan_id,
-            }
-        )
-
-    print(json.dumps(d))
-
-
 @app.command(
-    "pretty",
     help="Print the info in a human-friendly format. Pipe the output to 'cat' to remove colors.",
 )
-def print_text():
+def main(
+    print_json: Annotated[
+        bool, typer.Option("--json", help="Print in JSON format")
+    ] = False,
+):
     valid_sessions = get_valid_sessions()
 
     if len(valid_sessions) == 0:
         rich_print("[red]No sessions were found on this device")
         exit()
 
-    for idx, session_path in enumerate(valid_sessions):
-        rich_print(f"[yellow]Session directory[/]: [bold white]{session_path}")
-        session = Session(session_path)
-        rich_print(f"[yellow]Test Plan[/]: [bold white]{session.testplan_id}")
-        if idx != len(valid_sessions) - 1:
-            # print a separator if not the last one
-            print()
+    if print_json:
+        d: list[dict[str, str]] = []
+        for session_path in valid_sessions:
+            session = Session(session_path)
+            d.append(
+                {
+                    "session_path": str(session_path),
+                    "test_plan": session.testplan_id,
+                }
+            )
+        print(json.dumps(d))
+    else:
+        for idx, session_path in enumerate(valid_sessions):
+            rich_print(
+                f"[yellow]Session directory[/]: [bold white]{session_path}"
+            )
+            session = Session(session_path)
+            rich_print(
+                f"[yellow]Test Plan[/]: [bold white]{session.testplan_id}"
+            )
+            if idx != len(valid_sessions) - 1:
+                # print a separator if not the last one
+                print()
 
 
 if __name__ == "__main__":
