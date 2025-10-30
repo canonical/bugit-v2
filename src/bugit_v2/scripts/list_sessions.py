@@ -3,7 +3,6 @@ from pathlib import Path
 
 import typer
 from rich import print as rich_print
-from typer import Typer
 from typing_extensions import Annotated
 
 from bugit_v2.checkbox_utils import Session, get_valid_sessions
@@ -12,7 +11,7 @@ from bugit_v2.utils import is_prod, is_snap
 SESSION_ROOT_DIR = Path("/var/tmp/checkbox-ng/sessions")
 
 
-app = Typer(
+app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
     pretty_exceptions_enable=not is_prod(),
     pretty_exceptions_show_locals=not is_prod(),
