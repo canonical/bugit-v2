@@ -32,10 +32,19 @@ def main(
     before_entry_check()
     info = get_standard_info()
     if print_json:
-        print(json.dumps(info))
+        out = {}
+        for key in info:
+            out[
+                "_".join(
+                    word.strip().lower()
+                    for word in key.split()
+                    if word.strip()
+                )
+            ] = info[key]
+        print(json.dumps(out))
     else:
-        for k, v in info.items():
-            rich_print(f"[yellow]{k}[/]: [bold white]{v}")
+        for key, v in info.items():
+            rich_print(f"[yellow]{key}[/]: [bold white]{v}")
 
 
 if __name__ == "__main__":
