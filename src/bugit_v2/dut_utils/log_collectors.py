@@ -271,7 +271,7 @@ real_collectors: Sequence[LogCollector] = (
         "journalctl-3-days",
         lambda target_dir, bug_report: journal_logs(target_dir, bug_report, 3),
         "Journal Logs of the Last 3 Days",
-        True,
+        False,
         'journalctl --since="3 days ago"',
         advertised_timeout=COMMAND_TIMEOUT,
     ),
