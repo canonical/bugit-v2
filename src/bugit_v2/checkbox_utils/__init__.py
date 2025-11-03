@@ -27,6 +27,7 @@ def get_checkbox_version() -> str | None:
                 env={
                     "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages"
                 },
+                stderr=subprocess.DEVNULL,
             ).strip()
         elif (
             Path(
@@ -34,7 +35,9 @@ def get_checkbox_version() -> str | None:
             )
         ).exists():
             return subprocess.check_output(
-                [snap_checkbox, "--version"], text=True
+                [snap_checkbox, "--version"],
+                text=True,
+                stderr=subprocess.DEVNULL,
             ).strip()
     else:
         checkbox_bin = shutil.which("checkbox-cli") or shutil.which(
@@ -42,7 +45,9 @@ def get_checkbox_version() -> str | None:
         )
         if checkbox_bin:
             return subprocess.check_output(
-                [checkbox_bin, "--version"], text=True
+                [checkbox_bin, "--version"],
+                text=True,
+                stderr=subprocess.DEVNULL,
             ).strip()
 
 
