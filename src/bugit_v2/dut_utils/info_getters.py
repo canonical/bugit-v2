@@ -11,6 +11,7 @@ import re
 import subprocess as sp
 from collections import Counter
 
+from bugit_v2.checkbox_utils import get_checkbox_version
 from bugit_v2.utils import is_snap
 
 
@@ -157,5 +158,8 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
         )
 
     standard_info["Kernel Version"] = platform.uname().release
+
+    if (cb_version := get_checkbox_version()) is not None:
+        standard_info["Checkbox Version"] = cb_version
 
     return standard_info

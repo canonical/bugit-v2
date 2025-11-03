@@ -3,7 +3,7 @@ import gzip
 import json
 import os
 import shutil
-import subprocess
+import subprocess as sp
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Final, Literal, TypedDict, cast, final
@@ -21,28 +21,33 @@ def get_checkbox_version() -> str | None:
             deb_checkbox := "/var/lib/snapd/hostfs/usr/bin/checkbox-cli"
         ).exists():
             # host is using debian checkbox
-            return subprocess.check_output(
+            return sp.check_output(
                 [deb_checkbox, "--version"],
                 text=True,
                 env={
                     "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages"
                 },
+                stderr=sp.DEVNULL,
             ).strip()
         elif (
             Path(
                 snap_checkbox := "/var/lib/snapd/hostfs/snap/bin/checkbox.checkbox-cli"
             )
         ).exists():
-            return subprocess.check_output(
-                [snap_checkbox, "--version"], text=True
+            return sp.check_output(
+                [snap_checkbox, "--version"],
+                text=True,
+                stderr=sp.DEVNULL,
             ).strip()
     else:
         checkbox_bin = shutil.which("checkbox-cli") or shutil.which(
             "checkbox.checkbox-cli"
         )
         if checkbox_bin:
-            return subprocess.check_output(
-                [checkbox_bin, "--version"], text=True
+            return sp.check_output(
+                [checkbox_bin, "--version"],
+                text=True,
+                stderr=sp.DEVNULL,
             ).strip()
 
 
