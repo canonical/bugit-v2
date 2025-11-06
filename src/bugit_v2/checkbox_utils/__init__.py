@@ -16,39 +16,42 @@ SESSION_ROOT_DIR: Final = Path("/var/tmp/checkbox-ng/sessions")
 
 
 def get_checkbox_version() -> str | None:
-    if is_snap():
-        if Path(
-            deb_checkbox := "/var/lib/snapd/hostfs/usr/bin/checkbox-cli"
-        ).exists():
-            # host is using debian checkbox
-            return sp.check_output(
-                [deb_checkbox, "--version"],
-                text=True,
-                env={
-                    "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages"
-                },
-                stderr=sp.DEVNULL,
-            ).strip()
-        elif (
-            Path(
-                snap_checkbox := "/var/lib/snapd/hostfs/snap/bin/checkbox.checkbox-cli"
+    try:
+        if is_snap():
+            if Path(
+                deb_checkbox := "/var/lib/snapd/hostfs/usr/bin/checkbox-cli"
+            ).exists():
+                # host is using debian checkbox
+                return sp.check_output(
+                    [deb_checkbox, "--version"],
+                    text=True,
+                    env={
+                        "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages"
+                    },
+                    stderr=sp.DEVNULL,
+                ).strip()
+            elif (
+                Path(
+                    snap_checkbox := "/var/lib/snapd/hostfs/snap/bin/checkbox.checkbox-cli"
+                )
+            ).exists():
+                return sp.check_output(
+                    [snap_checkbox, "--version"],
+                    text=True,
+                    stderr=sp.DEVNULL,
+                ).strip()
+        else:
+            checkbox_bin = shutil.which("checkbox-cli") or shutil.which(
+                "checkbox.checkbox-cli"
             )
-        ).exists():
-            return sp.check_output(
-                [snap_checkbox, "--version"],
-                text=True,
-                stderr=sp.DEVNULL,
-            ).strip()
-    else:
-        checkbox_bin = shutil.which("checkbox-cli") or shutil.which(
-            "checkbox.checkbox-cli"
-        )
-        if checkbox_bin:
-            return sp.check_output(
-                [checkbox_bin, "--version"],
-                text=True,
-                stderr=sp.DEVNULL,
-            ).strip()
+            if checkbox_bin:
+                return sp.check_output(
+                    [checkbox_bin, "--version"],
+                    text=True,
+                    stderr=sp.DEVNULL,
+                ).strip()
+    except sp.CalledProcessError:
+        return None
 
 
 def get_valid_sessions() -> list[Path]:
