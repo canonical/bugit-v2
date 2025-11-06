@@ -1,0 +1,49 @@
+name: Basedpyright Type Checking
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+  workflow_dispatch:
+
+jobs:
+  basedpyright-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # Set to your desired Python version
+          python-version: "3.12"
+
+      - name: Install uv
+        # Install uv globally so it's on PATH
+        run: pip install uv
+
+      - name: Cache Python dependencies
+        uses: actions/cache@v4
+        with:
+          # Cache the virtual environment folder
+          path: .venv
+          # The cache key is based on the OS, Python version, and the hash of your lock file(s).
+          # This ensures the cache is invalidated and rebuilt if dependencies change.
+          key: ${{ runner.os }}-python-3.x-deps-${{ hashFiles('pyproject.toml', 'requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-python-3.x-deps-
+
+      - name: Install dependencies with uv
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          uv sync
+
+      - name: Run basedpyright
+        run: |
+          # Activate the environment and run the check
+          source .venv/bin/activate
+          basedpyright --level error
