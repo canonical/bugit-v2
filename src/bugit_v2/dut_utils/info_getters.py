@@ -15,6 +15,32 @@ from bugit_v2.checkbox_utils import get_checkbox_version
 from bugit_v2.utils import is_snap
 
 
+def get_thinkpad_ec_version() -> str | None:
+    """Thinkpad specific, get the embedded controller info
+
+    :return: controller version if found, None otherwise
+    """
+    marker = "ThinkPad Embedded Controller Program"
+    dmi_out_lines = sp.check_output(
+        ["dmidecode", "-t", "140"], text=True
+    ).splitlines()
+
+    L = len(dmi_out_lines)
+    i = 0
+
+    while i < L:
+        line = dmi_out_lines[i]
+        if line.strip() == marker:
+            i += 1
+            while not dmi_out_lines[i].strip().startswith("Version ID:"):
+                i += 1
+            return dmi_out_lines[i].strip().removeprefix("Version ID:").strip()
+        else:
+            i += 1
+
+    return None
+
+
 def get_cpu_info() -> str:
     cpu_names = Counter[str]()
     with open("/proc/cpuinfo") as file:
@@ -161,5 +187,8 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
 
     if (cb_version := get_checkbox_version()) is not None:
         standard_info["Checkbox Version"] = cb_version
+
+    if (ec_version := get_thinkpad_ec_version()) is not None:
+        standard_info["Embedded Controller Version"] = ec_version
 
     return standard_info
