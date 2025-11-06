@@ -25,25 +25,11 @@ jobs:
         # Install uv globally so it's on PATH
         run: pip install uv
 
-      - name: Cache Python dependencies
-        uses: actions/cache@v4
-        with:
-          # Cache the virtual environment folder
-          path: .venv
-          # The cache key is based on the OS, Python version, and the hash of your lock file(s).
-          # This ensures the cache is invalidated and rebuilt if dependencies change.
-          key: ${{ runner.os }}-python-3.x-deps-${{ hashFiles('pyproject.toml', 'requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-python-3.x-deps-
-
       - name: Install dependencies with uv
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          uv sync
+          uv sync --python 3.12 -U
 
       - name: Run basedpyright
         run: |
-          # Activate the environment and run the check
           source .venv/bin/activate
           basedpyright --level error
