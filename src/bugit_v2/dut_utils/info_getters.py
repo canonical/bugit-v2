@@ -188,4 +188,7 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
     if (cb_version := get_checkbox_version()) is not None:
         standard_info["Checkbox Version"] = cb_version
 
+    if (ec_version := get_thinkpad_ec_version()) is not None:
+        standard_info["Embedded Controller Version"] = ec_version
+
     return standard_info
