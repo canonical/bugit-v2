@@ -23,7 +23,10 @@ jobs:
 
       - name: Install uv
         # Install uv globally so it's on PATH
-        run: pip install uv
+        run: |
+          sudo apt install -y pipx
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          pipx install uv
 
       - name: Install dependencies with uv
         run: |
