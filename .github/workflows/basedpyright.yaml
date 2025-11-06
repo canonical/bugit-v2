@@ -1,0 +1,37 @@
+name: Basedpyright Type Checking
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+  workflow_dispatch:
+
+jobs:
+  basedpyright-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # Set to your desired Python version
+          python-version: "3.12"
+
+      - name: Install uv
+        # Install uv globally so it's on PATH
+        run: |
+          pip install uv
+
+      - name: Install dependencies with uv
+        run: |
+          uv sync --python 3.12 -U
+
+      - name: Run basedpyright
+        run: |
+          source .venv/bin/activate
+          basedpyright --version
+          basedpyright --level error

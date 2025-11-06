@@ -3,6 +3,7 @@
     "analyzeUnannotatedFunctions": true,
     "reportUnusedCallResult": "none",
     "reportImportCycles": "error",
+    "failOnWarnings": false,
     "reportDuplicateImport": "error",
     "reportUnknownMemberType": "none", // too many libraries have partially unknown types
     "reportMissingTypeStubs": "none" // launchpad lib doesn't have any type info
