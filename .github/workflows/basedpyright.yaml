@@ -32,4 +32,5 @@ jobs:
       - name: Run basedpyright
         run: |
           source .venv/bin/activate
-          basedpyright --level error
+          basedpyright --version
+          basedpyright
