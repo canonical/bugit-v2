@@ -32,13 +32,19 @@ def get_thinkpad_ec_version() -> str | None:
         line = dmi_out_lines[i]
         if line.strip() == marker:
             i += 1
-            while not dmi_out_lines[i].strip().startswith("Version ID:"):
+            while i < L and not dmi_out_lines[i].strip().startswith(
+                "Version ID:"
+            ):
                 i += 1
-            return dmi_out_lines[i].strip().removeprefix("Version ID:").strip()
+            if i < L:
+                return (
+                    dmi_out_lines[i]
+                    .strip()
+                    .removeprefix("Version ID:")
+                    .strip()
+                )
         else:
             i += 1
-
-    return None
 
 
 def get_cpu_info() -> str:
