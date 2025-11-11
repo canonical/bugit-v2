@@ -20,8 +20,8 @@ class SimpleJobResult(BaseModel):
     category_id: str
     certification_status: CertificationStatus
     comments: str | None
-    full_id: str
-    name: str
+    full_id: str  # the job id with namespace
+    name: str  # display name
     outcome: JobOutcome
     project: str  # provider name basically
     status: str  # not sure what this is
