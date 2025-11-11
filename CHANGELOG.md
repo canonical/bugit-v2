@@ -5,6 +5,10 @@
 - Autosave functionality: Now the editor saves your progress as you type. It utilizes the [debounce](https://medium.com/@jamischarles/what-is-debouncing-2505c0648ff1) pattern to ensure performance while editing and only saves the progress to disk when the user hasn't been typing for 1 second.
 - Recovery from autosave: If autosave files exist on the system, bugit will show a recovery screen asking the user whether they want to use any of the previous saved files.
 - Added a clear button for the log selection list
+- New commands bugit.list-sessions and bugit.dump-standard-info
+  - Both supports plain json output with `--json`
+- Fixed incorrect method of getting NVIDIA driver info
+- Fixed the issue where 1 upload failure in the LP submitter will cause everything else to not be submitted
 
 # 0.2.4
 
