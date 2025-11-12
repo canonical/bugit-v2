@@ -22,6 +22,7 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
+from bugit_v2.checkbox_utils.submission_extractor import read_simple_submission
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import (
     BugReport,
@@ -97,12 +98,18 @@ class NavigationState:
     state combinations
     """
 
+    # For session and job_id, None means the user hasn't selected anything
+    # NullSelection means an explicit selection of no session/no job
     session: Session | Literal[NullSelection.NO_SESSION] | None = None
     job_id: str | Literal[NullSelection.NO_JOB] | None = None
+    # Initial state of the bug report, only used for backup right now
     bug_report_init_state: (
         BugReport | Literal[NullSelection.NO_BACKUP] | None
     ) = None
+    # The finished bug report ready to be fed to the submitter
     bug_report_to_submit: BugReport | None = None
+    # Checkbox submission passed in from the CLI
+    # Must check if this is valid at the beginning of the app
     checkbox_submission: (
         Path | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
     ) = NullSelection.NO_CHECKBOX_SUBMISSION
@@ -199,6 +206,10 @@ class BugitApp(App[None]):
         print(self.nav_state)
 
         def _write_state(new_state: NavigationState):
+            """a small wrapper for places that only take functions
+
+            :param new_state: the state to write
+            """
             self.nav_state = new_state
 
         def _pick_editor(
@@ -536,12 +547,33 @@ def launchpad_mode(
 
 @cli_app.command("jira", help="Submit a bug to Jira")
 def jira_mode(
+    checkbox_submission: Annotated[
+        Path | None,
+        typer.Option(
+            "-s",
+            "--checkbox-submission",
+            help=(
+                "The .tar.xz file submitted by checkbox after a test session has finished. "
+                + "If this option is specified, "
+                + "Bugit will read from this file instead of checkbox sessions "
+                + "and enter the editor directly"
+            ),
+            exists=True,
+            dir_okay=False,
+            file_okay=True,
+            readable=True,
+            resolve_path=True,
+        ),
+    ] = None,
     cid: Annotated[
         str | None,
         typer.Option(
             "-c",
             "--cid",
-            help="Canonical ID (CID) of the device under test",
+            help=(
+                "Canonical ID (CID) of the device under test. "
+                + "This is used to pre-fill the CID field in the editor"
+            ),
             file_okay=False,
             dir_okay=False,
             callback=cid_check,
@@ -552,7 +584,8 @@ def jira_mode(
         typer.Option(
             "-k",
             "--sku",
-            help="Stock Keeping Unit (SKU) string of the device under test",
+            help="Stock Keeping Unit (SKU) string of the device under test"
+            + 'This is used to pre-fill the "SKU" field in the editor',
             file_okay=False,
             dir_okay=False,
             callback=strip,
@@ -563,7 +596,8 @@ def jira_mode(
         typer.Option(
             "-p",
             "--project",
-            help="Project name like STELLA, SOMERVILLE. Case sensitive.",
+            help="Project name (case sensitive) like STELLA, SOMERVILLE. "
+            + "This is used to pre-fill the Project field in the editor",
             file_okay=False,
             dir_okay=False,
             callback=alnum_check,
@@ -574,7 +608,8 @@ def jira_mode(
         typer.Option(
             "-a",
             "--assignee",
-            help="Assignee ID. For Jira it's the assignee's email",
+            help="Assignee ID. For Jira it's the assignee's email"
+            + "This is used to pre-fill the Assignee field in the editor",
             file_okay=False,
             dir_okay=False,
             callback=assignee_str_check,
@@ -585,7 +620,8 @@ def jira_mode(
         typer.Option(
             "-pt",
             "--platform-tags",
-            help='Platform Tags. They appear under "Components" on Jira',
+            help='Platform Tags. They will appear under "Components" on Jira'
+            + 'This is used to pre-fill the "Platform Tags" field in the editor',
             file_okay=False,
             dir_okay=False,
         ),
@@ -595,7 +631,8 @@ def jira_mode(
         typer.Option(
             "-t",
             "--tags",
-            help="Additional tags on Jira",
+            help="Additional tags on Jira"
+            + 'This is used to pre-fill the "Tags" field in the editor',
             file_okay=False,
             dir_okay=False,
         ),
@@ -606,7 +643,8 @@ def jira_mode(
         # reopen is disabled for now
         AppArgs(
             submitter="jira",
-            checkbox_submission=None,
+            checkbox_submission=checkbox_submission
+            and read_simple_submission(checkbox_submission),
             bug_to_reopen=None,
             cid=cid,
             sku=sku,
