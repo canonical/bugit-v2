@@ -575,7 +575,7 @@ def jira_mode(
             "--cid",
             help=(
                 "Canonical ID (CID) of the device under test. "
-                + "This is used to pre-fill the CID field in the editor"
+                + 'This is used to pre-fill the "CID" field in the editor'
             ),
             file_okay=False,
             dir_okay=False,
@@ -587,7 +587,7 @@ def jira_mode(
         typer.Option(
             "-k",
             "--sku",
-            help="Stock Keeping Unit (SKU) string of the device under test"
+            help="Stock Keeping Unit (SKU) string of the device under test. "
             + 'This is used to pre-fill the "SKU" field in the editor',
             file_okay=False,
             dir_okay=False,
@@ -600,7 +600,7 @@ def jira_mode(
             "-p",
             "--project",
             help="Project name (case sensitive) like STELLA, SOMERVILLE. "
-            + "This is used to pre-fill the Project field in the editor",
+            + 'This is used to pre-fill the "Project" field in the editor',
             file_okay=False,
             dir_okay=False,
             callback=alnum_check,
@@ -611,8 +611,8 @@ def jira_mode(
         typer.Option(
             "-a",
             "--assignee",
-            help="Assignee ID. For Jira it's the assignee's email"
-            + "This is used to pre-fill the Assignee field in the editor",
+            help="Assignee ID. For Jira it's the assignee's email. "
+            + 'This is used to pre-fill the "Assignee" field in the editor',
             file_okay=False,
             dir_okay=False,
             callback=assignee_str_check,
@@ -623,7 +623,7 @@ def jira_mode(
         typer.Option(
             "-pt",
             "--platform-tags",
-            help='Platform Tags. They will appear under "Components" on Jira'
+            help='Platform Tags. They will appear under "Components" on Jira. '
             + 'This is used to pre-fill the "Platform Tags" field in the editor',
             file_okay=False,
             dir_okay=False,
@@ -634,7 +634,7 @@ def jira_mode(
         typer.Option(
             "-t",
             "--tags",
-            help="Additional tags on Jira"
+            help="Additional tags on Jira. "
             + 'This is used to pre-fill the "Tags" field in the editor',
             file_okay=False,
             dir_okay=False,
