@@ -103,6 +103,9 @@ class NavigationState:
         BugReport | Literal[NullSelection.NO_BACKUP] | None
     ) = None
     bug_report_to_submit: BugReport | None = None
+    checkbox_submission: (
+        Path | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
+    ) = NullSelection.NO_CHECKBOX_SUBMISSION
 
 
 @dataclass(slots=True, frozen=True)
@@ -240,6 +243,7 @@ class BugitApp(App[None]):
                 job_id=None,
                 bug_report_to_submit=None,
                 bug_report_init_state=None,
+                checkbox_submission=checkbox_submission,
             ):
                 # show the recovery screen if there's no backup
                 recovery_file = await self.push_screen_wait(
@@ -258,6 +262,8 @@ class BugitApp(App[None]):
                     or NullSelection.NO_SESSION,
                     recovery_file.job_id or NullSelection.NO_JOB,
                     recovered_report,
+                    None,
+                    checkbox_submission,
                 )
 
             case NavigationState(
@@ -266,11 +272,10 @@ class BugitApp(App[None]):
                 bug_report_to_submit=None,
                 bug_report_init_state=NullSelection.NO_BACKUP,
             ):
-
+                # explicitly chose no backup
                 def after_session_select(
                     rv: Path | Literal[NullSelection.NO_SESSION] | None,
                 ):
-                    print(rv)
                     match rv:
                         case Path():
                             self.nav_state = NavigationState(Session(rv))
@@ -515,7 +520,17 @@ def launchpad_mode(
 ):
     before_entry_check()
     BugitApp(
-        AppArgs("lp", None, cid, sku, project, assignee, platform_tags, tags)
+        AppArgs(
+            submitter="lp",
+            checkbox_submission=None,
+            bug_to_reopen=None,
+            cid=cid,
+            sku=sku,
+            project=project,
+            assignee=assignee,
+            platform_tags=platform_tags,
+            tags=tags,
+        )
     ).run()
 
 
@@ -589,7 +604,17 @@ def jira_mode(
     before_entry_check()
     BugitApp(
         # reopen is disabled for now
-        AppArgs("jira", None, cid, sku, project, assignee, platform_tags, tags)
+        AppArgs(
+            submitter="jira",
+            checkbox_submission=None,
+            bug_to_reopen=None,
+            cid=cid,
+            sku=sku,
+            project=project,
+            assignee=assignee,
+            platform_tags=platform_tags,
+            tags=tags,
+        )
     ).run()
 
 
