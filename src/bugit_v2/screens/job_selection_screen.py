@@ -1,4 +1,4 @@
-import os
+from collections.abc import Sequence
 from typing import Final, Literal, final
 
 from textual import on
@@ -8,16 +8,15 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Label, RadioButton, RadioSet
 from typing_extensions import override
 
-from bugit_v2.checkbox_utils import Session
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.utils.constants import NullSelection
 
 
-@final
+@final  # should return a full job id upon dismissal
 class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
     CSS_PATH = "styles.tcss"
 
-    session: Final[Session]
+    job_id_options: Final[Sequence[str]]
     selected_job: str | None
 
     CSS = """
@@ -33,13 +32,22 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
 
     def __init__(
         self,
-        session: Session,
+        job_id_options: Sequence[str],
+        job_id_source_name: str,
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
     ) -> None:
-        self.session = session
+        """Job ID selection screen
+
+        :param job_id_options: all possible job ids to choose from
+        :param job_id_source_name:
+            Arbitrary string, name of where the IDs came from
+            Only used in the screen's title
+        """
+        self.job_id_options = job_id_options
         self.selected_job = None
+        self.job_id_source_name = job_id_source_name
         super().__init__(name, id, classes)
 
     @override
@@ -48,8 +56,7 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
             yield SimpleHeader()
             yield Label(
                 (
-                    "[bold][$primary]Select a job in [$secondary]"
-                    f"{os.path.basename(self.session.session_path)}"
+                    f"[bold][$primary]Select a job in [$secondary] {self.job_id_source_name}"
                 )
             )
 
@@ -63,7 +70,7 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
             ),
             *(
                 RadioButton(job_id, name=job_id)
-                for job_id in self.session.get_run_jobs()
+                for job_id in self.job_id_options
             ),
             id="job_list_container",
         )

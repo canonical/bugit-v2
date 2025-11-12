@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, final
@@ -317,7 +318,10 @@ class BugitApp(App[None]):
             ):
                 # selected a normal session, should go to job selection
                 self.push_screen(
-                    JobSelectionScreen(session),
+                    JobSelectionScreen(
+                        session.get_run_jobs(),
+                        str(os.path.basename(session.session_path)),
+                    ),
                     lambda job_id: _write_state(
                         NavigationState(
                             session, job_id, NullSelection.NO_BACKUP
