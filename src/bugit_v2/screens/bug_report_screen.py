@@ -259,7 +259,7 @@ class BugReportScreen(Screen[BugReport]):
                 != NullSelection.NO_CHECKBOX_SUBMISSION
             ):
                 yield Label(
-                    f"- Test Plan: {self.checkbox_submission.testplan_id}"
+                    f"- Test Plan: {self.checkbox_submission.base.testplan_id}"
                 )
             else:
                 yield Label(
@@ -534,6 +534,10 @@ class BugReportScreen(Screen[BugReport]):
                         d["checkbox_session"] = str(
                             report.checkbox_session.session_path.absolute()
                         )
+                    if report.checkbox_submission:
+                        d["checkbox_submission"] = str(
+                            report.checkbox_submission.submission_path.absolute()
+                        )
                     if self.job_id == NullSelection.NO_JOB:
                         d["job_id"] = None
                     else:
@@ -635,6 +639,12 @@ class BugReportScreen(Screen[BugReport]):
                 None
                 if self.session == NullSelection.NO_SESSION
                 else self.session
+            ),
+            checkbox_submission=(
+                None
+                if self.checkbox_submission
+                == NullSelection.NO_CHECKBOX_SUBMISSION
+                else self.checkbox_submission
             ),
             description=self.query_exactly_one(
                 "#description", DescriptionEditor

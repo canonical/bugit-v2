@@ -1,5 +1,5 @@
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, final
 
@@ -137,7 +137,6 @@ class BugitApp(App[None]):
     submitter_class: type[
         BugReportSubmitter[Any, Any]  # pyright: ignore[reportExplicitAny]
     ]
-    # bug_report_backup: BugReport | None = None
     partial_bug_report_to_submit_backup: PartialBugReport | None = None
     BINDINGS = [Binding("alt+left", "go_back", "Go Back")]
 
@@ -314,15 +313,11 @@ class BugitApp(App[None]):
                     ),
                     lambda job_id: _write_state(
                         NavigationState(
-                            **dict(
-                                # it's just spreading existing values
-                                # impossible to have type errors
-                                asdict(
-                                    self.nav_state
-                                ),  # pyright: ignore[reportAny]
-                                job_id=job_id,
-                                bug_report_init_state=NullSelection.NO_BACKUP,
-                            ),
+                            session,
+                            job_id,
+                            NullSelection.NO_BACKUP,
+                            None,
+                            checkbox_submission,
                         )
                     ),
                 )
@@ -337,18 +332,16 @@ class BugitApp(App[None]):
                 # a submission was passed from the CLI
                 self.push_screen(
                     JobSelectionScreen(
-                        [r.full_id for r in checkbox_submission.results],
-                        checkbox_submission.testplan_id,
+                        [r.full_id for r in checkbox_submission.base.results],
+                        checkbox_submission.base.testplan_id,
                     ),
                     lambda job_id: _write_state(
                         NavigationState(
-                            **dict(
-                                (
-                                    asdict(self.nav_state)
-                                ),  # pyright: ignore[reportAny]
-                                job_id=job_id,
-                                bug_report_init_state=NullSelection.NO_BACKUP,
-                            )
+                            session,
+                            job_id,
+                            NullSelection.NO_BACKUP,
+                            None,
+                            checkbox_submission,
                         )
                     ),
                 )

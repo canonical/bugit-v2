@@ -6,6 +6,8 @@ from typing import Final, Literal
 from pydantic import BaseModel
 
 from bugit_v2.checkbox_utils import Session
+from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
+from bugit_v2.checkbox_utils.submission_extractor import read_simple_submission
 
 # Internal representation of bug severity
 Severity = Literal["highest", "high", "medium", "low", "lowest"]
@@ -69,6 +71,7 @@ class BugReport:
     issue_file_time: IssueFileTime
     # optionals
     checkbox_session: Session | None
+    checkbox_submission: SimpleCheckboxSubmission | None
     assignee: str | None = None  # appear as unassigned if None
     platform_tags: Sequence[str] = field(default_factory=list[str])
     additional_tags: Sequence[str] = field(default_factory=list[str])
@@ -124,6 +127,7 @@ class BugReportAutoSaveData(BaseModel):
     severity: Severity
     issue_file_time: IssueFileTime
     checkbox_session: Path | None
+    checkbox_submission: Path | None
     job_id: str | None
     assignee: str | None
     platform_tags: list[str]
@@ -148,6 +152,8 @@ def recover_from_autosave(
         autosave_data.issue_file_time,
         autosave_data.checkbox_session
         and Session(autosave_data.checkbox_session),
+        autosave_data.checkbox_submission
+        and read_simple_submission(autosave_data.checkbox_submission),
         autosave_data.assignee,
         autosave_data.platform_tags,
         autosave_data.additional_tags,

@@ -1,4 +1,6 @@
 from collections.abc import Sequence
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel
@@ -40,6 +42,12 @@ class AttachmentResult(BaseModel):
     outcome: JobOutcome
 
 
-class SimpleCheckboxSubmission(BaseModel):
+class BaseSimpleCheckboxSubmission(BaseModel):
     results: Sequence[SimpleJobResult]
     testplan_id: str
+
+
+@dataclass(slots=True, frozen=True)
+class SimpleCheckboxSubmission:
+    base: BaseSimpleCheckboxSubmission
+    submission_path: Path
