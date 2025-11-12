@@ -10,7 +10,7 @@ from rich import print as rich_print
 
 from bugit_v2.dut_utils.info_getters import get_standard_info
 from bugit_v2.utils import is_prod, is_snap
-from bugit_v2.utils.validations import before_entry_check
+from bugit_v2.utils.validations import sudo_devmode_check
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -29,7 +29,7 @@ def main(
         bool, typer.Option("--json", help="Print in JSON format")
     ] = False,
 ):
-    before_entry_check()
+    sudo_devmode_check()
     info = get_standard_info()
     if print_json:
         out = {}

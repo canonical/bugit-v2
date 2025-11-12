@@ -22,7 +22,6 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
-from bugit_v2.checkbox_utils.submission_extractor import read_simple_submission
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import (
     BugReport,
@@ -43,7 +42,11 @@ from bugit_v2.screens.submission_progress_screen import (
 )
 from bugit_v2.utils import is_prod, is_snap
 from bugit_v2.utils.constants import AUTOSAVE_DIR, NullSelection
-from bugit_v2.utils.validations import before_entry_check, is_cid
+from bugit_v2.utils.validations import (
+    checkbox_submission_check,
+    is_cid,
+    sudo_devmode_check,
+)
 
 cli_app = typer.Typer(
     help="Bugit is a tool for creating bug reports on Launchpad and Jira",
@@ -529,7 +532,7 @@ def launchpad_mode(
         ),
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
 ):
-    before_entry_check()
+    sudo_devmode_check()
     BugitApp(
         AppArgs(
             submitter="lp",
@@ -638,13 +641,14 @@ def jira_mode(
         ),
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
 ):
-    before_entry_check()
+    sudo_devmode_check()
+    cbs = checkbox_submission_check(checkbox_submission)
+
     BugitApp(
         # reopen is disabled for now
         AppArgs(
             submitter="jira",
-            checkbox_submission=checkbox_submission
-            and read_simple_submission(checkbox_submission),
+            checkbox_submission=cbs,
             bug_to_reopen=None,
             cid=cid,
             sku=sku,
