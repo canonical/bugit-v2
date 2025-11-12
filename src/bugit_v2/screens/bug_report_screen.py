@@ -34,6 +34,7 @@ from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
 from bugit_v2.checkbox_utils import Session
+from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.description_editor import DescriptionEditor
 from bugit_v2.components.header import SimpleHeader
@@ -98,6 +99,10 @@ class NonEmpty(Validator):
 @final
 class BugReportScreen(Screen[BugReport]):
     session: Final[Session | Literal[NullSelection.NO_SESSION]]
+    checkbox_submission: Final[
+        SimpleCheckboxSubmission
+        | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
+    ]
     job_id: Final[str | Literal[NullSelection.NO_JOB]]
     existing_report: Final[BugReport | None]
     app_args: Final[AppArgs]
@@ -155,6 +160,10 @@ class BugReportScreen(Screen[BugReport]):
     def __init__(
         self,
         session: Session | Literal[NullSelection.NO_SESSION],
+        checkbox_submission: (
+            SimpleCheckboxSubmission
+            | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
+        ),
         job_id: str | Literal[NullSelection.NO_JOB],
         app_args: AppArgs,
         existing_report: BugReport | None = None,
@@ -165,6 +174,7 @@ class BugReportScreen(Screen[BugReport]):
     ) -> None:
         super().__init__(name, id, classes)
         self.session = session
+        self.checkbox_submission = checkbox_submission
         self.job_id = job_id
         self.existing_report = existing_report
         self.app_args = app_args
@@ -242,10 +252,19 @@ class BugReportScreen(Screen[BugReport]):
             classes="nb",
             id="bug_report_metadata_header",
         ):
-            if self.session == NullSelection.NO_SESSION:
-                yield Label("- [$warning-darken-2]No session selected")
-            else:
+            if self.session != NullSelection.NO_SESSION:
                 yield Label(f"- Test Plan: {self.session.testplan_id}")
+            elif (
+                self.checkbox_submission
+                != NullSelection.NO_CHECKBOX_SUBMISSION
+            ):
+                yield Label(
+                    f"- Test Plan: {self.checkbox_submission.testplan_id}"
+                )
+            else:
+                yield Label(
+                    "- [$warning-darken-2]No session/submission selected"
+                )
 
             if self.job_id == NullSelection.NO_JOB:
                 yield Label("- [$warning-darken-2]No job selected")

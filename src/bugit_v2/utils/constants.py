@@ -84,6 +84,8 @@ class NullSelection(enum.Enum):
     the selection screens
     """
 
+    # NO_SESSION is also used when a checkbox submission is passed from the CLI
+    # semantically, selecting a checkbox submission => explicitly not selecting any sessions
     NO_SESSION = enum.auto()
     NO_JOB = enum.auto()
     NO_BACKUP = enum.auto()

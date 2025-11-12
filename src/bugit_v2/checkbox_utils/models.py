@@ -42,3 +42,4 @@ class AttachmentResult(BaseModel):
 
 class SimpleCheckboxSubmission(BaseModel):
     results: Sequence[SimpleJobResult]
+    testplan_id: str

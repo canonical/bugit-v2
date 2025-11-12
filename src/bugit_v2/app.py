@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal, final
 
@@ -23,6 +23,7 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
+from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import (
     BugReport,
@@ -34,7 +35,6 @@ from bugit_v2.screens.job_selection_screen import JobSelectionScreen
 from bugit_v2.screens.recover_from_autosave_screen import (
     RecoverFromAutoSaveScreen,
 )
-from bugit_v2.screens.reopen_bug_editor_screen import ReopenBugEditorScreen
 from bugit_v2.screens.reopen_precheck_screen import ReopenPreCheckScreen
 from bugit_v2.screens.session_selection_screen import SessionSelectionScreen
 from bugit_v2.screens.submission_progress_screen import (
@@ -103,6 +103,7 @@ class NavigationState:
     """
 
     # For session and job_id, None means the user hasn't selected anything
+    # but still POSSIBLE to go to a screen that can select them
     # NullSelection means an explicit selection of no session/no job
     session: Session | Literal[NullSelection.NO_SESSION] | None = None
     job_id: str | Literal[NullSelection.NO_JOB] | None = None
@@ -115,7 +116,8 @@ class NavigationState:
     # Checkbox submission passed in from the CLI
     # Must check if this is valid at the beginning of the app
     checkbox_submission: (
-        Path | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
+        SimpleCheckboxSubmission
+        | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
     ) = NullSelection.NO_CHECKBOX_SUBMISSION
 
 
@@ -147,7 +149,10 @@ class BugitApp(App[None]):
         watch_css: bool = False,
         ansi_color: bool = False,
     ):
+        super().__init__(driver_class, css_path, watch_css, ansi_color)
+
         self.args = args
+
         match args.submitter:
             case "jira":
                 self.submitter_class = (
@@ -158,8 +163,6 @@ class BugitApp(App[None]):
                     LaunchpadSubmitter if is_prod() else MockLaunchpadSubmitter
                 )
 
-        super().__init__(driver_class, css_path, watch_css, ansi_color)
-
     @work(thread=True)
     def on_mount(self) -> None:
         self.theme = "solarized-light"
@@ -167,6 +170,12 @@ class BugitApp(App[None]):
             self.title = "Bugit V2"
         else:
             self.title = "Bugit V2 🐛🐛 DEBUG MODE 🐛🐛"
+
+        if self.args.checkbox_submission:
+            self.nav_state = NavigationState(
+                session=NullSelection.NO_SESSION,
+                checkbox_submission=self.args.checkbox_submission,
+            )
 
         # snap checkbox takes a while to respond especially if it's the
         # 1st use after reboot
@@ -207,7 +216,6 @@ class BugitApp(App[None]):
     @work
     async def watch_nav_state(self) -> None:
         """Push different screens based on the state"""
-        print(self.nav_state)
 
         def _write_state(new_state: NavigationState):
             """a small wrapper for places that only take functions
@@ -215,26 +223,6 @@ class BugitApp(App[None]):
             :param new_state: the state to write
             """
             self.nav_state = new_state
-
-        def _pick_editor(
-            session: Session | Literal[NullSelection.NO_SESSION],
-            job_id: str | Literal[NullSelection.NO_JOB],
-        ):
-            return (
-                ReopenBugEditorScreen(
-                    session,
-                    job_id,
-                    self.args,
-                    self.partial_bug_report_to_submit_backup,
-                )
-                if self.args.bug_to_reopen
-                else BugReportScreen(
-                    session,
-                    job_id,
-                    self.args,
-                    # self.bug_report_to_submit_backup,
-                )
-            )
 
         match self.nav_state:
             case ReopenNavigationState():
@@ -312,11 +300,13 @@ class BugitApp(App[None]):
             case NavigationState(
                 session=Session() as session,
                 job_id=None,
+                checkbox_submission=NullSelection.NO_CHECKBOX_SUBMISSION as checkbox_submission,
                 bug_report_to_submit=None,
-                bug_report_init_state=None
-                | NullSelection.NO_BACKUP,  # job selection is only possible without init value
+                # job selection is only possible without init value
+                bug_report_init_state=None | NullSelection.NO_BACKUP,
             ):
-                # selected a normal session, should go to job selection
+                # selected a normal session
+                # should go to job selection
                 self.push_screen(
                     JobSelectionScreen(
                         session.get_run_jobs(),
@@ -324,39 +314,76 @@ class BugitApp(App[None]):
                     ),
                     lambda job_id: _write_state(
                         NavigationState(
-                            session, job_id, NullSelection.NO_BACKUP
+                            **dict(
+                                # it's just spreading existing values
+                                # impossible to have type errors
+                                asdict(
+                                    self.nav_state
+                                ),  # pyright: ignore[reportAny]
+                                job_id=job_id,
+                                bug_report_init_state=NullSelection.NO_BACKUP,
+                            ),
                         )
                     ),
                 )
 
-            case (
-                NavigationState(
-                    session=NullSelection.NO_SESSION as session,
-                    job_id=NullSelection.NO_JOB as job_id,
-                    bug_report_to_submit=None,
-                    bug_report_init_state=BugReport()
-                    | NullSelection.NO_BACKUP as init_state,
-                )
-                | NavigationState(
-                    session=Session() as session,
-                    job_id=NullSelection.NO_JOB as job_id,
-                    bug_report_to_submit=None,
-                    bug_report_init_state=BugReport()
-                    | NullSelection.NO_BACKUP as init_state,
-                )
-                | NavigationState(
-                    session=Session() as session,
-                    job_id=str() as job_id,
-                    bug_report_to_submit=None,
-                    bug_report_init_state=BugReport()
-                    | NullSelection.NO_BACKUP as init_state,
-                )
+            case NavigationState(
+                session=NullSelection.NO_SESSION as session,
+                job_id=None,
+                checkbox_submission=SimpleCheckboxSubmission() as checkbox_submission,
+                bug_report_to_submit=None,
+                bug_report_init_state=None | NullSelection.NO_BACKUP,
             ):
+                # a submission was passed from the CLI
+                self.push_screen(
+                    JobSelectionScreen(
+                        [r.full_id for r in checkbox_submission.results],
+                        checkbox_submission.testplan_id,
+                    ),
+                    lambda job_id: _write_state(
+                        NavigationState(
+                            **dict(
+                                (
+                                    asdict(self.nav_state)
+                                ),  # pyright: ignore[reportAny]
+                                job_id=job_id,
+                                bug_report_init_state=NullSelection.NO_BACKUP,
+                            )
+                        )
+                    ),
+                )
+
+            case NavigationState(
+                session=NullSelection.NO_SESSION | Session() as session,
+                job_id=NullSelection.NO_JOB | str() as job_id,
+                checkbox_submission=checkbox_submission,
+                bug_report_to_submit=None,
+                bug_report_init_state=BugReport()
+                | NullSelection.NO_BACKUP as init_state,
+            ):
+                if (
+                    session == NullSelection.NO_SESSION
+                    and checkbox_submission
+                    is NullSelection.NO_CHECKBOX_SUBMISSION
+                ):
+                    assert (
+                        job_id == NullSelection.NO_JOB
+                    ), f"Got job id '{job_id}' but no session/submission"
+
+                if job_id != NullSelection.NO_JOB:
+                    # if a job is selected
+                    # it must come from only 1 source
+                    assert (session == NullSelection.NO_SESSION) ^ (
+                        checkbox_submission
+                        == NullSelection.NO_CHECKBOX_SUBMISSION
+                    ), f"Ambiguous source of job '{job_id}'"
+
                 # normal case, session and job_id were selected
                 # go to editor with info
                 self.push_screen(
                     BugReportScreen(
                         session,
+                        checkbox_submission,
                         job_id,
                         self.args,
                         (
@@ -425,11 +452,29 @@ class BugitApp(App[None]):
                 job_id=None,
                 bug_report_init_state=None,
                 bug_report_to_submit=None,
+            ) | NavigationState(
+                session=NullSelection.NO_SESSION,
+                checkbox_submission=SimpleCheckboxSubmission(),
+                job_id=None,
+                bug_report_init_state=None,
+                bug_report_to_submit=None,
             ):
                 # backup selection screen
                 self.notify("Already at the beginning")
-            case NavigationState(session=None):
-                self.nav_state = NavigationState()
+            case NavigationState(
+                session=None as s,
+                checkbox_submission=NullSelection.NO_CHECKBOX_SUBMISSION as cbs,
+            ):
+                self.nav_state = NavigationState(
+                    session=s, checkbox_submission=cbs
+                )  # back to backup selection
+            case NavigationState(
+                session=NullSelection.NO_SESSION as s,
+                checkbox_submission=SimpleCheckboxSubmission() as cbs,
+            ):
+                self.nav_state = NavigationState(
+                    session=s, checkbox_submission=cbs
+                )  # back to backup selection
             case NavigationState(
                 bug_report_init_state=BugReport()
             ) | NavigationState(
@@ -439,24 +484,22 @@ class BugitApp(App[None]):
             ):
                 # 1. started with a backup
                 # 2. returning from editor with nothing selected
-                # go to backup selection
+                # => go to backup selection
                 self.nav_state = NavigationState()
             case NavigationState(session=Session(), job_id=None):
                 # returning from job selection
                 self.nav_state = NavigationState(
-                    None, None, NullSelection.NO_BACKUP, None
+                    bug_report_init_state=NullSelection.NO_BACKUP
                 )
             case NavigationState(
                 session=Session() as session,
                 job_id=str() | NullSelection.NO_JOB,
                 bug_report_init_state=NullSelection.NO_BACKUP,
             ):
-                # returning from editor with explicit job selection
+                # returning from editor with explicit job selection and session
                 # go back to job selection
                 self.nav_state = NavigationState(session, None)
             case NavigationState(
-                session=Session() | NullSelection.NO_SESSION,
-                job_id=str() | NullSelection.NO_JOB,
                 bug_report_to_submit=BugReport() | PartialBugReport(),
             ):
                 self.notify(
