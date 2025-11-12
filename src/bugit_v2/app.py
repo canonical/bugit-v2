@@ -661,4 +661,4 @@ def jira_mode(
 
 
 if __name__ == "__main__":
-    cli_app(prog_name="bugit-v2")
+    cli_app(prog_name="bugit.bugit-v2" if is_snap() else "bugit-v2")
