@@ -116,7 +116,7 @@ class RecoverFromAutosaveState(AppState):
         if screen_result is None:
             if (
                 self.context.checkbox_submission
-                == NullSelection.NO_CHECKBOX_SUBMISSION
+                is NullSelection.NO_CHECKBOX_SUBMISSION
             ):
                 return SessionSelectionState(self.context)
             else:
@@ -303,7 +303,7 @@ class ReportEditorState(AppState):
             (
                 None
                 if self.context.bug_report_init_state
-                == NullSelection.NO_BACKUP
+                is NullSelection.NO_BACKUP
                 else self.context.bug_report_init_state
             ),
         )

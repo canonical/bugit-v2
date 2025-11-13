@@ -162,10 +162,10 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
             "Additional Information": "",
         }
 
-        if session == NullSelection.NO_SESSION:
+        if session is NullSelection.NO_SESSION:
             return
 
-        if job_id == NullSelection.NO_JOB:
+        if job_id is NullSelection.NO_JOB:
             return
 
         self.initial_report["Affected Test Cases"] = job_id
@@ -199,12 +199,12 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
             classes="nb",
             id="bug_report_metadata_header",
         ):
-            if self.session == NullSelection.NO_SESSION:
+            if self.session is NullSelection.NO_SESSION:
                 yield Label("- [$warning-darken-2]No session selected")
             else:
                 yield Label(f"- Test Plan: {self.session.testplan_id}")
 
-            if self.job_id == NullSelection.NO_JOB:
+            if self.job_id is NullSelection.NO_JOB:
                 yield Label("- [$warning-darken-2]No job selected")
             else:
                 yield Label(f"- Job ID: {self.job_id}")
@@ -251,7 +251,7 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
                         classes="default_box",
                     )
 
-                    if self.session == NullSelection.NO_SESSION:
+                    if self.session is NullSelection.NO_SESSION:
                         # don't even include the session collector if there's no session
                         collectors = [
                             c
@@ -429,7 +429,7 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
         return PartialBugReport(
             checkbox_session=(
                 None
-                if self.session == NullSelection.NO_SESSION
+                if self.session is NullSelection.NO_SESSION
                 else self.session
             ),
             description=self.query_exactly_one(

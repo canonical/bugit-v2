@@ -215,10 +215,10 @@ class BugReportScreen(Screen[BugReport]):
             "Additional Information": "",
         }
 
-        if session == NullSelection.NO_SESSION:
+        if session is NullSelection.NO_SESSION:
             return
 
-        if job_id == NullSelection.NO_JOB:
+        if job_id is NullSelection.NO_JOB:
             return
 
         self.initial_report["Affected Test Cases"] = job_id
@@ -266,7 +266,7 @@ class BugReportScreen(Screen[BugReport]):
                     "- [$warning-darken-2]No session/submission selected"
                 )
 
-            if self.job_id == NullSelection.NO_JOB:
+            if self.job_id is NullSelection.NO_JOB:
                 yield Label("- [$warning-darken-2]No job selected")
             else:
                 yield Label(f"- Job ID: {self.job_id}")
@@ -349,7 +349,7 @@ class BugReportScreen(Screen[BugReport]):
                         classes="default_box",
                     )
 
-                    if self.session == NullSelection.NO_SESSION:
+                    if self.session is NullSelection.NO_SESSION:
                         # don't even include the session collector if there's no session
                         collectors = [
                             c
@@ -538,7 +538,7 @@ class BugReportScreen(Screen[BugReport]):
                         d["checkbox_submission"] = str(
                             report.checkbox_submission.submission_path.absolute()
                         )
-                    if self.job_id == NullSelection.NO_JOB:
+                    if self.job_id is NullSelection.NO_JOB:
                         d["job_id"] = None
                     else:
                         d["job_id"] = self.job_id
@@ -637,7 +637,7 @@ class BugReportScreen(Screen[BugReport]):
             title=self.query_exactly_one("#title", Input).value.strip(),
             checkbox_session=(
                 None
-                if self.session == NullSelection.NO_SESSION
+                if self.session is NullSelection.NO_SESSION
                 else self.session
             ),
             checkbox_submission=(

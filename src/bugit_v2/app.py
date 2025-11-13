@@ -133,7 +133,7 @@ class BugitApp(App[None]):
             session=(
                 None
                 if args.checkbox_submission
-                == NullSelection.NO_CHECKBOX_SUBMISSION
+                is NullSelection.NO_CHECKBOX_SUBMISSION
                 else NullSelection.NO_SESSION
             ),
             checkbox_submission=args.checkbox_submission,
