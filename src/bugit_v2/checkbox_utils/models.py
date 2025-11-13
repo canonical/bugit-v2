@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from attr import field
 from pydantic import BaseModel
 
 type CertificationStatus = Literal["non-blocker", "blocker"]
@@ -49,5 +50,9 @@ class BaseSimpleCheckboxSubmission(BaseModel):
 
 @dataclass(slots=True, frozen=True)
 class SimpleCheckboxSubmission:
-    base: BaseSimpleCheckboxSubmission
     submission_path: Path
+    base: BaseSimpleCheckboxSubmission = field(  # pyright: ignore[reportAny]
+        repr=lambda f: str(  # pyright: ignore[reportAny]
+            type(f)  # pyright: ignore[reportUnknownArgumentType, reportAny]
+        )
+    )
