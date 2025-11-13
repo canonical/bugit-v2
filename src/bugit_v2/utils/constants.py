@@ -61,7 +61,7 @@ VENDOR_MAP: Mapping[str, tuple[str, ...]] = {
     "Atheros/Qualcomm": ("ihv-qualcomm-atheros",),
     "Gemalto": ("ihv-gemalto",),
     "Intel": ("ihv-intel",),
-    "MTK": ("ihv-mtk",),
+    "MediaTek": ("ihv-mtk",),
     "Marvell": ("ihv-marvell",),
     "Mighty Gecko": ("ihv-mightygecko",),
     "Nvidia": ("ihv-nvidia",),
