@@ -249,6 +249,8 @@ class ReportEditorState(AppState):
 
     @override
     def go_back(self) -> "AppState | None":
+        self.context.bug_report_init_state = None
+
         match (
             self.context.session,
             self.context.job_id,
