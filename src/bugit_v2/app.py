@@ -1,16 +1,18 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, final
+from typing import Literal, final, override
 
 import typer
 from textual import work
-from textual.app import App
+from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.containers import Center
 from textual.content import Content
 from textual.driver import Driver
 from textual.reactive import var
 from textual.types import CSSPathType
-from typing_extensions import Annotated, override
+from textual.widgets import LoadingIndicator
+from typing_extensions import Annotated
 
 from bugit_v2.bug_report_submitters.jira_submitter import JiraSubmitter
 from bugit_v2.bug_report_submitters.launchpad_submitter import (
@@ -19,6 +21,7 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
+from bugit_v2.components.header import SimpleHeader
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.app_state import (
     AppContext,
@@ -96,6 +99,11 @@ class BugitApp(App[None]):
     state = var[AppState](RecoverFromAutosaveState(), init=False)
 
     BINDINGS = [Binding("alt+left", "go_back", "Go Back")]
+    CSS = """
+    Center {
+        height: 100%
+    }
+    """
 
     def __init__(
         self,
@@ -202,6 +210,12 @@ class BugitApp(App[None]):
             )
         else:
             self.notify("Already at the beginning")
+
+    @override
+    def compose(self) -> ComposeResult:
+        yield SimpleHeader()
+        with Center():
+            yield LoadingIndicator()
 
 
 @cli_app.command("lp", help="Submit a bug to Launchpad")
