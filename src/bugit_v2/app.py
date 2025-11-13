@@ -216,13 +216,6 @@ class BugitApp(App[None]):
     async def watch_nav_state(self) -> None:
         """Push different screens based on the state"""
 
-        def _write_state(new_state: NavigationState):
-            """a small wrapper for places that only take functions
-
-            :param new_state: the state to write
-            """
-            self.nav_state = new_state
-
         match self.nav_state:
             case ReopenNavigationState():
                 # not used right now
@@ -311,7 +304,7 @@ class BugitApp(App[None]):
                         session.get_run_jobs(),
                         str(os.path.basename(session.session_path)),
                     ),
-                    lambda job_id: _write_state(
+                    lambda job_id: self._write_state(
                         NavigationState(
                             session,
                             job_id,
@@ -335,7 +328,7 @@ class BugitApp(App[None]):
                         [r.full_id for r in checkbox_submission.base.results],
                         checkbox_submission.base.testplan_id,
                     ),
-                    lambda job_id: _write_state(
+                    lambda job_id: self._write_state(
                         NavigationState(
                             session,
                             job_id,
@@ -385,7 +378,7 @@ class BugitApp(App[None]):
                             else init_state
                         ),
                     ),
-                    lambda bug_report_to_submit: _write_state(
+                    lambda bug_report_to_submit: self._write_state(
                         NavigationState(
                             session, job_id, None, bug_report_to_submit
                         )
@@ -503,6 +496,13 @@ class BugitApp(App[None]):
                 raise RuntimeError(
                     f"Impossible state when going back: {self.nav_state}"
                 )
+
+    def _write_state(self, new_state: NavigationState):
+        """a small wrapper for places that only take functions
+
+        :param new_state: the state to write
+        """
+        self.nav_state = new_state
 
 
 @cli_app.command("lp", help="Submit a bug to Launchpad")
