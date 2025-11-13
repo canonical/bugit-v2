@@ -25,19 +25,22 @@ from bugit_v2.models.bug_report import BugReportAutoSaveData
 from bugit_v2.utils import pretty_date
 from bugit_v2.utils.constants import AUTOSAVE_DIR
 
+type SaveType = Literal["session", "submission"]
+
 
 @final
 class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
 
     CSS_PATH = "styles.tcss"
 
-    is_relative = reactive[bool](False, recompose=True)
+    is_relative = reactive[bool](True, recompose=True)
     lock_delete = reactive[bool](True, recompose=True)
     valid_autosave_data: dict[str, BugReportAutoSaveData]
+    save_type: SaveType
 
     def __init__(
         self,
-        save_type: Literal["session", "submission"],
+        save_type: SaveType,
         app_args: AppArgs,
         autosave_dir: Path = AUTOSAVE_DIR,
         name: str | None = None,
@@ -46,6 +49,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
     ) -> None:
         self.autosave_dir = autosave_dir
         self.valid_autosave_data = {}
+        self.save_type = save_type
         # file names are already timestamps, can just use string sort
         for file in sorted(os.listdir(autosave_dir), reverse=True):
             with open(autosave_dir / file) as f:
@@ -87,6 +91,10 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                 yield Label(
                     "These were automatically saved by the bug report editor"
                 )
+                if self.save_type == "submission":
+                    yield Label(
+                        "[$warning]Only the recovery files originated from this checkbox submission are shown"
+                    )
                 yield Rule(classes="m0 boost", line_style="ascii")
                 with HorizontalGroup():
                     yield Checkbox(
