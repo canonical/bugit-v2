@@ -1,23 +1,42 @@
 import abc
 import os
-from typing import Literal, override
+from pathlib import Path
+from typing import Any, Callable, Literal, override
 
 from attr import dataclass
+from textual.screen import Screen
 
+from bugit_v2.bug_report_submitters.bug_report_submitter import (
+    BugReportSubmitter,
+)
 from bugit_v2.checkbox_utils import Session
 from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.models.app_args import AppArgs
-from bugit_v2.models.bug_report import BugReport
-from bugit_v2.screens.submission_progress_screen import RETURN_SCREEN_CHOICES
+from bugit_v2.models.bug_report import (
+    BugReport,
+    BugReportAutoSaveData,
+    recover_from_autosave,
+)
+from bugit_v2.screens.bug_report_screen import BugReportScreen
+from bugit_v2.screens.job_selection_screen import JobSelectionScreen
+from bugit_v2.screens.recover_from_autosave_screen import (
+    RecoverFromAutoSaveScreen,
+)
+from bugit_v2.screens.session_selection_screen import SessionSelectionScreen
+from bugit_v2.screens.submission_progress_screen import (
+    RETURN_SCREEN_CHOICES,
+    SubmissionProgressScreen,
+)
 from bugit_v2.utils.constants import AUTOSAVE_DIR, NullSelection
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True)
 class AppContext(abc.ABC):
     # For session and job_id, None means the user hasn't selected anything
     # but still POSSIBLE to go to a screen that can select them
     # NullSelection means an explicit selection of no session/no job
     args: AppArgs
+    submitter: type[BugReportSubmitter[Any, Any]]
     session: Session | Literal[NullSelection.NO_SESSION] | None = None
     job_id: str | Literal[NullSelection.NO_JOB] | None = None
     # Initial state of the bug report, only used for backup right now
@@ -37,6 +56,9 @@ class AppContext(abc.ABC):
 class AppState(abc.ABC):
     _context: AppContext | None = None
 
+    def __init__(self, context: AppContext | None = None) -> None:
+        self._context = context
+
     @property
     def context(self) -> AppContext:
         assert self._context, "Use before context is assigned"
@@ -48,7 +70,7 @@ class AppState(abc.ABC):
 
     @property
     def name(self) -> str:
-        """Just a name for debugging"""
+        """name used to match this state to a screen"""
         return type(self).__name__
 
     @abc.abstractmethod
@@ -65,13 +87,15 @@ class AppState(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def go_forward[T](
-        self, screen_result: T, expected_result_type: type[T]
-    ) -> "AppState | None":
+    def go_forward(self, screen_result: object) -> "AppState":
         """When the current screen is dismissed
 
         :return: None if there's nowhere to go to, new AppState otherwise
         """
+        pass
+
+    @abc.abstractmethod
+    def get_screen_constructor(self) -> Callable[[], Screen[Any]]:
         pass
 
 
@@ -86,10 +110,22 @@ class RecoverFromAutosaveState(AppState):
         return None
 
     @override
-    def go_forward[T](
-        self, screen_result: T, expected_result_type: type[T]
-    ) -> "AppState | None":
-        return SessionSelectionState()
+    def go_forward(self, screen_result: object) -> "AppState":
+        if screen_result is None:
+            return SessionSelectionState(self.context)
+
+        assert isinstance(screen_result, BugReportAutoSaveData)
+        self.context.bug_report_init_state = recover_from_autosave(
+            screen_result
+        )
+        return ReportEditorState(self.context)
+
+    @override
+    def get_screen_constructor[T](self) -> Callable[[], Screen[Any]]:
+        def c():
+            return RecoverFromAutoSaveScreen()
+
+        return c
 
 
 class SessionSelectionState(AppState):
@@ -111,14 +147,26 @@ class SessionSelectionState(AppState):
     def go_back(self) -> "AppState | None":
         # only possible screen is recovery screen
         if len(os.listdir(AUTOSAVE_DIR)) != 0:
-            return RecoverFromAutosaveState()
+            return RecoverFromAutosaveState(self.context)
 
     @override
-    def go_forward[T](
-        self, screen_result: T, expected_result_type: type[T]
-    ) -> "AppState | None":
+    def go_forward(self, screen_result: object) -> AppState:
         # can either go to job selection or editor
-        pass
+        match screen_result:
+            case NullSelection.NO_SESSION:
+                self.context.session = NullSelection.NO_SESSION
+                return ReportEditorState(self.context)
+            case Path():
+                self.context.session = Session(screen_result)
+                return JobSelectionState(self.context)
+            case _:
+                raise RuntimeError(
+                    f"Unexpected return value from session selection: {screen_result}"
+                )
+
+    @override
+    def get_screen_constructor(self) -> Callable[[], Screen[Any]]:
+        return lambda: SessionSelectionScreen()
 
 
 class JobSelectionState(AppState):
@@ -140,16 +188,41 @@ class JobSelectionState(AppState):
             self.context.checkbox_submission
             != NullSelection.NO_CHECKBOX_SUBMISSION
         ) and len(os.listdir(AUTOSAVE_DIR)) != 0:
-            return RecoverFromAutosaveState()
+            return RecoverFromAutosaveState(self.context)
         else:
-            return SessionSelectionState()
+            return SessionSelectionState(self.context)
 
     @override
-    def go_forward[T](
-        self, screen_result: T, expected_result_type: type[T]
-    ) -> "AppState | None":
+    def go_forward(self, screen_result: object) -> AppState:
         # can either go to job selection or editor
-        return ReportEditorState()
+        assert type(screen_result) is str
+        self.context.job_id = screen_result
+        return ReportEditorState(self.context)
+
+    @override
+    def get_screen_constructor(self) -> Callable[[], Screen[Any]]:
+        match (
+            self.context.session,
+            self.context.checkbox_submission,
+        ):
+            case (
+                Session() as session,
+                NullSelection.NO_CHECKBOX_SUBMISSION,
+            ):
+                return lambda: JobSelectionScreen(
+                    session.get_run_jobs(),
+                    str(session.session_path),
+                )
+            case (
+                NullSelection.NO_SESSION,
+                SimpleCheckboxSubmission() as submission,
+            ):
+                return lambda: JobSelectionScreen(
+                    [r.full_id for r in submission.base.results],
+                    str(submission.submission_path),
+                )
+            case _:
+                raise RuntimeError("Impossible combination")
 
 
 class ReportEditorState(AppState):
@@ -167,12 +240,12 @@ class ReportEditorState(AppState):
             self.context.checkbox_submission,
         ):
             case (
-                NullSelection.NO_SESSION,
-                NullSelection.NO_JOB,
+                NullSelection.NO_SESSION | None,
+                NullSelection.NO_JOB | None,
                 NullSelection.NO_CHECKBOX_SUBMISSION,
             ):
                 # came from nothing => go back to recovery
-                return RecoverFromAutosaveState()
+                return RecoverFromAutosaveState(self.context)
             case (
                 Session(),
                 str(),
@@ -184,17 +257,32 @@ class ReportEditorState(AppState):
             ):
                 # submission and job => back to job selection
                 # selected session and job => go back to job selection
-                return JobSelectionState()
+                return JobSelectionState(self.context)
             case _:
                 raise RuntimeError(
                     f"Impossible context when returning from editor {self.context}"
                 )
 
     @override
-    def go_forward[T](
-        self, screen_result: T, expected_result_type: type[T]
-    ) -> "AppState | None":
-        return SubmissionProgressState()
+    def go_forward(self, screen_result: object) -> AppState:
+        assert isinstance(screen_result, BugReport)
+        self.context.bug_report_to_submit = screen_result
+        return SubmissionProgressState(self.context)
+
+    @override
+    def get_screen_constructor(self) -> Callable[[], Screen[Any]]:
+        return lambda: BugReportScreen(
+            self.context.session or NullSelection.NO_SESSION,
+            self.context.checkbox_submission,
+            self.context.job_id or NullSelection.NO_JOB,
+            self.context.args,
+            (
+                None
+                if self.context.bug_report_init_state
+                == NullSelection.NO_BACKUP
+                else self.context.bug_report_init_state
+            ),
+        )
 
 
 class SubmissionProgressState(AppState):
@@ -207,20 +295,36 @@ class SubmissionProgressState(AppState):
         return None  # don't allow back button during submission
 
     @override
-    def go_forward[T](
-        self, screen_result: T, expected_result_type: type[T]
-    ) -> "AppState | None":
+    def go_forward(self, screen_result: object) -> AppState:
         assert screen_result in RETURN_SCREEN_CHOICES
+        backup = self.context.bug_report_to_submit
+        self.context.bug_report_to_submit = None
         # this is where we get the select a new session/job buttons
         match screen_result:
             case "job":
-                return JobSelectionState()
+                self.context.job_id = None
+                return JobSelectionState(self.context)
             case "quit":
-                return QuitState()
+                return QuitState(self.context)
             case "report_editor":
-                return ReportEditorState()
+                self.context.bug_report_init_state = backup
+                return ReportEditorState(self.context)
             case "session":
-                return SessionSelectionState()
+                self.context.session = None
+                self.context.job_id = None
+                return SessionSelectionState(self.context)
+
+    @override
+    def get_screen_constructor(self) -> Callable[[], Screen[Any]]:
+        def c():
+            assert self.context.bug_report_to_submit
+            return SubmissionProgressScreen(
+                self.context.bug_report_to_submit,
+                self.context.submitter(),
+                self.context.args,
+            )
+
+        return c
 
 
 class QuitState(AppState):
@@ -229,11 +333,13 @@ class QuitState(AppState):
         return None
 
     @override
-    def go_forward[T](
-        self, screen_result: T, expected_result_type: type[T]
-    ) -> "AppState | None":
-        return None
+    def go_forward(self, screen_result: object) -> AppState:
+        return self
 
     @override
     def assertions(self) -> None:
         return None
+
+    @override
+    def get_screen_constructor(self) -> Callable[[], Screen[Any]]:
+        raise RuntimeError("Impossible to construct screen in quit state")
