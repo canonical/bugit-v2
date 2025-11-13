@@ -130,7 +130,7 @@ class RecoverFromAutosaveState(AppState):
         return ReportEditorState(self.context)
 
     @override
-    def get_screen_constructor[T](self) -> Callable[[], Screen[Any]]:
+    def get_screen_constructor(self):
         def c():
             return RecoverFromAutoSaveScreen()
 
@@ -174,7 +174,7 @@ class SessionSelectionState(AppState):
                 )
 
     @override
-    def get_screen_constructor(self) -> Callable[[], Screen[Any]]:
+    def get_screen_constructor(self):
         return lambda: SessionSelectionScreen()
 
 
@@ -209,7 +209,7 @@ class JobSelectionState(AppState):
         return ReportEditorState(self.context)
 
     @override
-    def get_screen_constructor(self) -> Callable[[], Screen[Any]]:
+    def get_screen_constructor(self):
         match (
             self.context.session,
             self.context.checkbox_submission,
@@ -281,7 +281,7 @@ class ReportEditorState(AppState):
         return SubmissionProgressState(self.context)
 
     @override
-    def get_screen_constructor(self) -> Callable[[], Screen[Any]]:
+    def get_screen_constructor(self):
         return lambda: BugReportScreen(
             self.context.session or NullSelection.NO_SESSION,
             self.context.checkbox_submission,
@@ -326,7 +326,7 @@ class SubmissionProgressState(AppState):
                 return SessionSelectionState(self.context)
 
     @override
-    def get_screen_constructor(self) -> Callable[[], Screen[Any]]:
+    def get_screen_constructor(self):
         def c():
             assert self.context.bug_report_to_submit
             return SubmissionProgressScreen(
@@ -352,5 +352,5 @@ class QuitState(AppState):
         return None
 
     @override
-    def get_screen_constructor(self) -> Callable[[], Screen[Any]]:
+    def get_screen_constructor(self):
         raise RuntimeError("Impossible to construct screen in quit state")
