@@ -35,7 +35,6 @@ from bugit_v2.screens.job_selection_screen import JobSelectionScreen
 from bugit_v2.screens.recover_from_autosave_screen import (
     RecoverFromAutoSaveScreen,
 )
-from bugit_v2.screens.reopen_precheck_screen import ReopenPreCheckScreen
 from bugit_v2.screens.session_selection_screen import SessionSelectionScreen
 from bugit_v2.screens.submission_progress_screen import (
     ReturnScreenChoice,
@@ -131,13 +130,12 @@ class ReopenNavigationState:
 
 @final
 class BugitApp(App[None]):
-    nav_state = var[NavigationState | ReopenNavigationState](NavigationState())
+    nav_state = var[NavigationState](NavigationState())
     args: AppArgs
     # Any doesn't matter here
     submitter_class: type[
         BugReportSubmitter[Any, Any]  # pyright: ignore[reportExplicitAny]
     ]
-    partial_bug_report_to_submit_backup: PartialBugReport | None = None
     BINDINGS = [Binding("alt+left", "go_back", "Go Back")]
 
     def __init__(
@@ -217,22 +215,6 @@ class BugitApp(App[None]):
         """Push different screens based on the state"""
 
         match self.nav_state:
-            case ReopenNavigationState():
-                # not used right now
-                if (
-                    b := self.args.bug_to_reopen
-                ) is not None and not ReopenPreCheckScreen.already_checked:
-                    check_result = await self.push_screen_wait(
-                        ReopenPreCheckScreen(self.submitter_class(), self.args)
-                    )
-                    if check_result is True:
-                        self.notify(f"Bug '{b}' exists!")
-                    else:
-                        msg = f"Bug '{b}' doesn't exist or you don't have permission. "
-                        if isinstance(check_result, Exception):
-                            msg += f"Error is: {repr(check_result)}"
-                        self.exit(return_code=1, message=msg)
-
             case NavigationState(
                 session=None,
                 job_id=None,
