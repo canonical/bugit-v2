@@ -272,11 +272,11 @@ class ReportEditorState(AppState):
                 return RecoverFromAutosaveState(self.context)
             case (
                 Session(),
-                str() | NullSelection.NO_JOB,
+                str() | NullSelection.NO_JOB | None,
                 NullSelection.NO_CHECKBOX_SUBMISSION,
             ) | (
                 NullSelection.NO_SESSION,
-                str() | NullSelection.NO_JOB,
+                str() | NullSelection.NO_JOB | None,
                 SimpleCheckboxSubmission(),
             ):
                 # submission and job => back to job selection
@@ -284,7 +284,13 @@ class ReportEditorState(AppState):
                 return JobSelectionState(self.context)
             case _:
                 raise RuntimeError(
-                    f"Impossible context when returning from editor {self.context}"
+                    "Impossible context when returning from editor {}".format(
+                        (
+                            self.context.session,
+                            self.context.job_id,
+                            type(self.context.checkbox_submission),
+                        )
+                    )
                 )
 
     @override
