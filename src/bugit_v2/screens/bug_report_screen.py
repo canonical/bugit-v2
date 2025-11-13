@@ -528,16 +528,7 @@ class BugReportScreen(Screen[BugReport]):
                 # filename is just a unix timestamp in seconds
                 with open(self.autosave_file, "w") as f:
                     report = self._build_bug_report()
-                    d = asdict(report)
-                    # don't save the session object, just the path
-                    if report.checkbox_session:
-                        d["checkbox_session"] = str(
-                            report.checkbox_session.session_path.absolute()
-                        )
-                    if report.checkbox_submission:
-                        d["checkbox_submission"] = str(
-                            report.checkbox_submission.submission_path.absolute()
-                        )
+                    d = asdict(report, dict_factory=BugReport.dict_factory)
                     if self.job_id is NullSelection.NO_JOB:
                         d["job_id"] = None
                     else:
