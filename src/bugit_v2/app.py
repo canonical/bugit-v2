@@ -25,6 +25,7 @@ from bugit_v2.models.app_state import (
     AppState,
     QuitState,
     RecoverFromAutosaveState,
+    SubmissionProgressState,
 )
 from bugit_v2.models.bug_report import PartialBugReport
 from bugit_v2.utils import is_prod, is_snap
@@ -183,15 +184,22 @@ class BugitApp(App[None]):
             case QuitState():
                 self.exit()
             case _:
-                print(self.state)
-                result = await self.push_screen_wait(
-                    self.state.get_screen_constructor()()
+                self.state = self.state.go_forward(
+                    # never used anywhere else
+                    # Any is ok
+                    await self.push_screen_wait(  # pyright: ignore[reportAny]
+                        self.state.get_screen_constructor()()
+                    )
                 )
-                self.state = self.state.go_forward(result)
 
     def action_go_back(self):
         if (next_state := self.state.go_back()) is not None:
             self.state = next_state
+        elif isinstance(self.state, SubmissionProgressState):
+            self.notify(
+                title="Cannot go back while a submission is happening",
+                message="But you can force quit with Ctrl+Q",
+            )
         else:
             self.notify("Already at the beginning")
 
