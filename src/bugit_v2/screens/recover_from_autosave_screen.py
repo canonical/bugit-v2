@@ -46,9 +46,10 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
         for file in sorted(os.listdir(autosave_dir), reverse=True):
             with open(autosave_dir / file) as f:
                 try:
-                    self.valid_autosave_data[file] = (
-                        BugReportAutoSaveData.model_validate_json(f.read())
+                    autosave = BugReportAutoSaveData.model_validate_json(
+                        f.read()
                     )
+                    self.valid_autosave_data[file] = autosave
                 except pydantic.ValidationError as e:
                     self.log.error(e)
 
@@ -147,6 +148,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
 
     def _button_text(self, filename: str) -> Content:
         assert filename in self.valid_autosave_data
+        autosave = self.valid_autosave_data[filename]
         lines: list[str] = []
         if self.is_relative:
             lines.append(
@@ -165,12 +167,14 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                 ).strftime("%Y-%m-%dT%H:%M:%SZ"),
             )
 
-        if session_path := self.valid_autosave_data[filename].checkbox_session:
+        if session_path := autosave.checkbox_session:
             lines.append(f"[grey]{os.path.basename(session_path)}")
+        elif checkbox_submission_path := autosave.checkbox_submission:
+            lines.append(f"[grey]{os.path.basename(checkbox_submission_path)}")
         else:
             lines.append("[i][grey]No session selected")
 
-        if job_id := self.valid_autosave_data[filename].job_id:
+        if job_id := autosave.job_id:
             lines.append(f"[grey]{job_id}")
         else:
             lines.append("[i][grey]No job selected")

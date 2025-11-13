@@ -238,16 +238,39 @@ class BugitApp(App[None]):
                 job_id=None,
                 bug_report_to_submit=None,
                 bug_report_init_state=None,
-                checkbox_submission=checkbox_submission,
+                checkbox_submission=NullSelection.NO_CHECKBOX_SUBMISSION as cbs,
+            ) | NavigationState(
+                session=NullSelection.NO_SESSION,
+                job_id=None,
+                bug_report_to_submit=None,
+                bug_report_init_state=None,
+                checkbox_submission=SimpleCheckboxSubmission() as cbs,
             ):
                 # show the recovery screen if there's no backup
                 recovery_file = await self.push_screen_wait(
                     RecoverFromAutoSaveScreen(AUTOSAVE_DIR)
                 )
+
                 if recovery_file is None:
-                    self.nav_state = NavigationState(
-                        None, None, NullSelection.NO_BACKUP, None
-                    )
+                    # no recoverable file
+                    if cbs == NullSelection.NO_CHECKBOX_SUBMISSION:
+                        # didn't start with a submission, go to session selection
+                        self.nav_state = NavigationState(
+                            None,
+                            None,
+                            NullSelection.NO_BACKUP,
+                            None,
+                            cbs,
+                        )
+                    else:
+                        self.nav_state = NavigationState(
+                            NullSelection.NO_SESSION,
+                            None,
+                            NullSelection.NO_BACKUP,
+                            None,
+                            cbs,
+                        )
+
                     return
 
                 recovered_report = recover_from_autosave(recovery_file)
@@ -258,7 +281,7 @@ class BugitApp(App[None]):
                     recovery_file.job_id or NullSelection.NO_JOB,
                     recovered_report,
                     None,
-                    checkbox_submission,
+                    cbs,
                 )
 
             case NavigationState(
@@ -682,6 +705,10 @@ def jira_mode(
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
 ):
     sudo_devmode_check()
+
+    if checkbox_submission:
+        print(f"Decompressing checkbox submission at {checkbox_submission}")
+
     cbs = checkbox_submission_check(checkbox_submission)
 
     BugitApp(
