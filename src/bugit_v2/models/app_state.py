@@ -199,12 +199,16 @@ class JobSelectionState(AppState):
         ) and len(os.listdir(AUTOSAVE_DIR)) != 0:
             return RecoverFromAutosaveState(self.context)
         else:
+            self.context.job_id = None
+            self.context.session = None
             return SessionSelectionState(self.context)
 
     @override
     def go_forward(self, screen_result: object) -> AppState:
         # can either go to job selection or editor
-        assert type(screen_result) is str
+        assert (type(screen_result) is str) or (
+            screen_result is NullSelection.NO_JOB
+        )
         self.context.job_id = screen_result
         return ReportEditorState(self.context)
 
@@ -259,11 +263,11 @@ class ReportEditorState(AppState):
                 return RecoverFromAutosaveState(self.context)
             case (
                 Session(),
-                str(),
+                str() | NullSelection.NO_JOB,
                 NullSelection.NO_CHECKBOX_SUBMISSION,
             ) | (
                 NullSelection.NO_SESSION,
-                str(),
+                str() | NullSelection.NO_JOB,
                 SimpleCheckboxSubmission(),
             ):
                 # submission and job => back to job selection
