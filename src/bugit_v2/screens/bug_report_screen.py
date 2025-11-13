@@ -256,7 +256,7 @@ class BugReportScreen(Screen[BugReport]):
                 yield Label(f"- Test Plan: {self.session.testplan_id}")
             elif (
                 self.checkbox_submission
-                != NullSelection.NO_CHECKBOX_SUBMISSION
+                is not NullSelection.NO_CHECKBOX_SUBMISSION
             ):
                 yield Label(
                     f"- Test Plan: {self.checkbox_submission.base.testplan_id}"
@@ -643,7 +643,7 @@ class BugReportScreen(Screen[BugReport]):
             checkbox_submission=(
                 None
                 if self.checkbox_submission
-                == NullSelection.NO_CHECKBOX_SUBMISSION
+                is NullSelection.NO_CHECKBOX_SUBMISSION
                 else self.checkbox_submission
             ),
             description=self.query_exactly_one(

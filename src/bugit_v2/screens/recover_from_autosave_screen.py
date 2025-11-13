@@ -1,7 +1,7 @@
 import datetime
 import os
 from pathlib import Path
-from typing import final, override
+from typing import Literal, final, override
 
 import pydantic
 from textual import on
@@ -18,7 +18,9 @@ from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Button, Checkbox, Footer, Label, Rule
 
+from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.components.header import SimpleHeader
+from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import BugReportAutoSaveData
 from bugit_v2.utils import pretty_date
 from bugit_v2.utils.constants import AUTOSAVE_DIR
@@ -35,6 +37,8 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
 
     def __init__(
         self,
+        save_type: Literal["session", "submission"],
+        app_args: AppArgs,
         autosave_dir: Path = AUTOSAVE_DIR,
         name: str | None = None,
         id: str | None = None,
@@ -49,7 +53,22 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                     autosave = BugReportAutoSaveData.model_validate_json(
                         f.read()
                     )
-                    self.valid_autosave_data[file] = autosave
+                    match (
+                        save_type,
+                        autosave.checkbox_submission,
+                        app_args.checkbox_submission,
+                    ):
+                        case ("session", None, _):
+                            self.valid_autosave_data[file] = autosave
+                        case (
+                            "submission",
+                            Path() as p,
+                            SimpleCheckboxSubmission() as cbs,
+                        ):
+                            if cbs.submission_path == p:
+                                self.valid_autosave_data[file] = autosave
+                        case _:
+                            pass
                 except pydantic.ValidationError as e:
                     self.log.error(e)
 

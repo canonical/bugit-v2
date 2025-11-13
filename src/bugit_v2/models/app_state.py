@@ -113,7 +113,6 @@ class RecoverFromAutosaveState(AppState):
 
     @override
     def go_forward(self, screen_result: object) -> AppState:
-        print(screen_result, type(self.context.checkbox_submission))
         if screen_result is None:
             if (
                 self.context.checkbox_submission
@@ -132,7 +131,15 @@ class RecoverFromAutosaveState(AppState):
     @override
     def get_screen_constructor(self):
         def c():
-            return RecoverFromAutoSaveScreen()
+            if (
+                self.context.args.checkbox_submission
+                is not NullSelection.NO_CHECKBOX_SUBMISSION
+            ):
+                return RecoverFromAutoSaveScreen(
+                    "submission", self.context.args
+                )
+            else:
+                return RecoverFromAutoSaveScreen("session", self.context.args)
 
         return c
 
@@ -195,7 +202,7 @@ class JobSelectionState(AppState):
         # then we definitely came from the recovery screen
         if (
             self.context.checkbox_submission
-            != NullSelection.NO_CHECKBOX_SUBMISSION
+            is not NullSelection.NO_CHECKBOX_SUBMISSION
         ) and len(os.listdir(AUTOSAVE_DIR)) != 0:
             return RecoverFromAutosaveState(self.context)
         else:
