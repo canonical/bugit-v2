@@ -7,6 +7,7 @@ import pydantic
 
 from bugit_v2.checkbox_utils.submission_extractor import read_simple_submission
 from bugit_v2.utils import is_snap
+from bugit_v2.utils.constants import NullSelection
 
 
 def bugit_is_in_devmode() -> bool:
@@ -54,7 +55,7 @@ def checkbox_submission_check(checkbox_submission: Path | None):
     :return: None if no path, SimpleCheckboxSubmission if validation passed
     """
     if not checkbox_submission:
-        return None
+        return NullSelection.NO_CHECKBOX_SUBMISSION
     try:
         return read_simple_submission(checkbox_submission)
     except pydantic.ValidationError as e:

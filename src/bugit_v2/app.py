@@ -118,7 +118,17 @@ class BugitApp(App[None]):
                     LaunchpadSubmitter if is_prod() else MockLaunchpadSubmitter
                 )
 
-        self.state.context = AppContext(args, submitter_class)
+        self.state.context = AppContext(
+            args,
+            submitter_class,
+            session=(
+                None
+                if args.checkbox_submission
+                == NullSelection.NO_CHECKBOX_SUBMISSION
+                else NullSelection.NO_SESSION
+            ),
+            checkbox_submission=args.checkbox_submission,
+        )
 
     @work(thread=True)
     def on_mount(self) -> None:
@@ -257,7 +267,7 @@ def launchpad_mode(
     BugitApp(
         AppArgs(
             submitter="lp",
-            checkbox_submission=None,
+            checkbox_submission=NullSelection.NO_CHECKBOX_SUBMISSION,
             bug_to_reopen=None,
             cid=cid,
             sku=sku,

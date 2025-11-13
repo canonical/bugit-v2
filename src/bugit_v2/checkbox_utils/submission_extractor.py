@@ -15,8 +15,8 @@ def read_simple_submission(submission_path: Path) -> SimpleCheckboxSubmission:
             json_io_reader
         ), f"submission.json does not exist in {submission_path}"
         return SimpleCheckboxSubmission(
+            submission_path,
             BaseSimpleCheckboxSubmission.model_validate(
                 json.load(json_io_reader), extra="allow"
             ),
-            submission_path,
         )

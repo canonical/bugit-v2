@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Literal, override
 
-from attr import dataclass
+from attr import dataclass, field
 from textual.screen import Screen
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
@@ -37,7 +37,9 @@ class AppContext(abc.ABC):
     # NullSelection means an explicit selection of no session/no job
     args: AppArgs
     submitter: type[BugReportSubmitter[Any, Any]]
-    session: Session | Literal[NullSelection.NO_SESSION] | None = None
+    session: Session | Literal[NullSelection.NO_SESSION] | None = field(
+        default=None, repr=False
+    )
     job_id: str | Literal[NullSelection.NO_JOB] | None = None
     # Initial state of the bug report, only used for backup right now
     bug_report_init_state: (
@@ -50,7 +52,7 @@ class AppContext(abc.ABC):
     checkbox_submission: (
         SimpleCheckboxSubmission
         | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
-    ) = NullSelection.NO_CHECKBOX_SUBMISSION
+    ) = field(default=NullSelection.NO_CHECKBOX_SUBMISSION, repr=False)
 
 
 class AppState(abc.ABC):
@@ -110,9 +112,16 @@ class RecoverFromAutosaveState(AppState):
         return None
 
     @override
-    def go_forward(self, screen_result: object) -> "AppState":
+    def go_forward(self, screen_result: object) -> AppState:
+        print(screen_result, type(self.context.checkbox_submission))
         if screen_result is None:
-            return SessionSelectionState(self.context)
+            if (
+                self.context.checkbox_submission
+                == NullSelection.NO_CHECKBOX_SUBMISSION
+            ):
+                return SessionSelectionState(self.context)
+            else:
+                return JobSelectionState(self.context)
 
         assert isinstance(screen_result, BugReportAutoSaveData)
         self.context.bug_report_init_state = recover_from_autosave(
@@ -222,7 +231,9 @@ class JobSelectionState(AppState):
                     str(submission.submission_path),
                 )
             case _:
-                raise RuntimeError("Impossible combination")
+                raise RuntimeError(
+                    f"Impossible combination: ({type(self.context.session)}, {type(self.context.checkbox_submission)})"
+                )
 
 
 class ReportEditorState(AppState):
