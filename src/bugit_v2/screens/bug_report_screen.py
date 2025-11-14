@@ -573,6 +573,13 @@ class BugReportScreen(Screen[BugReport]):
         # since the values in self.initial_report is only used when there's no
         # existing report
         machine_info = cast(dict[str, str], event.worker.result)
+        self.initial_report["Additional Information"] = "\n".join(
+            [
+                f"CID: {self.app_args.cid or ''}",
+                f"SKU: {self.app_args.sku or ''}",
+                *(f"{k}: {v}" for k, v in machine_info.items()),
+            ]
+        )
 
         if self.existing_report is None:
             # only overwrite the textarea if there's no existing report

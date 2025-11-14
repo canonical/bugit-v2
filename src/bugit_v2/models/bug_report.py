@@ -94,14 +94,13 @@ class BugReport:
 
     @staticmethod
     def dict_factory(x: list[tuple[str, Any]]) -> dict[str, Any]:
-        # exclude_fields = ("shape", )
-        # return {k: v for (k, v) in x if ((v is not None) and (k not in exclude_fields))}
         o = {}
         for k, v in x:
             if k == "checkbox_submission":
                 if v is None:
                     o[k] = None
                 # dataclass already converted into dict
+                assert type(v) is dict
                 o[k] = str(v["submission_path"].absolute())
             elif k == "checkbox_session":
                 if isinstance(v, Session):
