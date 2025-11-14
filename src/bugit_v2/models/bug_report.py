@@ -125,6 +125,7 @@ class PartialBugReport:
     issue_file_time: IssueFileTime
     # optionals
     checkbox_session: Session | None
+    checkbox_submission: SimpleCheckboxSubmission | None
     assignee: str | None = None  # appear as unassigned if None
     platform_tags: Sequence[str] = field(default_factory=list[str])
     additional_tags: Sequence[str] = field(default_factory=list[str])
