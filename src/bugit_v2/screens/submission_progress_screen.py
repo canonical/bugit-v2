@@ -535,15 +535,19 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                 yield Center(Label(classes="wa", id="finish_message"))
                 with Center():
                     with HorizontalGroup(classes="wa center"):
-                        if self.bug_report.checkbox_session is not None:
+                        if self.bug_report.checkbox_session:
+                            yield Button(
+                                "Select another session",
+                                classes="mr1",
+                                id="session",
+                            )
                             yield Button(
                                 "Select another job", classes="mr1", id="job"
                             )
-                        yield Button(
-                            "Select another session",
-                            classes="mr1",
-                            id="session",
-                        )
+                        if self.bug_report.checkbox_submission:
+                            yield Button(
+                                "Select another job", classes="mr1", id="job"
+                            )
                         yield Button("Quit", id="quit")
 
             yield Footer()

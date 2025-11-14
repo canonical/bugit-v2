@@ -34,6 +34,7 @@ from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
 from bugit_v2.checkbox_utils import Session
+from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.description_editor import DescriptionEditor
 from bugit_v2.components.header import SimpleHeader
@@ -98,6 +99,10 @@ class NonEmpty(Validator):
 @final
 class BugReportScreen(Screen[BugReport]):
     session: Final[Session | Literal[NullSelection.NO_SESSION]]
+    checkbox_submission: Final[
+        SimpleCheckboxSubmission
+        | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
+    ]
     job_id: Final[str | Literal[NullSelection.NO_JOB]]
     existing_report: Final[BugReport | None]
     app_args: Final[AppArgs]
@@ -105,6 +110,8 @@ class BugReportScreen(Screen[BugReport]):
     # id should match the property name in the BugReport object
     # TODO: rename this, it does more than just holding titles now
     elem_id_to_border_title: Final[Mapping[str, tuple[str, str]]]
+    # Is the device where bugit is running on the one we want to open bugs for?
+    dut_is_report_target: Final[bool]
 
     initial_report: dict[str, str]
 
@@ -155,9 +162,14 @@ class BugReportScreen(Screen[BugReport]):
     def __init__(
         self,
         session: Session | Literal[NullSelection.NO_SESSION],
+        checkbox_submission: (
+            SimpleCheckboxSubmission
+            | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
+        ),
         job_id: str | Literal[NullSelection.NO_JOB],
         app_args: AppArgs,
         existing_report: BugReport | None = None,
+        dut_is_report_target: bool = True,
         # ---
         name: str | None = None,
         id: str | None = None,
@@ -165,9 +177,11 @@ class BugReportScreen(Screen[BugReport]):
     ) -> None:
         super().__init__(name, id, classes)
         self.session = session
+        self.checkbox_submission = checkbox_submission
         self.job_id = job_id
         self.existing_report = existing_report
         self.app_args = app_args
+        self.dut_is_report_target = dut_is_report_target
 
         self.autosave_file = AUTOSAVE_DIR / (str(int(time.time())) + ".json")
 
@@ -205,33 +219,40 @@ class BugReportScreen(Screen[BugReport]):
             "Additional Information": "",
         }
 
-        if session == NullSelection.NO_SESSION:
-            return
-
-        if job_id == NullSelection.NO_JOB:
+        if job_id is NullSelection.NO_JOB:
             return
 
         self.initial_report["Affected Test Cases"] = job_id
-        job_output = session.get_job_output(job_id)
-        if job_output is None:
-            self.initial_report["Job Output"] = (
-                "No output was found for this job"
-            )
-            return
 
-        # add an empty string at the end for a new line
-        lines: list[str] = []
-        for k in ("stdout", "stderr", "comments"):
-            lines.extend(
-                [
-                    k,
-                    "------",
-                    job_output[k] or f"No {k} were found for this job",
-                    "",
-                ]
-            )
+        if session is not NullSelection.NO_SESSION:
+            job_output = session.get_job_output(job_id)
+            if job_output is None:
+                self.initial_report["Job Output"] = (
+                    "No output was found for this job"
+                )
+                return
 
-        self.initial_report["Job Output"] = "\n".join(lines)
+            # add an empty string at the end for a new line
+            lines: list[str] = []
+            for k in ("stdout", "stderr", "comments"):
+                lines.extend(
+                    [
+                        k,
+                        "------",
+                        job_output[k] or f"No {k} were found for this job",
+                        "",
+                    ]
+                )
+
+            self.initial_report["Job Output"] = "\n".join(lines)
+        elif checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION:
+            job_output = checkbox_submission.get_job_output(job_id)
+            if not job_output:  # can be empty string
+                self.initial_report["Job Output"] = (
+                    "No output was found for this job"
+                )
+                return
+            self.initial_report["Job Output"] = job_output
 
     @override
     def compose(self) -> ComposeResult:
@@ -242,12 +263,21 @@ class BugReportScreen(Screen[BugReport]):
             classes="nb",
             id="bug_report_metadata_header",
         ):
-            if self.session == NullSelection.NO_SESSION:
-                yield Label("- [$warning-darken-2]No session selected")
-            else:
+            if self.session != NullSelection.NO_SESSION:
                 yield Label(f"- Test Plan: {self.session.testplan_id}")
+            elif (
+                self.checkbox_submission
+                is not NullSelection.NO_CHECKBOX_SUBMISSION
+            ):
+                yield Label(
+                    f"- Test Plan: {self.checkbox_submission.base.testplan_id}"
+                )
+            else:
+                yield Label(
+                    "- [$warning-darken-2]No session/submission selected"
+                )
 
-            if self.job_id == NullSelection.NO_JOB:
+            if self.job_id is NullSelection.NO_JOB:
                 yield Label("- [$warning-darken-2]No job selected")
             else:
                 yield Label(f"- Job ID: {self.job_id}")
@@ -330,7 +360,7 @@ class BugReportScreen(Screen[BugReport]):
                         classes="default_box",
                     )
 
-                    if self.session == NullSelection.NO_SESSION:
+                    if self.session is NullSelection.NO_SESSION:
                         # don't even include the session collector if there's no session
                         collectors = [
                             c
@@ -509,20 +539,15 @@ class BugReportScreen(Screen[BugReport]):
                 # filename is just a unix timestamp in seconds
                 with open(self.autosave_file, "w") as f:
                     report = self._build_bug_report()
-                    d = asdict(report)
-                    # don't save the session object, just the path
-                    if report.checkbox_session:
-                        d["checkbox_session"] = str(
-                            report.checkbox_session.session_path.absolute()
-                        )
-                    if self.job_id == NullSelection.NO_JOB:
+                    d = asdict(report, dict_factory=BugReport.dict_factory)
+                    if self.job_id is NullSelection.NO_JOB:
                         d["job_id"] = None
                     else:
                         d["job_id"] = self.job_id
                     json.dump(d, f)
                 label.update("[green]Progress Saved")
             except Exception as e:
-                label.update(f"[red]Autosave failed! {e}")
+                label.update(f"[red]Autosave failed! {repr(e)}")
 
         # run auto save 1 second after the user stops typing
         self._debounce(lambda: self.run_worker(f, thread=True), 1)()
@@ -541,7 +566,7 @@ class BugReportScreen(Screen[BugReport]):
             return
 
         textarea = self.query_exactly_one("#description", DescriptionEditor)
-        textarea.disabled = False
+        textarea.disabled = False  # unlock asap
 
         if event.worker.state != WorkerState.SUCCESS:
             self.notify(
@@ -614,8 +639,14 @@ class BugReportScreen(Screen[BugReport]):
             title=self.query_exactly_one("#title", Input).value.strip(),
             checkbox_session=(
                 None
-                if self.session == NullSelection.NO_SESSION
+                if self.session is NullSelection.NO_SESSION
                 else self.session
+            ),
+            checkbox_submission=(
+                None
+                if self.checkbox_submission
+                is NullSelection.NO_CHECKBOX_SUBMISSION
+                else self.checkbox_submission
             ),
             description=self.query_exactly_one(
                 "#description", DescriptionEditor

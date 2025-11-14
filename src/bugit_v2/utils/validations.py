@@ -1,8 +1,13 @@
 import os
 import re
 import subprocess as sp
+from pathlib import Path
 
+import pydantic
+
+from bugit_v2.checkbox_utils.submission_extractor import read_simple_submission
 from bugit_v2.utils import is_snap
+from bugit_v2.utils.constants import NullSelection
 
 
 def bugit_is_in_devmode() -> bool:
@@ -24,8 +29,8 @@ def bugit_is_in_devmode() -> bool:
     return False
 
 
-def before_entry_check():
-    """Runs the checks necessary for all the commands provided by the snap
+def sudo_devmode_check():
+    """Check for sudo and --devmode
 
     :raises SystemExit: Not using sudo
     :raises SystemExit: Not installed with --devmode
@@ -37,6 +42,24 @@ def before_entry_check():
         raise SystemExit(
             "Bugit is not installed in devmode. Please reinstall with --devmode specified."
         )
+
+
+def checkbox_submission_check(checkbox_submission: Path | None):
+    """Small wrapper over read_simple_submission to raise system exist instead
+    of a huge call trace
+
+    This is only intended to be used at the beginning of the app
+
+    :param checkbox_submission: path to the submission file
+    :raises SystemExit: when the file is invalid.
+    :return: None if no path, SimpleCheckboxSubmission if validation passed
+    """
+    if not checkbox_submission:
+        return NullSelection.NO_CHECKBOX_SUBMISSION
+    try:
+        return read_simple_submission(checkbox_submission)
+    except pydantic.ValidationError as e:
+        raise SystemExit(f"Broken checkbox submission. Reason: {e}")
 
 
 def is_cid(cid: str) -> bool:

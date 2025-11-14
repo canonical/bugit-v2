@@ -1,20 +1,19 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, final
+from typing import Literal, final, override
 
 import typer
 from textual import work
-from textual.app import App
+from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.containers import Center
 from textual.content import Content
 from textual.driver import Driver
 from textual.reactive import var
 from textual.types import CSSPathType
-from typing_extensions import Annotated, override
+from textual.widgets import LoadingIndicator
+from typing_extensions import Annotated
 
-from bugit_v2.bug_report_submitters.bug_report_submitter import (
-    BugReportSubmitter,
-)
 from bugit_v2.bug_report_submitters.jira_submitter import JiraSubmitter
 from bugit_v2.bug_report_submitters.launchpad_submitter import (
     LaunchpadSubmitter,
@@ -22,27 +21,23 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils import Session, get_checkbox_version
+from bugit_v2.components.header import SimpleHeader
 from bugit_v2.models.app_args import AppArgs
-from bugit_v2.models.bug_report import (
-    BugReport,
-    PartialBugReport,
-    recover_from_autosave,
+from bugit_v2.models.app_state import (
+    AppContext,
+    AppState,
+    QuitState,
+    RecoverFromAutosaveState,
+    SubmissionProgressState,
 )
-from bugit_v2.screens.bug_report_screen import BugReportScreen
-from bugit_v2.screens.job_selection_screen import JobSelectionScreen
-from bugit_v2.screens.recover_from_autosave_screen import (
-    RecoverFromAutoSaveScreen,
-)
-from bugit_v2.screens.reopen_bug_editor_screen import ReopenBugEditorScreen
-from bugit_v2.screens.reopen_precheck_screen import ReopenPreCheckScreen
-from bugit_v2.screens.session_selection_screen import SessionSelectionScreen
-from bugit_v2.screens.submission_progress_screen import (
-    ReturnScreenChoice,
-    SubmissionProgressScreen,
-)
+from bugit_v2.models.bug_report import PartialBugReport
 from bugit_v2.utils import is_prod, is_snap
-from bugit_v2.utils.constants import AUTOSAVE_DIR, NullSelection
-from bugit_v2.utils.validations import before_entry_check, is_cid
+from bugit_v2.utils.constants import NullSelection
+from bugit_v2.utils.validations import (
+    checkbox_submission_check,
+    is_cid,
+    sudo_devmode_check,
+)
 
 cli_app = typer.Typer(
     help="Bugit is a tool for creating bug reports on Launchpad and Jira",
@@ -91,21 +86,6 @@ def assignee_str_check(value: str | None) -> str | None:
 
 
 @dataclass(slots=True, frozen=True)
-class NavigationState:
-    """
-    The global state for navigation. Check the watch_state function to see all possible
-    state combinations
-    """
-
-    session: Session | Literal[NullSelection.NO_SESSION] | None = None
-    job_id: str | Literal[NullSelection.NO_JOB] | None = None
-    bug_report_init_state: (
-        BugReport | Literal[NullSelection.NO_BACKUP] | None
-    ) = None
-    bug_report_to_submit: BugReport | None = None
-
-
-@dataclass(slots=True, frozen=True)
 class ReopenNavigationState:
     session: Session | Literal[NullSelection.NO_SESSION] | None = None
     job_id: str | Literal[NullSelection.NO_JOB] | None = None
@@ -115,15 +95,15 @@ class ReopenNavigationState:
 
 @final
 class BugitApp(App[None]):
-    nav_state = var[NavigationState | ReopenNavigationState](NavigationState())
-    args: AppArgs
-    # Any doesn't matter here
-    submitter_class: type[
-        BugReportSubmitter[Any, Any]  # pyright: ignore[reportExplicitAny]
-    ]
-    # bug_report_backup: BugReport | None = None
-    partial_bug_report_to_submit_backup: PartialBugReport | None = None
+
+    state = var[AppState](RecoverFromAutosaveState(), init=False)
+
     BINDINGS = [Binding("alt+left", "go_back", "Go Back")]
+    CSS = """
+    #spinner_wrapper {
+        height: 100%
+    }
+    """
 
     def __init__(
         self,
@@ -133,18 +113,31 @@ class BugitApp(App[None]):
         watch_css: bool = False,
         ansi_color: bool = False,
     ):
+        super().__init__(driver_class, css_path, watch_css, ansi_color)
+
         self.args = args
+
         match args.submitter:
             case "jira":
-                self.submitter_class = (
+                submitter_class = (
                     JiraSubmitter if is_prod() else MockJiraSubmitter
                 )
             case "lp":
-                self.submitter_class = (
+                submitter_class = (
                     LaunchpadSubmitter if is_prod() else MockLaunchpadSubmitter
                 )
 
-        super().__init__(driver_class, css_path, watch_css, ansi_color)
+        self.state.context = AppContext(
+            args,
+            submitter_class,
+            session=(
+                None
+                if args.checkbox_submission
+                is NullSelection.NO_CHECKBOX_SUBMISSION
+                else NullSelection.NO_SESSION
+            ),
+            checkbox_submission=args.checkbox_submission,
+        )
 
     @work(thread=True)
     def on_mount(self) -> None:
@@ -158,6 +151,8 @@ class BugitApp(App[None]):
         # 1st use after reboot
         if (version := get_checkbox_version()) is not None:
             self.sub_title = f"Checkbox {version}"
+
+        self.call_after_refresh(self.watch_state)
 
     @override
     def format_title(self, title: str, sub_title: str) -> Content:
@@ -191,259 +186,36 @@ class BugitApp(App[None]):
             super()._handle_exception(error)
 
     @work
-    async def watch_nav_state(self) -> None:
-        """Push different screens based on the state"""
-        print(self.nav_state)
-
-        def _write_state(new_state: NavigationState):
-            self.nav_state = new_state
-
-        def _pick_editor(
-            session: Session | Literal[NullSelection.NO_SESSION],
-            job_id: str | Literal[NullSelection.NO_JOB],
-        ):
-            return (
-                ReopenBugEditorScreen(
-                    session,
-                    job_id,
-                    self.args,
-                    self.partial_bug_report_to_submit_backup,
+    async def watch_state(self):
+        self.state.assertions()
+        match self.state:
+            case QuitState():
+                self.exit()
+            case _:
+                self.state = self.state.go_forward(
+                    # never used anywhere else
+                    # Any is ok
+                    await self.push_screen_wait(  # pyright: ignore[reportAny]
+                        self.state.get_screen_constructor()()
+                    )
                 )
-                if self.args.bug_to_reopen
-                else BugReportScreen(
-                    session,
-                    job_id,
-                    self.args,
-                    # self.bug_report_to_submit_backup,
-                )
+
+    def action_go_back(self):
+        if (next_state := self.state.go_back()) is not None:
+            self.state = next_state
+        elif isinstance(self.state, SubmissionProgressState):
+            self.notify(
+                title="Cannot go back while a submission is happening",
+                message="But you can force quit with Ctrl+Q",
             )
+        else:
+            self.notify("Already at the beginning")
 
-        match self.nav_state:
-            case ReopenNavigationState():
-                # not used right now
-                if (
-                    b := self.args.bug_to_reopen
-                ) is not None and not ReopenPreCheckScreen.already_checked:
-                    check_result = await self.push_screen_wait(
-                        ReopenPreCheckScreen(self.submitter_class(), self.args)
-                    )
-                    if check_result is True:
-                        self.notify(f"Bug '{b}' exists!")
-                    else:
-                        msg = f"Bug '{b}' doesn't exist or you don't have permission. "
-                        if isinstance(check_result, Exception):
-                            msg += f"Error is: {repr(check_result)}"
-                        self.exit(return_code=1, message=msg)
-
-            case NavigationState(
-                session=None,
-                job_id=None,
-                bug_report_to_submit=None,
-                bug_report_init_state=None,
-            ):
-                # show the recovery screen if there's no backup
-                recovery_file = await self.push_screen_wait(
-                    RecoverFromAutoSaveScreen(AUTOSAVE_DIR)
-                )
-                if recovery_file is None:
-                    self.nav_state = NavigationState(
-                        None, None, NullSelection.NO_BACKUP, None
-                    )
-                    return
-
-                recovered_report = recover_from_autosave(recovery_file)
-                # trigger this watcher again to actually go to the editor page
-                self.nav_state = NavigationState(
-                    recovered_report.checkbox_session
-                    or NullSelection.NO_SESSION,
-                    recovery_file.job_id or NullSelection.NO_JOB,
-                    recovered_report,
-                )
-
-            case NavigationState(
-                session=None,
-                job_id=None,
-                bug_report_to_submit=None,
-                bug_report_init_state=NullSelection.NO_BACKUP,
-            ):
-
-                def after_session_select(
-                    rv: Path | Literal[NullSelection.NO_SESSION] | None,
-                ):
-                    print(rv)
-                    match rv:
-                        case Path():
-                            self.nav_state = NavigationState(Session(rv))
-                        case NullSelection.NO_SESSION:
-                            self.nav_state = NavigationState(
-                                rv,
-                                NullSelection.NO_JOB,
-                                NullSelection.NO_BACKUP,
-                            )
-                        case None:
-                            raise RuntimeError(
-                                "Session selection should not return None"
-                            )
-
-                self.push_screen(
-                    SessionSelectionScreen(), after_session_select
-                )
-
-            case NavigationState(
-                session=Session() as session,
-                job_id=None,
-                bug_report_to_submit=None,
-                bug_report_init_state=None
-                | NullSelection.NO_BACKUP,  # job selection is only possible without init value
-            ):
-                # selected a normal session, should go to job selection
-                self.push_screen(
-                    JobSelectionScreen(session),
-                    lambda job_id: _write_state(
-                        NavigationState(
-                            session, job_id, NullSelection.NO_BACKUP
-                        )
-                    ),
-                )
-
-            case (
-                NavigationState(
-                    session=NullSelection.NO_SESSION as session,
-                    job_id=NullSelection.NO_JOB as job_id,
-                    bug_report_to_submit=None,
-                    bug_report_init_state=BugReport()
-                    | NullSelection.NO_BACKUP as init_state,
-                )
-                | NavigationState(
-                    session=Session() as session,
-                    job_id=NullSelection.NO_JOB as job_id,
-                    bug_report_to_submit=None,
-                    bug_report_init_state=BugReport()
-                    | NullSelection.NO_BACKUP as init_state,
-                )
-                | NavigationState(
-                    session=Session() as session,
-                    job_id=str() as job_id,
-                    bug_report_to_submit=None,
-                    bug_report_init_state=BugReport()
-                    | NullSelection.NO_BACKUP as init_state,
-                )
-            ):
-                # normal case, session and job_id were selected
-                # go to editor with info
-                self.push_screen(
-                    BugReportScreen(
-                        session,
-                        job_id,
-                        self.args,
-                        (
-                            None
-                            if init_state == NullSelection.NO_BACKUP
-                            else init_state
-                        ),
-                    ),
-                    lambda bug_report_to_submit: _write_state(
-                        NavigationState(
-                            session, job_id, None, bug_report_to_submit
-                        )
-                    ),
-                )
-            case NavigationState(
-                session=Session() | NullSelection.NO_SESSION as session,
-                job_id=str() | NullSelection.NO_JOB as job_id,
-                bug_report_to_submit=BugReport() as report,
-            ):
-                # returning from the end of submission screen
-                # handle the button selections
-                def after_submission_finished(
-                    return_screen: ReturnScreenChoice | None,
-                ):
-                    # already submitted, flush the stale backup
-                    match return_screen:
-                        case None:
-                            raise RuntimeError(
-                                "Submission screen should not return None"
-                            )
-                        case "quit":
-                            self.exit()
-                        case "session":
-                            self.nav_state = NavigationState()
-                        case "job" if session != NullSelection.NO_SESSION:
-                            self.nav_state = NavigationState(
-                                session, None, NullSelection.NO_BACKUP
-                            )
-                        case "report_editor":
-                            # restore the report
-                            self.nav_state = NavigationState(
-                                session, job_id, report
-                            )
-                        case _:
-                            raise RuntimeError()
-
-                self.push_screen(
-                    SubmissionProgressScreen(
-                        report, self.submitter_class(), self.args
-                    ),
-                    after_submission_finished,
-                )
-
-            case _:
-                raise RuntimeError(f"Impossible state: {self.nav_state}")
-
-    def action_go_back(self) -> None:
-        """Handles the `Go Back` button
-
-        This function should only reassign (not modify) the state object and
-        let textual automatically re-render
-        """
-        match self.nav_state:
-            case NavigationState(
-                session=None,
-                job_id=None,
-                bug_report_init_state=None,
-                bug_report_to_submit=None,
-            ):
-                # backup selection screen
-                self.notify("Already at the beginning")
-            case NavigationState(session=None):
-                self.nav_state = NavigationState()
-            case NavigationState(
-                bug_report_init_state=BugReport()
-            ) | NavigationState(
-                session=NullSelection.NO_SESSION,
-                job_id=NullSelection.NO_JOB,
-                bug_report_to_submit=None,
-            ):
-                # 1. started with a backup
-                # 2. returning from editor with nothing selected
-                # go to backup selection
-                self.nav_state = NavigationState()
-            case NavigationState(session=Session(), job_id=None):
-                # returning from job selection
-                self.nav_state = NavigationState(
-                    None, None, NullSelection.NO_BACKUP, None
-                )
-            case NavigationState(
-                session=Session() as session,
-                job_id=str() | NullSelection.NO_JOB,
-                bug_report_init_state=NullSelection.NO_BACKUP,
-            ):
-                # returning from editor with explicit job selection
-                # go back to job selection
-                self.nav_state = NavigationState(session, None)
-            case NavigationState(
-                session=Session() | NullSelection.NO_SESSION,
-                job_id=str() | NullSelection.NO_JOB,
-                bug_report_to_submit=BugReport() | PartialBugReport(),
-            ):
-                self.notify(
-                    title="Cannot go back while a submission is happening",
-                    message="But you can force quit with Ctrl+Q",
-                )
-            case _:
-                raise RuntimeError(
-                    f"Impossible state when going back: {self.nav_state}"
-                )
+    @override
+    def compose(self) -> ComposeResult:
+        yield SimpleHeader()
+        with Center(id="spinner_wrapper"):
+            yield LoadingIndicator()
 
 
 @cli_app.command("lp", help="Submit a bug to Launchpad")
@@ -513,20 +285,51 @@ def launchpad_mode(
         ),
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
 ):
-    before_entry_check()
+    sudo_devmode_check()
     BugitApp(
-        AppArgs("lp", None, cid, sku, project, assignee, platform_tags, tags)
+        AppArgs(
+            submitter="lp",
+            checkbox_submission=NullSelection.NO_CHECKBOX_SUBMISSION,
+            bug_to_reopen=None,
+            cid=cid,
+            sku=sku,
+            project=project,
+            assignee=assignee,
+            platform_tags=platform_tags,
+            tags=tags,
+        )
     ).run()
 
 
 @cli_app.command("jira", help="Submit a bug to Jira")
 def jira_mode(
+    checkbox_submission: Annotated[
+        Path | None,
+        typer.Option(
+            "-s",
+            "--checkbox-submission",
+            help=(
+                "The .tar.xz file submitted by checkbox after a test session has finished. "
+                + "If this option is specified, "
+                + "Bugit will read from this file instead of checkbox sessions "
+                + "and enter the editor directly"
+            ),
+            exists=True,
+            dir_okay=False,
+            file_okay=True,
+            readable=True,
+            resolve_path=True,
+        ),
+    ] = None,
     cid: Annotated[
         str | None,
         typer.Option(
             "-c",
             "--cid",
-            help="Canonical ID (CID) of the device under test",
+            help=(
+                "Canonical ID (CID) of the device under test. "
+                + 'This is used to pre-fill the "CID" field in the editor'
+            ),
             file_okay=False,
             dir_okay=False,
             callback=cid_check,
@@ -537,7 +340,8 @@ def jira_mode(
         typer.Option(
             "-k",
             "--sku",
-            help="Stock Keeping Unit (SKU) string of the device under test",
+            help="Stock Keeping Unit (SKU) string of the device under test. "
+            + 'This is used to pre-fill the "SKU" field in the editor',
             file_okay=False,
             dir_okay=False,
             callback=strip,
@@ -548,7 +352,8 @@ def jira_mode(
         typer.Option(
             "-p",
             "--project",
-            help="Project name like STELLA, SOMERVILLE. Case sensitive.",
+            help="Project name (case sensitive) like STELLA, SOMERVILLE. "
+            + 'This is used to pre-fill the "Project" field in the editor',
             file_okay=False,
             dir_okay=False,
             callback=alnum_check,
@@ -559,7 +364,8 @@ def jira_mode(
         typer.Option(
             "-a",
             "--assignee",
-            help="Assignee ID. For Jira it's the assignee's email",
+            help="Assignee ID. For Jira it's the assignee's email. "
+            + 'This is used to pre-fill the "Assignee" field in the editor',
             file_okay=False,
             dir_okay=False,
             callback=assignee_str_check,
@@ -570,7 +376,8 @@ def jira_mode(
         typer.Option(
             "-pt",
             "--platform-tags",
-            help='Platform Tags. They appear under "Components" on Jira',
+            help='Platform Tags. They will appear under "Components" on Jira. '
+            + 'This is used to pre-fill the "Platform Tags" field in the editor',
             file_okay=False,
             dir_okay=False,
         ),
@@ -580,18 +387,35 @@ def jira_mode(
         typer.Option(
             "-t",
             "--tags",
-            help="Additional tags on Jira",
+            help="Additional tags on Jira. "
+            + 'This is used to pre-fill the "Tags" field in the editor',
             file_okay=False,
             dir_okay=False,
         ),
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
 ):
-    before_entry_check()
+    sudo_devmode_check()
+
+    if checkbox_submission:
+        print(f"Decompressing checkbox submission at {checkbox_submission}")
+
+    cbs = checkbox_submission_check(checkbox_submission)
+
     BugitApp(
         # reopen is disabled for now
-        AppArgs("jira", None, cid, sku, project, assignee, platform_tags, tags)
+        AppArgs(
+            submitter="jira",
+            checkbox_submission=cbs,
+            bug_to_reopen=None,
+            cid=cid,
+            sku=sku,
+            project=project,
+            assignee=assignee,
+            platform_tags=platform_tags,
+            tags=tags,
+        )
     ).run()
 
 
 if __name__ == "__main__":
-    cli_app(prog_name="bugit-v2")
+    cli_app(prog_name="bugit.bugit-v2" if is_snap() else "bugit-v2")

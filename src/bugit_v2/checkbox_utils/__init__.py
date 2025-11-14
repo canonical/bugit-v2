@@ -6,10 +6,11 @@ import shutil
 import subprocess as sp
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Final, Literal, TypedDict, cast, final
+from typing import Any, Final, TypedDict, cast, final
 
 from typing_extensions import override
 
+from bugit_v2.checkbox_utils.models import JobOutcome
 from bugit_v2.utils import is_snap
 
 SESSION_ROOT_DIR: Final = Path("/var/tmp/checkbox-ng/sessions")
@@ -71,9 +72,6 @@ def get_valid_sessions() -> list[Path]:
         except FileNotFoundError:
             continue
     return valid_session_dirs
-
-
-JobOutcome = Literal["pass", "fail", "skip"]
 
 
 class JobOutput(TypedDict):

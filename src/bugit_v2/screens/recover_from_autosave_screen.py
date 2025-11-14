@@ -1,7 +1,7 @@
 import datetime
 import os
 from pathlib import Path
-from typing import final, override
+from typing import Literal, final, override
 
 import pydantic
 from textual import on
@@ -18,10 +18,14 @@ from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Button, Checkbox, Footer, Label, Rule
 
+from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.components.header import SimpleHeader
+from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import BugReportAutoSaveData
 from bugit_v2.utils import pretty_date
 from bugit_v2.utils.constants import AUTOSAVE_DIR
+
+type SaveType = Literal["session", "submission"]
 
 
 @final
@@ -29,12 +33,15 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
 
     CSS_PATH = "styles.tcss"
 
-    is_relative = reactive[bool](False, recompose=True)
+    is_relative = reactive[bool](True, recompose=True)
     lock_delete = reactive[bool](True, recompose=True)
     valid_autosave_data: dict[str, BugReportAutoSaveData]
+    save_type: SaveType
 
     def __init__(
         self,
+        save_type: SaveType,
+        app_args: AppArgs,
         autosave_dir: Path = AUTOSAVE_DIR,
         name: str | None = None,
         id: str | None = None,
@@ -42,13 +49,30 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
     ) -> None:
         self.autosave_dir = autosave_dir
         self.valid_autosave_data = {}
+        self.save_type = save_type
         # file names are already timestamps, can just use string sort
         for file in sorted(os.listdir(autosave_dir), reverse=True):
             with open(autosave_dir / file) as f:
                 try:
-                    self.valid_autosave_data[file] = (
-                        BugReportAutoSaveData.model_validate_json(f.read())
+                    autosave = BugReportAutoSaveData.model_validate_json(
+                        f.read()
                     )
+                    match (
+                        save_type,
+                        autosave.checkbox_submission,
+                        app_args.checkbox_submission,
+                    ):
+                        case ("session", None, _):
+                            self.valid_autosave_data[file] = autosave
+                        case (
+                            "submission",
+                            Path() as p,
+                            SimpleCheckboxSubmission() as cbs,
+                        ):
+                            if cbs.submission_path == p:
+                                self.valid_autosave_data[file] = autosave
+                        case _:
+                            pass
                 except pydantic.ValidationError as e:
                     self.log.error(e)
 
@@ -67,6 +91,10 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                 yield Label(
                     "These were automatically saved by the bug report editor"
                 )
+                if self.save_type == "submission":
+                    yield Label(
+                        "[$warning]Only the recovery files originated from this checkbox submission are shown"
+                    )
                 yield Rule(classes="m0 boost", line_style="ascii")
                 with HorizontalGroup():
                     yield Checkbox(
@@ -147,6 +175,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
 
     def _button_text(self, filename: str) -> Content:
         assert filename in self.valid_autosave_data
+        autosave = self.valid_autosave_data[filename]
         lines: list[str] = []
         if self.is_relative:
             lines.append(
@@ -165,12 +194,14 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                 ).strftime("%Y-%m-%dT%H:%M:%SZ"),
             )
 
-        if session_path := self.valid_autosave_data[filename].checkbox_session:
+        if session_path := autosave.checkbox_session:
             lines.append(f"[grey]{os.path.basename(session_path)}")
+        elif checkbox_submission_path := autosave.checkbox_submission:
+            lines.append(f"[grey]{os.path.basename(checkbox_submission_path)}")
         else:
             lines.append("[i][grey]No session selected")
 
-        if job_id := self.valid_autosave_data[filename].job_id:
+        if job_id := autosave.job_id:
             lines.append(f"[grey]{job_id}")
         else:
             lines.append("[i][grey]No job selected")
