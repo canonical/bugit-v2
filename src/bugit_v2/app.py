@@ -100,7 +100,7 @@ class BugitApp(App[None]):
 
     BINDINGS = [Binding("alt+left", "go_back", "Go Back")]
     CSS = """
-    Center {
+    #spinner_wrapper {
         height: 100%
     }
     """
@@ -214,7 +214,7 @@ class BugitApp(App[None]):
     @override
     def compose(self) -> ComposeResult:
         yield SimpleHeader()
-        with Center():
+        with Center(id="spinner_wrapper"):
             yield LoadingIndicator()
 
 
