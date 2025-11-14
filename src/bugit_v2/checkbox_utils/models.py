@@ -28,6 +28,7 @@ class SimpleJobResult(BaseModel):
     outcome: JobOutcome
     project: str  # provider name basically
     status: str  # not sure what this is
+    io_log: str | None  # the job output
 
 
 class AttachmentResult(BaseModel):
@@ -56,3 +57,8 @@ class SimpleCheckboxSubmission:
             type(f)  # pyright: ignore[reportUnknownArgumentType, reportAny]
         )
     )
+
+    def get_job_output(self, full_job_id: str) -> str | None:
+        for result in self.base.results:
+            if result.full_id == full_job_id:
+                return result.io_log

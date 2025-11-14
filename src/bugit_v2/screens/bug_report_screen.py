@@ -219,33 +219,40 @@ class BugReportScreen(Screen[BugReport]):
             "Additional Information": "",
         }
 
-        if session is NullSelection.NO_SESSION:
-            return
-
         if job_id is NullSelection.NO_JOB:
             return
 
         self.initial_report["Affected Test Cases"] = job_id
-        job_output = session.get_job_output(job_id)
-        if job_output is None:
-            self.initial_report["Job Output"] = (
-                "No output was found for this job"
-            )
-            return
 
-        # add an empty string at the end for a new line
-        lines: list[str] = []
-        for k in ("stdout", "stderr", "comments"):
-            lines.extend(
-                [
-                    k,
-                    "------",
-                    job_output[k] or f"No {k} were found for this job",
-                    "",
-                ]
-            )
+        if session is not NullSelection.NO_SESSION:
+            job_output = session.get_job_output(job_id)
+            if job_output is None:
+                self.initial_report["Job Output"] = (
+                    "No output was found for this job"
+                )
+                return
 
-        self.initial_report["Job Output"] = "\n".join(lines)
+            # add an empty string at the end for a new line
+            lines: list[str] = []
+            for k in ("stdout", "stderr", "comments"):
+                lines.extend(
+                    [
+                        k,
+                        "------",
+                        job_output[k] or f"No {k} were found for this job",
+                        "",
+                    ]
+                )
+
+            self.initial_report["Job Output"] = "\n".join(lines)
+        elif checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION:
+            job_output = checkbox_submission.get_job_output(job_id)
+            if not job_output:  # can be empty string
+                self.initial_report["Job Output"] = (
+                    "No output was found for this job"
+                )
+                return
+            self.initial_report["Job Output"] = job_output
 
     @override
     def compose(self) -> ComposeResult:
