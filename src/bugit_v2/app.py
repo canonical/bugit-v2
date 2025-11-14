@@ -1,6 +1,5 @@
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, final, override
+from typing import final, override
 
 import typer
 from textual import work
@@ -20,7 +19,7 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
 )
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
-from bugit_v2.checkbox_utils import Session, get_checkbox_version
+from bugit_v2.checkbox_utils import get_checkbox_version
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.app_state import (
@@ -30,8 +29,7 @@ from bugit_v2.models.app_state import (
     RecoverFromAutosaveState,
     SubmissionProgressState,
 )
-from bugit_v2.models.bug_report import PartialBugReport
-from bugit_v2.utils import is_prod, is_snap
+from bugit_v2.utils import get_bugit_version, is_prod, is_snap
 from bugit_v2.utils.constants import NullSelection
 from bugit_v2.utils.validations import (
     checkbox_submission_check,
@@ -83,14 +81,6 @@ def assignee_str_check(value: str | None) -> str | None:
     if value.startswith("lp:"):
         raise typer.BadParameter('Assignee should not start with "lp:"')
     return value.strip()
-
-
-@dataclass(slots=True, frozen=True)
-class ReopenNavigationState:
-    session: Session | Literal[NullSelection.NO_SESSION] | None = None
-    job_id: str | Literal[NullSelection.NO_JOB] | None = None
-    bug_report_to_submit: PartialBugReport | None = None
-    bug_report_init_state: PartialBugReport | None = None
 
 
 @final
@@ -216,6 +206,23 @@ class BugitApp(App[None]):
         yield SimpleHeader()
         with Center(id="spinner_wrapper"):
             yield LoadingIndicator()
+
+
+def version_callback(value: bool):
+    if value:
+        typer.echo(f"v{get_bugit_version()}")
+        raise typer.Exit()
+
+
+@cli_app.callback()
+def common(
+    _ctx: typer.Context,
+    _version: Annotated[
+        bool | None,
+        typer.Option("--version", callback=version_callback, is_eager=True),
+    ] = None,
+):
+    pass
 
 
 @cli_app.command("lp", help="Submit a bug to Launchpad")

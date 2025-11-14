@@ -1,4 +1,5 @@
 import datetime as dt
+import importlib.metadata
 import os
 
 
@@ -9,6 +10,10 @@ def is_prod() -> bool:
 
 def is_snap() -> bool:
     return "SNAP" in os.environ
+
+
+def get_bugit_version() -> str:
+    return importlib.metadata.version("bugit-v2")
 
 
 def pretty_date(d: dt.datetime) -> str:
