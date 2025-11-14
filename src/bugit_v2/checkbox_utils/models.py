@@ -1,9 +1,8 @@
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from attr import field
 from pydantic import BaseModel
 
 type CertificationStatus = Literal["non-blocker", "blocker"]
@@ -52,11 +51,7 @@ class BaseSimpleCheckboxSubmission(BaseModel):
 @dataclass(slots=True, frozen=True)
 class SimpleCheckboxSubmission:
     submission_path: Path
-    base: BaseSimpleCheckboxSubmission = field(  # pyright: ignore[reportAny]
-        repr=lambda f: str(  # pyright: ignore[reportAny]
-            type(f)  # pyright: ignore[reportUnknownArgumentType, reportAny]
-        )
-    )
+    base: BaseSimpleCheckboxSubmission = field(repr=False)
 
     def get_job_output(self, full_job_id: str) -> str | None:
         for result in self.base.results:

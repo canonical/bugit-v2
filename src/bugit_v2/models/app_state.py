@@ -1,9 +1,9 @@
 import abc
 import os
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Literal, override
 
-from attr import dataclass, field
 from textual.screen import Screen
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
