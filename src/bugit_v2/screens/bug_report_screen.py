@@ -110,6 +110,8 @@ class BugReportScreen(Screen[BugReport]):
     # id should match the property name in the BugReport object
     # TODO: rename this, it does more than just holding titles now
     elem_id_to_border_title: Final[Mapping[str, tuple[str, str]]]
+    # Is the device where bugit is running on the one we want to open bugs for?
+    dut_is_report_target: Final[bool]
 
     initial_report: dict[str, str]
 
@@ -167,6 +169,7 @@ class BugReportScreen(Screen[BugReport]):
         job_id: str | Literal[NullSelection.NO_JOB],
         app_args: AppArgs,
         existing_report: BugReport | None = None,
+        dut_is_report_target: bool = True,
         # ---
         name: str | None = None,
         id: str | None = None,
@@ -178,6 +181,7 @@ class BugReportScreen(Screen[BugReport]):
         self.job_id = job_id
         self.existing_report = existing_report
         self.app_args = app_args
+        self.dut_is_report_target = dut_is_report_target
 
         self.autosave_file = AUTOSAVE_DIR / (str(int(time.time())) + ".json")
 
@@ -555,7 +559,7 @@ class BugReportScreen(Screen[BugReport]):
             return
 
         textarea = self.query_exactly_one("#description", DescriptionEditor)
-        textarea.disabled = False
+        textarea.disabled = False  # unlock asap
 
         if event.worker.state != WorkerState.SUCCESS:
             self.notify(
@@ -569,13 +573,6 @@ class BugReportScreen(Screen[BugReport]):
         # since the values in self.initial_report is only used when there's no
         # existing report
         machine_info = cast(dict[str, str], event.worker.result)
-        self.initial_report["Additional Information"] = "\n".join(
-            [
-                f"CID: {self.app_args.cid or ''}",
-                f"SKU: {self.app_args.sku or ''}",
-                *(f"{k}: {v}" for k, v in machine_info.items()),
-            ]
-        )
 
         if self.existing_report is None:
             # only overwrite the textarea if there's no existing report

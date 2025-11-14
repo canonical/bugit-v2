@@ -238,7 +238,11 @@ class JobSelectionState(AppState):
                 SimpleCheckboxSubmission() as submission,
             ):
                 return lambda: JobSelectionScreen(
-                    [r.full_id for r in submission.base.results],
+                    [
+                        r.full_id
+                        for r in submission.base.results
+                        if r.outcome == "fail"
+                    ],
                     str(submission.submission_path),
                 )
             case _:
@@ -312,6 +316,8 @@ class ReportEditorState(AppState):
                 is NullSelection.NO_BACKUP
                 else self.context.bug_report_init_state
             ),
+            self.context.checkbox_submission
+            is NullSelection.NO_CHECKBOX_SUBMISSION,
         )
 
 
