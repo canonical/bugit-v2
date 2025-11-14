@@ -10,7 +10,7 @@ from textual.content import Content
 from textual.driver import Driver
 from textual.reactive import var
 from textual.types import CSSPathType
-from textual.widgets import LoadingIndicator
+from textual.widgets import Label
 from typing_extensions import Annotated
 
 from bugit_v2.bug_report_submitters.jira_submitter import JiraSubmitter
@@ -30,7 +30,7 @@ from bugit_v2.models.app_state import (
     SubmissionProgressState,
 )
 from bugit_v2.utils import get_bugit_version, is_prod, is_snap
-from bugit_v2.utils.constants import NullSelection
+from bugit_v2.utils.constants import LOGO_ASCII_ART, NullSelection
 from bugit_v2.utils.validations import (
     checkbox_submission_check,
     is_cid,
@@ -91,7 +91,9 @@ class BugitApp(App[None]):
     BINDINGS = [Binding("alt+left", "go_back", "Go Back")]
     CSS = """
     #spinner_wrapper {
-        height: 100%
+        height: 100%;
+        align: center middle;
+        content-align: center middle;
     }
     """
 
@@ -205,7 +207,7 @@ class BugitApp(App[None]):
     def compose(self) -> ComposeResult:
         yield SimpleHeader()
         with Center(id="spinner_wrapper"):
-            yield LoadingIndicator()
+            yield Label(LOGO_ASCII_ART, id="logo")
 
 
 def version_callback(value: bool):

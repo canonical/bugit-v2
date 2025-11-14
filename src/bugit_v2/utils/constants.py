@@ -3,6 +3,12 @@ import os
 from collections.abc import Mapping
 from pathlib import Path
 
+LOGO_ASCII_ART = """
+█████▄ ▄▄ ▄▄  ▄▄▄▄ ▄▄ ▄▄▄▄▄▄   ██  ██ ████▄
+██▄▄██ ██ ██ ██ ▄▄ ██   ██     ██▄▄██  ▄██▀
+██▄▄█▀ ▀███▀ ▀███▀ ██   ██      ▀██▀  ███▄▄
+""".strip()
+
 FEATURE_MAP: Mapping[str, tuple[str, ...]] = {
     "Audio": ("hwe-audio",),
     "Bluetooth": ("hwe-bluetooth",),
