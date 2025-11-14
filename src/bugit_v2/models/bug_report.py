@@ -99,9 +99,11 @@ class BugReport:
             if k == "checkbox_submission":
                 if v is None:
                     o[k] = None
-                # dataclass already converted into dict
-                assert type(v) is dict
-                o[k] = str(v["submission_path"].absolute())
+                else:
+                    # dataclass already converted into dict
+                    # assert type(v) is dict
+                    print(type(v))
+                    o[k] = str(v["submission_path"].absolute())
             elif k == "checkbox_session":
                 if isinstance(v, Session):
                     o[k] = str(v.session_path.absolute())
