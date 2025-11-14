@@ -22,6 +22,7 @@ from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
 from bugit_v2.checkbox_utils import Session
+from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.description_editor import DescriptionEditor
 from bugit_v2.components.header import SimpleHeader
@@ -78,6 +79,10 @@ class NonEmpty(Validator):
 @final
 class ReopenBugEditorScreen(Screen[PartialBugReport]):
     session: Final[Session | Literal[NullSelection.NO_SESSION]]
+    checkbox_submission: Final[
+        SimpleCheckboxSubmission
+        | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
+    ]
     job_id: Final[str | Literal[NullSelection.NO_JOB]]
     existing_report: Final[PartialBugReport | None]
     app_args: Final[AppArgs]
@@ -124,6 +129,10 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
     def __init__(
         self,
         session: Session | Literal[NullSelection.NO_SESSION],
+        checkbox_submission: (
+            SimpleCheckboxSubmission
+            | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
+        ),
         job_id: str | Literal[NullSelection.NO_JOB],
         app_args: AppArgs,
         existing_report: PartialBugReport | None = None,
@@ -133,6 +142,7 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
     ) -> None:
         super().__init__(name, id, classes)
         self.session = session
+        self.checkbox_submission = checkbox_submission
         self.job_id = job_id
         self.existing_report = existing_report
         self.app_args = app_args
@@ -431,6 +441,12 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
                 None
                 if self.session is NullSelection.NO_SESSION
                 else self.session
+            ),
+            checkbox_submission=(
+                None
+                if self.checkbox_submission
+                is NullSelection.NO_CHECKBOX_SUBMISSION
+                else self.checkbox_submission
             ),
             description=self.query_exactly_one(
                 "#description", DescriptionEditor
