@@ -1,4 +1,4 @@
-# Bugit V2
+# <img width="64" height="64" alt="image" src="https://github.com/user-attachments/assets/12c84f78-176e-498b-b52d-48e8c9712309" /> Bugit V2
 
 This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [textual](https://textual.textualize.io/) library.
 
