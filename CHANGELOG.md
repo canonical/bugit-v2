@@ -1,3 +1,9 @@
+# 0.2.6
+
+## Added
+
+- Ability to open bugs based on a checkbox submission tarball. Use the `-s` option to specify a submission tar and bugit will let you choose from the failed jobs in that file instead of reading /var/tmp/checkbox-ng/sessions
+
 # 0.2.5
 
 ## Added
