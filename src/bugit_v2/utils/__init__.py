@@ -24,7 +24,7 @@ def pretty_date(d: dt.datetime) -> str:
     elif diff.days == 1:
         return "1 day ago"
     elif diff.days > 1:
-        return f"{diff.days} days {diff.seconds} ago"
+        return f"{diff.days} days {diff.seconds/60/60} hours ago"
     elif s <= 1:
         return "just now"
     elif s < 60:
