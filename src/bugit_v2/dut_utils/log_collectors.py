@@ -167,6 +167,16 @@ def snap_list(target_dir: Path, _: BugReport | PartialBugReport):
         )
 
 
+def snap_debug(target_dir: Path, _: BugReport | PartialBugReport):
+    with open(target_dir / "snap_debug.log", "w") as f:
+        sp.check_call(
+            ["./snap_debug.sh"],
+            stdout=f,
+            text=True,
+            timeout=COMMAND_TIMEOUT,
+        )
+
+
 mock_collectors: Sequence[LogCollector] = (
     LogCollector(
         "immediate",
@@ -281,6 +291,14 @@ real_collectors: Sequence[LogCollector] = (
         "List of Snaps in This System",
         True,
         "snap list --all",
+        advertised_timeout=COMMAND_TIMEOUT,
+    ),
+    LogCollector(
+        "snap-debug",
+        snap_debug,
+        "snapd team's snap-debug.sh (has apparmor logs and gadget snap info)",
+        False,  # can be very big
+        "curl -fsSL https://raw.githubusercontent.com/canonical/snapd/refs/heads/master/debug-tools/snap-debug-info.sh | bash",
         advertised_timeout=COMMAND_TIMEOUT,
     ),
 )
