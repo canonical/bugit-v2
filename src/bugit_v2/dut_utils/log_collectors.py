@@ -296,7 +296,7 @@ real_collectors: Sequence[LogCollector] = (
     LogCollector(
         "snap-debug",
         snap_debug,
-        "Runs snapd team's snap-debug.sh and collect logs",
+        "snapd team's snap-debug.sh (has apparmor logs and gadget snap info)",
         True,
         "curl -fsSL https://raw.githubusercontent.com/canonical/snapd/refs/heads/master/debug-tools/snap-debug-info.sh | bash",
         advertised_timeout=COMMAND_TIMEOUT,
