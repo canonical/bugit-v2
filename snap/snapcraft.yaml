@@ -93,7 +93,7 @@ parts:
       - dump-files
     override-build: |
       craftctl default
-      $CRAFT_PART_INSTALL/bin/python -m compileall -q -j $CRAFT_PARALLEL_BUILD_COUNT $CRAFT_PART_INSTALL/lib
+      $CRAFT_PART_INSTALL/bin/python3 -m compileall -q -j $CRAFT_PARALLEL_BUILD_COUNT $CRAFT_PART_INSTALL/lib
 
   acpidump:
     plugin: nil

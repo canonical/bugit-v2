@@ -3,6 +3,7 @@
 ## Added
 
 - Ability to open bugs based on a checkbox submission tarball. Use the `-s` option to specify a submission tar and bugit will let you choose from the failed jobs in that file instead of reading /var/tmp/checkbox-ng/sessions
+- Boosted snap version start time by 1.89x by pre-compiling pycache
 
 ## Fixed
 
