@@ -114,6 +114,7 @@ class RecoverFromAutosaveState(AppState):
     @override
     def go_forward(self, screen_result: object) -> AppState:
         if screen_result is None:
+            # chose to start a new report
             if (
                 self.context.checkbox_submission
                 is NullSelection.NO_CHECKBOX_SUBMISSION
@@ -122,10 +123,18 @@ class RecoverFromAutosaveState(AppState):
             else:
                 return JobSelectionState(self.context)
 
+        # recover from existing report path
         assert isinstance(screen_result, BugReportAutoSaveData)
-        self.context.bug_report_init_state = recover_from_autosave(
-            screen_result
+        backup = recover_from_autosave(screen_result)
+        self.context.bug_report_init_state = backup
+        self.context.session = (
+            backup.checkbox_session or NullSelection.NO_SESSION
         )
+        self.context.job_id = backup.job_id or NullSelection.NO_JOB
+        self.context.checkbox_submission = (
+            backup.checkbox_submission or NullSelection.NO_CHECKBOX_SUBMISSION
+        )
+
         return ReportEditorState(self.context)
 
     @override
