@@ -378,7 +378,11 @@ class BugReportScreen(Screen[BugReport]):
                                 Selection[LogName](
                                     collector.display_name,
                                     collector.name,
-                                    collector.collect_by_default,
+                                    (
+                                        self.checkbox_submission
+                                        is NullSelection.NO_CHECKBOX_SUBMISSION
+                                        and collector.collect_by_default
+                                    ),
                                     id=collector.name,
                                     # disable nvidia collector
                                     # unless get_standard_info finds an nvidia card
@@ -584,7 +588,13 @@ class BugReportScreen(Screen[BugReport]):
             [
                 f"CID: {self.app_args.cid or ''}",
                 f"SKU: {self.app_args.sku or ''}",
-                *(f"{k}: {v}" for k, v in machine_info.items()),
+                *(
+                    (f"{k}: {v}" for k, v in machine_info.items())
+                    # don't put the current machine's info when using a submission
+                    if self.checkbox_submission
+                    is NullSelection.NO_CHECKBOX_SUBMISSION
+                    else []
+                ),
             ]
         )
 
