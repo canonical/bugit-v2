@@ -167,6 +167,16 @@ def snap_list(target_dir: Path, _: BugReport | PartialBugReport):
         )
 
 
+def snap_debug(target_dir: Path, _: BugReport | PartialBugReport):
+    with open(target_dir / "snap_debug.log", "w") as f:
+        sp.check_call(
+            ["./snap_debug.sh"],
+            stdout=f,
+            text=True,
+            timeout=COMMAND_TIMEOUT,
+        )
+
+
 mock_collectors: Sequence[LogCollector] = (
     LogCollector(
         "immediate",
