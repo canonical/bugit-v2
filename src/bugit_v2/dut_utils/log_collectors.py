@@ -293,6 +293,14 @@ real_collectors: Sequence[LogCollector] = (
         "snap list --all",
         advertised_timeout=COMMAND_TIMEOUT,
     ),
+    LogCollector(
+        "snap-debug",
+        snap_debug,
+        "Runs snapd team's snap-debug.sh and collect logs",
+        True,
+        "curl -fsSL https://raw.githubusercontent.com/canonical/snapd/refs/heads/master/debug-tools/snap-debug-info.sh | bash",
+        advertised_timeout=COMMAND_TIMEOUT,
+    ),
 )
 
 LOG_NAME_TO_COLLECTOR: Mapping[LogName, LogCollector] = {
