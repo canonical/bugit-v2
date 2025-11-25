@@ -72,6 +72,7 @@ class BugReport:
     # optionals
     checkbox_session: Session | None
     checkbox_submission: SimpleCheckboxSubmission | None
+    job_id: str | None
     assignee: str | None = None  # appear as unassigned if None
     platform_tags: Sequence[str] = field(default_factory=list[str])
     additional_tags: Sequence[str] = field(default_factory=list[str])
@@ -175,6 +176,7 @@ def recover_from_autosave(
         and Session(autosave_data.checkbox_session),
         autosave_data.checkbox_submission
         and read_simple_submission(autosave_data.checkbox_submission),
+        autosave_data.job_id,
         autosave_data.assignee,
         autosave_data.platform_tags,
         autosave_data.additional_tags,

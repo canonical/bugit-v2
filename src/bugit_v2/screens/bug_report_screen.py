@@ -648,6 +648,7 @@ class BugReportScreen(Screen[BugReport]):
                 is NullSelection.NO_CHECKBOX_SUBMISSION
                 else self.checkbox_submission
             ),
+            job_id=self.job_id if type(self.job_id) is str else None,
             description=self.query_exactly_one(
                 "#description", DescriptionEditor
             ).text.strip(),
