@@ -245,7 +245,7 @@ real_collectors: Sequence[LogCollector] = (
         "acpidump",
         acpidump,
         "ACPI Dump",
-        True,
+        os.uname().machine in ("x86_64", "x86", "amd64"),
         "sudo acpidump -o acpidump.log",
     ),
     LogCollector(
