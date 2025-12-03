@@ -140,47 +140,54 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
 
     if "NVIDIA" in standard_info["GPU"]:
         nvidia_err = "Cannot capture driver or VBIOS version"
-        nvidia_log = sp.run(
-            [
-                ("/var/lib/snapd/hostfs/usr/bin/" if is_snap() else "")
-                + "nvidia-smi",
-                "-q",
-            ],
-            text=True,
-            timeout=command_timeout,
-            capture_output=True,
-        )
+        try:
+            nvidia_log = sp.run(
+                [
+                    ("/var/lib/snapd/hostfs/usr/bin/" if is_snap() else "")
+                    + "nvidia-smi",
+                    "-q",
+                ],
+                text=True,
+                timeout=command_timeout,
+                capture_output=True,
+            )
 
-        if nvidia_log.returncode == 0:
-            if (
-                nvidia_driver_match := re.search(
-                    r"Driver Version\s*:\s(\d*\.\d*[\.\d*]*)\s*",
-                    nvidia_log.stdout,
-                )
-            ) is not None:
-                standard_info["NVIDIA Driver"] = nvidia_driver_match.group(1)
+            if nvidia_log.returncode == 0:
+                if (
+                    nvidia_driver_match := re.search(
+                        r"Driver Version\s*:\s(\d*\.\d*[\.\d*]*)\s*",
+                        nvidia_log.stdout,
+                    )
+                ) is not None:
+                    standard_info["NVIDIA Driver"] = nvidia_driver_match.group(
+                        1
+                    )
+                else:
+                    standard_info["NVIDIA Driver"] = (
+                        nvidia_err
+                        + ", no driver version was listed in nvidia-smi -q"
+                    )
+
+                if (
+                    nvidia_vbios_match := re.search(
+                        r"VBIOS Version\s*:\s([\w\d]*[\.\w\d]*)\s*",
+                        nvidia_log.stdout,
+                    )
+                ) is not None:
+                    standard_info["NVIDIA VBIOS"] = nvidia_vbios_match.group(1)
+                else:
+                    standard_info["NVIDIA VBIOS"] = (
+                        nvidia_err
+                        + ", no VBIOS version was listed in nvidia-smi -q"
+                    )
             else:
                 standard_info["NVIDIA Driver"] = (
                     nvidia_err
-                    + ", no driver version was listed in nvidia-smi -q"
+                    + f", nvidia-smi -q returned {nvidia_log.returncode}"
                 )
-
-            if (
-                nvidia_vbios_match := re.search(
-                    r"VBIOS Version\s*:\s([\w\d]*[\.\w\d]*)\s*",
-                    nvidia_log.stdout,
-                )
-            ) is not None:
-                standard_info["NVIDIA VBIOS"] = nvidia_vbios_match.group(1)
-            else:
-                standard_info["NVIDIA VBIOS"] = (
-                    nvidia_err
-                    + ", no VBIOS version was listed in nvidia-smi -q"
-                )
-        else:
+        except FileNotFoundError:
             standard_info["NVIDIA Driver"] = (
-                nvidia_err
-                + f", nvidia-smi -q returned {nvidia_log.returncode}"
+                f"{nvidia_err}, nvidia-smi is not installed on this system"
             )
 
     if "AMD" in standard_info["GPU"]:
