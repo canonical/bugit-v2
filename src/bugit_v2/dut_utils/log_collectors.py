@@ -18,6 +18,11 @@ from bugit_v2.models.bug_report import BugReport, LogName, PartialBugReport
 from bugit_v2.utils import is_snap
 
 COMMAND_TIMEOUT = 10 * 60  # 10 minutes
+NVIDIA_BUG_REPORT_PATH = Path(
+    "/var/lib/snapd/hostfs/usr/bin/nvidia-bug-report.sh"
+    if is_snap()
+    else "nvidia-bug-report.sh"
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -61,7 +66,6 @@ def nvidia_bug_report(
     target_dir: Path, _: BugReport | PartialBugReport
 ) -> str:
     if is_snap():
-        executable = "/var/lib/snapd/hostfs/usr/bin/nvidia-bug-report.sh"
         env = os.environ | {
             "PATH": ":".join(
                 [
@@ -83,11 +87,10 @@ def nvidia_bug_report(
             ),
         }
     else:
-        executable = "nvidia-bug-report.sh"
         env = os.environ
     return sp.check_output(
         [
-            executable,
+            str(NVIDIA_BUG_REPORT_PATH),
             "--extra-system-data",
             "--output-file",
             str(target_dir / "nvidia-bug-report.log.gz"),
