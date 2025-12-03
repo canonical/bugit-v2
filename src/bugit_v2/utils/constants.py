@@ -79,9 +79,12 @@ VENDOR_MAP: Mapping[str, tuple[str, ...]] = {
     "Telit": ("ihv-telit",),
 }
 
-AUTOSAVE_DIR = Path(os.getenv("SNAP_DATA", "/tmp")) / "bugit-v2-autosave"
+AUTOSAVE_DIR = (
+    Path(os.getenv("SNAP_DATA", str(Path.home().absolute() / ".cache")))
+    / "bugit-v2-autosave"
+)
 if not AUTOSAVE_DIR.exists():
-    os.makedirs(AUTOSAVE_DIR)
+    os.makedirs(AUTOSAVE_DIR, exist_ok=True)
 
 
 class NullSelection(enum.Enum):
