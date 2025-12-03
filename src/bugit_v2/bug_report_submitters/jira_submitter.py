@@ -93,7 +93,7 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
                     "type the credentials over and over again. They are erased "
                     "at the next boot, or you can manually delete them"
                 ),
-                value=True,
+                value=False,
             )
             yield Center(
                 Button("Continue", id="continue_button", disabled=True)
