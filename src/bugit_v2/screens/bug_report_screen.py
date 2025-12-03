@@ -40,7 +40,10 @@ from bugit_v2.components.description_editor import DescriptionEditor
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.components.selection_with_preview import SelectionWithPreview
 from bugit_v2.dut_utils.info_getters import get_standard_info
-from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
+from bugit_v2.dut_utils.log_collectors import (
+    LOG_NAME_TO_COLLECTOR,
+    NVIDIA_BUG_REPORT_PATH,
+)
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import (
     BUG_STATUSES,
@@ -610,7 +613,7 @@ class BugReportScreen(Screen[BugReport]):
             self.query_exactly_one("#logs_to_include", SelectionList),
         )
         # do not directly query the option by id, they don't exist in the DOM
-        if "NVIDIA" in machine_info["GPU"]:
+        if "NVIDIA" in machine_info["GPU"] and NVIDIA_BUG_REPORT_PATH.exists():
             # include nvidia logs by default IF we actually have it
             log_selection_list.enable_option("nvidia-bug-report")
             log_selection_list.select("nvidia-bug-report")
