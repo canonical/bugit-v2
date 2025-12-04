@@ -10,6 +10,7 @@
 - Relative timestamp showing weird minute values
 - Missing checkbox session when recovering from an autosave file
 - Autosave files were lost after a reboot
+- NVIDIA log collector crashing the entire app when an NVIDIA card is present but the driver utils were not installed on the system
 
 
 # 0.2.5
