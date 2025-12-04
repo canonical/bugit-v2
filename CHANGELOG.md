@@ -9,6 +9,7 @@
 
 - Relative timestamp showing weird minute values
 - Missing checkbox session when recovering from an autosave file
+- Autosave files were lost after a reboot
 
 
 # 0.2.5
