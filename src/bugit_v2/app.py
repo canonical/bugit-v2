@@ -229,6 +229,24 @@ def common(
 
 @cli_app.command("lp", help="Submit a bug to Launchpad")
 def launchpad_mode(
+    checkbox_submission: Annotated[
+        Path | None,
+        typer.Option(
+            "-s",
+            "--checkbox-submission",
+            help=(
+                "The .tar.xz file submitted by checkbox after a test session has finished. "
+                + "If this option is specified, "
+                + "Bugit will read from this file instead of checkbox sessions "
+                + "and enter the editor directly"
+            ),
+            exists=True,
+            dir_okay=False,
+            file_okay=True,
+            readable=True,
+            resolve_path=True,
+        ),
+    ] = None,
     cid: Annotated[
         str | None,
         typer.Option(
@@ -295,10 +313,16 @@ def launchpad_mode(
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
 ):
     sudo_devmode_check()
+
+    if checkbox_submission:
+        print(f"Decompressing checkbox submission at {checkbox_submission}")
+
+    cbs = checkbox_submission_check(checkbox_submission)
+
     BugitApp(
         AppArgs(
             submitter="lp",
-            checkbox_submission=NullSelection.NO_CHECKBOX_SUBMISSION,
+            checkbox_submission=cbs,
             bug_to_reopen=None,
             cid=cid,
             sku=sku,
