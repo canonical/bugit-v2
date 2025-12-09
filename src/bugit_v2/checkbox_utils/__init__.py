@@ -6,7 +6,7 @@ import shutil
 import subprocess as sp
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Final, TypedDict, cast, final
+from typing import Any, Final, Literal, TypedDict, cast, final
 
 from typing_extensions import override
 
@@ -16,41 +16,69 @@ from bugit_v2.utils import is_snap
 SESSION_ROOT_DIR: Final = Path("/var/tmp/checkbox-ng/sessions")
 
 
-def get_checkbox_version() -> str | None:
+def get_checkbox_version() -> tuple[Literal["deb", "snap"], str] | None:
+    HOST_FS = Path("/var/lib/snapd/hostfs")
     try:
         if is_snap():
-            if Path(
-                deb_checkbox := "/var/lib/snapd/hostfs/usr/bin/checkbox-cli"
-            ).exists():
+            if Path(deb_checkbox := HOST_FS / "usr/bin/checkbox-cli").exists():
                 # host is using debian checkbox
-                return sp.check_output(
-                    [deb_checkbox, "--version"],
-                    text=True,
-                    env={
-                        "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages"
-                    },
-                    stderr=sp.DEVNULL,
-                ).strip()
-            elif (
-                Path(
-                    snap_checkbox := "/var/lib/snapd/hostfs/snap/bin/checkbox.checkbox-cli"
+                return (
+                    "deb",
+                    sp.check_output(
+                        [deb_checkbox, "--version"],
+                        text=True,
+                        env={
+                            "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages"
+                        },
+                        stderr=sp.DEVNULL,
+                    ).strip(),
                 )
-            ).exists():
-                return sp.check_output(
-                    [snap_checkbox, "--version"],
-                    text=True,
-                    stderr=sp.DEVNULL,
-                ).strip()
+            else:
+                # search through /snap/bin and see if a project checkbox is there
+                for executable in os.listdir(HOST_FS / "snap/bin"):
+                    if (
+                        executable.endswith("checkbox-cli")
+                        and "ce-oem" not in executable
+                    ):
+                        return (
+                            "snap",
+                            sp.check_output(
+                                [
+                                    str(HOST_FS / "snap/bin" / executable),
+                                    "--version",
+                                ],
+                                text=True,
+                                stderr=sp.DEVNULL,
+                            ).strip(),
+                        )
         else:
-            checkbox_bin = shutil.which("checkbox-cli") or shutil.which(
-                "checkbox.checkbox-cli"
-            )
-            if checkbox_bin:
-                return sp.check_output(
-                    [checkbox_bin, "--version"],
-                    text=True,
-                    stderr=sp.DEVNULL,
-                ).strip()
+            if (checkbox_bin := shutil.which("checkbox-cli")) is not None:
+                return (
+                    "deb",
+                    sp.check_output(
+                        [checkbox_bin, "--version"],
+                        text=True,
+                        stderr=sp.DEVNULL,
+                    ).strip(),
+                )
+            else:
+                # search through /snap/bin and see if a project checkbox is there
+                for executable in os.listdir("/snap/bin"):
+                    if (
+                        executable.endswith("checkbox-cli")
+                        and "ce-oem" not in executable
+                    ):
+                        return (
+                            "snap",
+                            sp.check_output(
+                                [
+                                    (f"/snap/bin/{executable}"),
+                                    "--version",
+                                ],
+                                text=True,
+                                stderr=sp.DEVNULL,
+                            ).strip(),
+                        )
     except sp.CalledProcessError:
         return None
 
