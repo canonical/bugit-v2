@@ -17,11 +17,10 @@ SESSION_ROOT_DIR: Final = Path("/var/tmp/checkbox-ng/sessions")
 
 
 def get_checkbox_version() -> tuple[Literal["deb", "snap"], str] | None:
+    HOST_FS = Path("/var/lib/snapd/hostfs")
     try:
         if is_snap():
-            if Path(
-                deb_checkbox := "/var/lib/snapd/hostfs/usr/bin/checkbox-cli"
-            ).exists():
+            if Path(deb_checkbox := HOST_FS / "usr/bin/checkbox-cli").exists():
                 # host is using debian checkbox
                 return (
                     "deb",
@@ -34,19 +33,24 @@ def get_checkbox_version() -> tuple[Literal["deb", "snap"], str] | None:
                         stderr=sp.DEVNULL,
                     ).strip(),
                 )
-            elif (
-                Path(
-                    snap_checkbox := "/var/lib/snapd/hostfs/snap/bin/checkbox.checkbox-cli"
-                )
-            ).exists():
-                return (
-                    "snap",
-                    sp.check_output(
-                        [snap_checkbox, "--version"],
-                        text=True,
-                        stderr=sp.DEVNULL,
-                    ).strip(),
-                )
+            else:
+                # search through /snap/bin and see if a project checkbox is there
+                for executable in os.listdir(HOST_FS / "snap/bin"):
+                    if (
+                        executable.endswith("checkbox-cli")
+                        and "ce-oem" not in executable
+                    ):
+                        return (
+                            "snap",
+                            sp.check_output(
+                                [
+                                    str(HOST_FS / "snap/bin" / executable),
+                                    "--version",
+                                ],
+                                text=True,
+                                stderr=sp.DEVNULL,
+                            ).strip(),
+                        )
         else:
             if (checkbox_bin := shutil.which("checkbox-cli")) is not None:
                 return (
@@ -57,17 +61,24 @@ def get_checkbox_version() -> tuple[Literal["deb", "snap"], str] | None:
                         stderr=sp.DEVNULL,
                     ).strip(),
                 )
-            if (
-                checkbox_bin := shutil.which("checkbox.checkbox-cli")
-            ) is not None:
-                return (
-                    "snap",
-                    sp.check_output(
-                        [checkbox_bin, "--version"],
-                        text=True,
-                        stderr=sp.DEVNULL,
-                    ).strip(),
-                )
+            else:
+                # search through /snap/bin and see if a project checkbox is there
+                for executable in os.listdir("/snap/bin"):
+                    if (
+                        executable.endswith("checkbox-cli")
+                        and "ce-oem" not in executable
+                    ):
+                        return (
+                            "snap",
+                            sp.check_output(
+                                [
+                                    (f"/snap/bin/{executable}"),
+                                    "--version",
+                                ],
+                                text=True,
+                                stderr=sp.DEVNULL,
+                            ).strip(),
+                        )
     except sp.CalledProcessError:
         return None
 
