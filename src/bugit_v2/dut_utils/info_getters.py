@@ -198,8 +198,10 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
 
     standard_info["Kernel Version"] = platform.uname().release
 
-    if (cb_version := get_checkbox_version()) is not None:
+    if (tv := get_checkbox_version()) is not None:
+        cb_type, cb_version = tv
         standard_info["Checkbox Version"] = cb_version
+        standard_info["Checkbox Type"] = cb_type.capitalize()
 
     if (ec_version := get_thinkpad_ec_version()) is not None:
         standard_info["Embedded Controller Version"] = ec_version
