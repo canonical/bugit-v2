@@ -224,7 +224,7 @@ class Session:
         return False
 
     def get_run_jobs(
-        self, status_filter: Sequence[JobOutcome] = ("fail",)
+        self, status_filter: Sequence[JobOutcome] = ("fail", "crash")
     ) -> list[str]:
         """
         Get list of jobs that have been run (failed ones by default)

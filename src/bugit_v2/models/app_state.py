@@ -250,7 +250,7 @@ class JobSelectionState(AppState):
                     [
                         r.full_id
                         for r in submission.base.results
-                        if r.outcome == "fail"
+                        if r.outcome in ("fail", "crash")
                     ],
                     str(submission.submission_path),
                 )
