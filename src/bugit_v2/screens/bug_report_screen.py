@@ -1,5 +1,5 @@
 import json
-import time
+import uuid
 from collections.abc import Mapping
 from dataclasses import asdict
 from functools import wraps
@@ -186,7 +186,7 @@ class BugReportScreen(Screen[BugReport]):
         self.app_args = app_args
         self.dut_is_report_target = dut_is_report_target
 
-        self.autosave_file = AUTOSAVE_DIR / (str(int(time.time())) + ".json")
+        self.autosave_file = AUTOSAVE_DIR / (str(uuid.uuid4()) + ".json")
 
         self.elem_id_to_border_title = {
             "title": (
