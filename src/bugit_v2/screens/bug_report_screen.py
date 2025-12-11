@@ -495,7 +495,7 @@ class BugReportScreen(Screen[BugReport]):
             self.dismiss(self._build_bug_report())
 
     def _debounce[**P, R](
-        self, f: Callable[P, R], delay: int
+        self, f: Callable[P, R], delay: float
     ) -> Callable[P, None]:
         @wraps(f)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> None:
@@ -559,8 +559,8 @@ class BugReportScreen(Screen[BugReport]):
             except Exception as e:
                 label.update(f"[red]Autosave failed! {repr(e)}")
 
-        # run auto save 1 second after the user stops typing
-        self._debounce(lambda: self.run_worker(f, thread=True), 1)()
+        # run auto save 0.5 seconds after the user stops typing
+        self._debounce(lambda: self.run_worker(f, thread=True), 0.5)()
 
     @on(Button.Pressed, "#clear_log_selection")
     def clear_log_selection(self, _: Button.Pressed):

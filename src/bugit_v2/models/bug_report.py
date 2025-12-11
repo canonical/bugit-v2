@@ -118,6 +118,7 @@ class BugReport:
             else:
                 o[k] = v
         o["last_updated_timestamp"] = int(time.time())
+        BugReportAutoSaveData.model_validate(o)
         return o
 
 
