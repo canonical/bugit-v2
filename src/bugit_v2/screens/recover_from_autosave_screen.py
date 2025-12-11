@@ -50,8 +50,8 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
         self.autosave_dir = autosave_dir
         self.valid_autosave_data = {}
         self.save_type = save_type
-        # file names are already timestamps, can just use string sort
-        for file in sorted(os.listdir(autosave_dir), reverse=True):
+
+        for file in os.listdir(autosave_dir):
             with open(autosave_dir / file) as f:
                 try:
                     autosave = BugReportAutoSaveData.model_validate_json(
@@ -75,6 +75,14 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                             pass
                 except pydantic.ValidationError as e:
                     self.log.error(e)
+
+        self.valid_autosave_data = {
+            k: v
+            for k, v in sorted(
+                self.valid_autosave_data.items(),
+                key=lambda item: -(item[1].last_updated_timestamp),
+            )
+        }  # put newest first
 
         super().__init__(name, id, classes)
 

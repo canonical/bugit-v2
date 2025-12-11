@@ -188,6 +188,7 @@ class BugReportScreen(Screen[BugReport]):
             self.existing_report = existing_report
             self.report_id = existing_report.report_id
         else:
+            self.existing_report = None
             self.report_id = uuid.uuid4()
 
         self.elem_id_to_border_title = {
