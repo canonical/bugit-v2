@@ -3,7 +3,6 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import asdict
 from functools import wraps
-from pathlib import Path
 from typing import Callable, Final, Literal, cast, final
 
 from textual import on, work
@@ -101,6 +100,7 @@ class NonEmpty(Validator):
 
 @final
 class BugReportScreen(Screen[BugReport]):
+    report_id: Final[uuid.UUID]
     session: Final[Session | Literal[NullSelection.NO_SESSION]]
     checkbox_submission: Final[
         SimpleCheckboxSubmission
@@ -119,7 +119,6 @@ class BugReportScreen(Screen[BugReport]):
     initial_report: dict[str, str]
 
     autosave_timer: Timer | None = None
-    autosave_file: Path
 
     CSS = """
     BugReportScreen {
@@ -182,11 +181,14 @@ class BugReportScreen(Screen[BugReport]):
         self.session = session
         self.checkbox_submission = checkbox_submission
         self.job_id = job_id
-        self.existing_report = existing_report
         self.app_args = app_args
         self.dut_is_report_target = dut_is_report_target
 
-        self.autosave_file = AUTOSAVE_DIR / (str(uuid.uuid4()) + ".json")
+        if existing_report:
+            self.existing_report = existing_report
+            self.report_id = existing_report.report_id
+        else:
+            self.report_id = uuid.uuid4()
 
         self.elem_id_to_border_title = {
             "title": (
@@ -544,7 +546,7 @@ class BugReportScreen(Screen[BugReport]):
             label = self.query_exactly_one("#dirty_label", Label)
             try:
                 # filename is just a unix timestamp in seconds
-                with open(self.autosave_file, "w") as f:
+                with open(AUTOSAVE_DIR / f"{self.report_id}.json", "w") as f:
                     report = self._build_bug_report()
                     d = asdict(report, dict_factory=BugReport.dict_factory)
                     if self.job_id is NullSelection.NO_JOB:
@@ -649,6 +651,7 @@ class BugReportScreen(Screen[BugReport]):
         assert selected_status_button.name in BUG_STATUSES
 
         return BugReport(
+            report_id=self.report_id,
             title=self.query_exactly_one("#title", Input).value.strip(),
             checkbox_session=(
                 None

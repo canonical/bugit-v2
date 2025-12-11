@@ -2,6 +2,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final, Literal
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -64,6 +65,7 @@ class BugReport:
     Avoid attaching methods to this class unless it's a simple getter
     """
 
+    report_id: UUID  # internal uuid, used for keeping track of auto saves
     # required
     title: str
     description: str
@@ -144,6 +146,7 @@ class PartialBugReport:
 
 
 class BugReportAutoSaveData(BaseModel):
+    report_id: UUID  # internal uuid, used for keeping track of auto saves
     title: str
     description: str
     project: str
@@ -168,6 +171,7 @@ def recover_from_autosave(
 ) -> BugReport:
     # job_id is handled separately
     return BugReport(
+        autosave_data.report_id,
         autosave_data.title,
         autosave_data.description,
         autosave_data.project,
