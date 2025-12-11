@@ -161,9 +161,10 @@ class SessionSelectionState(AppState):
             None,
             NullSelection.NO_SESSION,
         ), "Entered session selection with one already selected"
-        assert (
-            self.context.job_id is None
-        ), "Impossible to have a job ID during session selection"
+        assert self.context.job_id in (
+            None,
+            NullSelection.NO_JOB,
+        ), f"Impossible to have a job ID during session selection: {self.context.job_id}"
         assert (
             self.context.bug_report_to_submit is None
         ), "Impossible to have a complete bug report during session selection"
