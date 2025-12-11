@@ -1,7 +1,9 @@
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final, Literal
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -64,6 +66,7 @@ class BugReport:
     Avoid attaching methods to this class unless it's a simple getter
     """
 
+    report_id: UUID  # internal uuid, used for keeping track of auto saves
     # required
     title: str
     description: str
@@ -110,8 +113,12 @@ class BugReport:
                     o[k] = str(v.session_path.absolute())
                 else:
                     o[k] = None
+            elif k == "report_id":
+                o[k] = str(v)
             else:
                 o[k] = v
+        o["last_updated_timestamp"] = int(time.time())
+        BugReportAutoSaveData.model_validate(o)
         return o
 
 
@@ -144,6 +151,8 @@ class PartialBugReport:
 
 
 class BugReportAutoSaveData(BaseModel):
+    report_id: UUID  # internal uuid, used for keeping track of auto saves
+    last_updated_timestamp: int
     title: str
     description: str
     project: str
@@ -168,6 +177,7 @@ def recover_from_autosave(
 ) -> BugReport:
     # job_id is handled separately
     return BugReport(
+        autosave_data.report_id,
         autosave_data.title,
         autosave_data.description,
         autosave_data.project,
