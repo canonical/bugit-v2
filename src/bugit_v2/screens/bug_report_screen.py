@@ -557,7 +557,7 @@ class BugReportScreen(Screen[BugReport]):
                     json.dump(d, f)
                 label.update("[green]Progress Saved")
             except Exception as e:
-                label.update(f"[red]Autosave failed! {repr(e)}")
+                label.update(f"[red]Autosave failed! {repr(e)[:15]}")
 
         # run auto save 0.5 seconds after the user stops typing
         self._debounce(lambda: self.run_worker(f, thread=True), 0.5)()
