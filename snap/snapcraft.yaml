@@ -60,7 +60,8 @@ apps:
     command-chain:
       - env_wrapper.sh
     command: bin/python3 $SNAP/src/bugit_v2/app.py
-    completer: src/bugit_v2/bugit-completer.sh
+    # completer is broken after 0.2.6
+    # completer: src/bugit_v2/bugit-completer.sh
 
   dump-standard-info:
     # redirect stderr to suppress errors
