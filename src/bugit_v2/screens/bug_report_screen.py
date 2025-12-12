@@ -13,6 +13,7 @@ from textual.containers import (
     VerticalGroup,
     VerticalScroll,
 )
+from textual.markup import escape as escape_markup
 from textual.reactive import var
 from textual.screen import Screen
 from textual.timer import Timer
@@ -557,7 +558,7 @@ class BugReportScreen(Screen[BugReport]):
                     json.dump(d, f)
                 label.update("[green]Progress Saved")
             except Exception as e:
-                label.update(f"[red]Autosave failed! {repr(e)[:15]}")
+                label.update(f"[red]Autosave failed! {escape_markup(repr(e))}")
 
         # run auto save 0.5 seconds after the user stops typing
         self._debounce(lambda: self.run_worker(f, thread=True), 0.5)()
