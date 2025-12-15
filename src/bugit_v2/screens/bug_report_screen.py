@@ -478,6 +478,13 @@ class BugReportScreen(Screen[BugReport]):
             # use them only when there's no existing report
             self._prefill_with_app_args()
 
+        if self.checkbox_submission is NullSelection.NO_CHECKBOX_SUBMISSION:
+            selection_list = cast(
+                SelectionList[LogName],
+                self.query_exactly_one("#logs_to_include", SelectionList),
+            )
+            selection_list.remove_option("checkbox-submission")
+
     @work
     @on(Button.Pressed, "#submit_button")
     async def confirm_submit(self):
