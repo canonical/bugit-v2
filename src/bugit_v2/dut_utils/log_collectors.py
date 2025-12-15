@@ -7,6 +7,7 @@ from all other collectors.
 """
 
 import os
+import shutil
 import subprocess as sp
 import tarfile
 from collections.abc import Mapping, Sequence
@@ -186,9 +187,12 @@ def pack_checkbox_submission(
     assert (
         bug_report.checkbox_submission is not None
     ), "Can't use this collector if there's no checkbox submission"
+    submission_path = bug_report.checkbox_submission.submission_path
+    assert (
+        submission_path.exists()
+    ), f"{submission_path} was deleted after the bug report was created!"
 
-    with tarfile.open(target_dir / "checkbox_submission.tar.gz", "w:gz") as f:
-        f.add(bug_report.checkbox_submission.submission_path)
+    shutil.copyfile(submission_path, target_dir)
 
     return f"Added checkbox submission to {target_dir}"
 
