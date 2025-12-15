@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import final, override
 
@@ -29,8 +30,13 @@ from bugit_v2.models.app_state import (
     RecoverFromAutosaveState,
     SubmissionProgressState,
 )
+from bugit_v2.models.visual_customization import ThemeName, VisualConfig
 from bugit_v2.utils import get_bugit_version, is_prod, is_snap
-from bugit_v2.utils.constants import LOGO_ASCII_ART, NullSelection
+from bugit_v2.utils.constants import (
+    LOGO_ASCII_ART,
+    VISUAL_CONFIG_DIR,
+    NullSelection,
+)
 from bugit_v2.utils.validations import (
     checkbox_submission_check,
     is_cid,
@@ -133,7 +139,12 @@ class BugitApp(App[None]):
 
     @work(thread=True)
     def on_mount(self) -> None:
-        self.theme = "solarized-light"
+        try:
+            with open(VISUAL_CONFIG_DIR / "visual-config.json") as f:
+                self.theme = VisualConfig.model_validate(json.load(f)).theme
+        except FileNotFoundError:
+            self.theme = "solarized-light"
+
         if is_prod():
             self.title = "Bugit V2"
         else:
@@ -449,6 +460,17 @@ def jira_mode(
             tags=tags,
         )
     ).run()
+
+
+@cli_app.command("visual-config", help="Customize bugit's appearance")
+def configure_visuals(
+    theme: Annotated[
+        ThemeName,
+        typer.Option("-t", "--theme"),
+    ],
+):
+    with open(VISUAL_CONFIG_DIR / "visual-config.json", "w") as f:
+        f.write(VisualConfig(theme=theme).model_dump_json())
 
 
 if __name__ == "__main__":
