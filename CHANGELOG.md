@@ -1,3 +1,18 @@
+# 0.2.7
+
+## Added
+
+- Subcommand `visual-config` to save user color theme preference
+
+## Fixed
+
+- Autosave not working when -s is specified
+
+## Changed
+
+- Autosave timer has been changed to 0.5s to save more frequently
+
+
 # 0.2.6
 
 ## Added
