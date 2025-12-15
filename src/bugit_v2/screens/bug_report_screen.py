@@ -558,6 +558,7 @@ class BugReportScreen(Screen[BugReport]):
                     json.dump(d, f)
                 label.update("[green]Progress Saved")
             except Exception as e:
+                self.log.error(repr(e))
                 label.update(
                     f"[red]Autosave failed! {escape_markup(repr(e)[:20])}"
                 )

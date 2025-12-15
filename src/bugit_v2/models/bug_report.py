@@ -99,15 +99,17 @@ class BugReport:
 
     @staticmethod
     def dict_factory(x: list[tuple[str, Any]]) -> dict[str, Any]:
+        OMIT_KEYS = ("base",)
         o = {}
         for k, v in x:
+            if k in OMIT_KEYS:
+                continue
             if k == "checkbox_submission":
-                if v is None:
-                    o[k] = None
-                else:
+                if type(v) is dict:
                     # dataclass already converted into dict
-                    assert type(v) is dict
                     o[k] = str(v["submission_path"].absolute())
+                else:
+                    o[k] = None
             elif k == "checkbox_session":
                 if isinstance(v, Session):
                     o[k] = str(v.session_path.absolute())
@@ -118,7 +120,6 @@ class BugReport:
             else:
                 o[k] = v
         o["last_updated_timestamp"] = int(time.time())
-        BugReportAutoSaveData.model_validate(o)
         return o
 
 
@@ -151,7 +152,7 @@ class PartialBugReport:
 
 
 class BugReportAutoSaveData(BaseModel):
-    report_id: UUID  # internal uuid, used for keeping track of auto saves
+    report_id: str  # internal uuid, used for keeping track of auto saves
     last_updated_timestamp: int
     title: str
     description: str
@@ -177,7 +178,7 @@ def recover_from_autosave(
 ) -> BugReport:
     # job_id is handled separately
     return BugReport(
-        autosave_data.report_id,
+        UUID(autosave_data.report_id, version=4),
         autosave_data.title,
         autosave_data.description,
         autosave_data.project,
