@@ -192,7 +192,9 @@ def pack_checkbox_submission(
         submission_path.exists()
     ), f"{submission_path} was deleted after the bug report was created!"
 
-    shutil.copyfile(submission_path, target_dir)
+    shutil.copyfile(
+        submission_path, target_dir / os.path.basename(submission_path)
+    )
 
     return f"Added checkbox submission to {target_dir}"
 
