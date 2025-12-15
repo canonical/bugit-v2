@@ -49,6 +49,7 @@ LogName = Literal[
     "journalctl-7-days",
     "journalctl-3-days",
     "checkbox-session",
+    "checkbox-submission",
     "nvidia-bug-report",
     "acpidump",
     "dmesg",

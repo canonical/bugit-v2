@@ -180,6 +180,19 @@ def snap_debug(target_dir: Path, _: BugReport | PartialBugReport):
         )
 
 
+def pack_checkbox_submission(
+    target_dir: Path, bug_report: BugReport | PartialBugReport
+):
+    assert (
+        bug_report.checkbox_submission is not None
+    ), "Can't use this collector if there's no checkbox submission"
+
+    with tarfile.open(target_dir / "checkbox_submission.tar.gz", "w:gz") as f:
+        f.add(bug_report.checkbox_submission.submission_path)
+
+    return f"Added checkbox submission to {target_dir}"
+
+
 mock_collectors: Sequence[LogCollector] = (
     LogCollector(
         "immediate",
@@ -263,6 +276,12 @@ real_collectors: Sequence[LogCollector] = (
         "checkbox-session",
         pack_checkbox_session,
         "Checkbox Session",
+    ),
+    LogCollector(
+        "checkbox-submission",
+        pack_checkbox_submission,
+        "Checkbox Submission",
+        True,
     ),
     LogCollector(
         "nvidia-bug-report",
