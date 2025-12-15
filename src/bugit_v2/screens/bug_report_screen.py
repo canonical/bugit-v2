@@ -43,6 +43,7 @@ from bugit_v2.dut_utils.info_getters import get_standard_info
 from bugit_v2.dut_utils.log_collectors import (
     LOG_NAME_TO_COLLECTOR,
     NVIDIA_BUG_REPORT_PATH,
+    LogCollector,
 )
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import (
@@ -385,10 +386,8 @@ class BugReportScreen(Screen[BugReport]):
                                 Selection[LogName](
                                     collector.display_name,
                                     collector.name,
-                                    (
-                                        self.checkbox_submission
-                                        is NullSelection.NO_CHECKBOX_SUBMISSION
-                                        and collector.collect_by_default
+                                    self._should_select_collector_by_default(
+                                        collector
                                     ),
                                     id=collector.name,
                                     # disable nvidia collector
@@ -770,3 +769,16 @@ class BugReportScreen(Screen[BugReport]):
                             pass
                 case _:
                     pass
+
+    def _should_select_collector_by_default(
+        self, collector: LogCollector
+    ) -> bool:
+        return (
+            self.checkbox_submission is NullSelection.NO_CHECKBOX_SUBMISSION
+            and collector.collect_by_default
+        ) or (
+            self.checkbox_submission
+            is not NullSelection.NO_CHECKBOX_SUBMISSION
+            and collector.collect_by_default
+            and collector.name == "checkbox-submission"
+        )
