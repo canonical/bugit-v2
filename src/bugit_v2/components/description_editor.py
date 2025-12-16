@@ -52,7 +52,7 @@ class DescriptionEditor(Widget):
                 "Waiting for basic machine info to be collected (30 second timeout)...",
                 classes="default_box",
                 show_line_numbers=True,
-                soft_wrap=False,
+                soft_wrap=True,
             )
             yield HorizontalGroup(
                 Button(
@@ -62,7 +62,7 @@ class DescriptionEditor(Widget):
                     classes="editor_button",
                 ),
                 Button(
-                    "Enable Wrap",
+                    "Toggle Line Wrap",
                     id="wrap_text_toggle",
                     compact=True,
                     classes="editor_button",
