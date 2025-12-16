@@ -63,7 +63,11 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                         app_args.checkbox_submission,
                     ):
                         case ("session", None, _):
-                            self.valid_autosave_data[file] = autosave
+                            if (
+                                autosave.checkbox_session is None
+                                or autosave.checkbox_session.exists()
+                            ):
+                                self.valid_autosave_data[file] = autosave
                         case (
                             "submission",
                             Path() as p,
