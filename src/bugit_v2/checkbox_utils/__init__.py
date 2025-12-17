@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess as sp
 from collections.abc import Mapping, Sequence
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Final, Literal, TypedDict, cast, final
 
@@ -16,6 +17,7 @@ from bugit_v2.utils import is_snap
 SESSION_ROOT_DIR: Final = Path("/var/tmp/checkbox-ng/sessions")
 
 
+@lru_cache()
 def get_checkbox_version() -> tuple[Literal["deb", "snap"], str] | None:
     HOST_FS = Path("/var/lib/snapd/hostfs")
     try:
