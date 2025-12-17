@@ -349,15 +349,18 @@ class SubmissionProgressState(AppState):
         match screen_result:
             case "job":
                 self.context.job_id = None
+                self.context.bug_report_init_state = None
                 return JobSelectionState(self.context)
             case "quit":
                 return QuitState(self.context)
             case "report_editor":
+                # this is only used when a submission step fails
                 self.context.bug_report_init_state = backup
                 return ReportEditorState(self.context)
             case "session":
                 self.context.session = None
                 self.context.job_id = None
+                self.context.bug_report_init_state = None
                 return SessionSelectionState(self.context)
 
     @override
