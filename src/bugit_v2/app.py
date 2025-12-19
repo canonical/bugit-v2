@@ -39,6 +39,7 @@ from bugit_v2.utils.constants import (
 )
 from bugit_v2.utils.validations import (
     checkbox_submission_check,
+    ensure_all_directories_exist,
     is_cid,
     sudo_devmode_check,
 )
@@ -474,4 +475,5 @@ def configure_visuals(
 
 
 if __name__ == "__main__":
+    ensure_all_directories_exist()
     cli_app(prog_name="bugit.bugit-v2" if is_snap() else "bugit-v2")

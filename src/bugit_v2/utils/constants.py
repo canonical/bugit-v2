@@ -87,11 +87,10 @@ VISUAL_CONFIG_DIR = (
     Path(os.getenv("SNAP_DATA", str(Path.home().absolute() / ".config")))
     / "bugit-v2-visual-config"
 )
-
-if not AUTOSAVE_DIR.exists():
-    os.makedirs(AUTOSAVE_DIR, exist_ok=True)
-if not VISUAL_CONFIG_DIR.exists():
-    os.makedirs(VISUAL_CONFIG_DIR, exist_ok=True)
+DUT_INFO_DIR = (
+    Path(os.getenv("SNAP_DATA", str(Path.home().absolute() / ".config")))
+    / "bugit-v2-dut-info"
+)
 
 
 class NullSelection(enum.Enum):
