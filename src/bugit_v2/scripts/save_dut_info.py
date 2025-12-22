@@ -161,9 +161,10 @@ def main(
         except ValidationError as e:
             rich_print(f"[red]Found {e.error_count()} validation errors")
             for idx, err in enumerate(e.errors()):
-                rich_print("[yellow]Key:[/]", err["loc"][0])
-                rich_print("[yellow]Error:[/]", err["msg"])
-
+                rich_print("[yellow]Key:[/]", end=" ")
+                print(err["loc"][0])
+                rich_print("[yellow]Error:[/]", end=" ")
+                print(err["msg"])
                 if idx != e.error_count() - 1:
                     print()
 
