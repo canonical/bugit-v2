@@ -100,7 +100,7 @@ def show(
     Persist DUT info like CID, SKU, platform tags to let bugit reuse it in
     bug reports and info collectors. This has LOWER precedence than the
     cli arguments to the main program. It also APPENDS to any existing data.
-    If you would like to write a new file, use the "clear" command first.
+    If you would like to overwrite all existing data, use the "clear" command first.
     """,
 )
 def main(
