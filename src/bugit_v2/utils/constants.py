@@ -83,8 +83,12 @@ VENDOR_MAP: Mapping[str, tuple[str, ...]] = {
 
 # only used for pipx version
 try:
-    HOME = Path(pwd.getpwuid(int(os.environ["SUDO_UID"])).pw_dir)
-except Exception:
+    uid = int(os.environ["SUDO_UID"])
+    # Require a non-root, non-system user (commonly uid >= 1000)
+    if uid < 1000:
+        raise ValueError("SUDO_UID refers to a system or root user")
+    HOME = Path(pwd.getpwuid(uid).pw_dir)
+except KeyError:
     HOME = (  # pyright: ignore[reportConstantRedefinition]
         Path.home().absolute()
     )
