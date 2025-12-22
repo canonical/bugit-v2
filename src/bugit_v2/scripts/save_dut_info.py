@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from rich import print as rich_print
 from typing_extensions import Annotated
 
-from bugit_v2.models.dut_info import DutInfo
+from bugit_v2.models.dut_info import DutInfo, get_saved_dut_info
 from bugit_v2.utils import is_prod, is_snap
 from bugit_v2.utils.constants import DUT_INFO_DIR
 from bugit_v2.utils.validations import ensure_all_directories_exist, is_cid
@@ -17,6 +17,8 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=not is_snap(),  # the built-in ones doesn't work in snap
 )
+
+INFO_FILE = DUT_INFO_DIR / "dut_info.json"
 
 
 def strip(value: str | None) -> str | None:
@@ -58,8 +60,25 @@ def assignee_str_check(value: str | None) -> str | None:
 @app.command("clear", help="Clears all existing info")
 def clear():
     ensure_all_directories_exist()
-    if (info_file := DUT_INFO_DIR / "dut_info.json").exists():
-        info_file.unlink
+    if INFO_FILE.exists():
+        INFO_FILE.unlink()
+
+
+@app.command("show", help="Show what's currently saved")
+def show(
+    print_json: Annotated[
+        bool, typer.Option("--json", help="Print in JSON format")
+    ] = False,
+):
+    ensure_all_directories_exist()
+    if (info := get_saved_dut_info()) is None:
+        return
+    elif print_json:
+        print(info.model_dump_json())
+    else:
+        for key, v in dict(info).items():
+            pretty_key = " ".join([w.title() for w in key.split("_")])
+            rich_print(f"[yellow]{pretty_key}[/]: [bold white]{v}")
 
 
 @app.command(
@@ -159,7 +178,7 @@ def main(
     if os.getuid() == 0:
         raise SystemExit("Do not run this as root")
 
-    with open(DUT_INFO_DIR / "dut_info.json", "w") as f:
+    with open(INFO_FILE, "w") as f:
         try:
             f.write(
                 DutInfo(

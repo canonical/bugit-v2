@@ -42,9 +42,9 @@ def main(
 
     if saved_dut_info:
         if saved_dut_info.cid:
-            info["cid"] = saved_dut_info.cid
+            info["CID"] = saved_dut_info.cid
         if saved_dut_info.sku:
-            info["sku"] = saved_dut_info.sku
+            info["SKU"] = saved_dut_info.sku
 
     if print_json:
         out = {}
