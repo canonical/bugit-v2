@@ -173,10 +173,9 @@ def main(
         ),
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]):
 ):
-    ensure_all_directories_exist()
-
     if os.getuid() == 0:
         raise SystemExit("Do not run this as root")
+    ensure_all_directories_exist()
 
     try:
         old_info = get_saved_dut_info()

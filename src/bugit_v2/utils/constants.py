@@ -94,14 +94,16 @@ except KeyError:
     )
 
 AUTOSAVE_DIR = (
-    Path(os.getenv("SNAP_DATA", str(HOME / ".cache"))) / "bugit-v2-autosave"
+    Path(os.getenv("SNAP_USER_DATA", str(HOME / ".cache")))
+    / "bugit-v2-autosave"
 )
 VISUAL_CONFIG_DIR = (
-    Path(os.getenv("SNAP_DATA", str(HOME / ".config")))
+    Path(os.getenv("SNAP_USER_DATA", str(HOME / ".config")))
     / "bugit-v2-visual-config"
 )
 DUT_INFO_DIR = (
-    Path(os.getenv("SNAP_DATA", str(HOME / ".config"))) / "bugit-v2-dut-info"
+    Path(os.getenv("SNAP_USER_DATA", str(HOME / ".config")))
+    / "bugit-v2-dut-info"
 )
 
 
