@@ -15,14 +15,14 @@ from bugit_v2.checkbox_utils import get_checkbox_version
 from bugit_v2.utils import is_snap
 
 
-def get_thinkpad_ec_version() -> str | None:
+def get_thinkpad_ec_version(timeout: int = 30) -> str | None:
     """Thinkpad specific, get the embedded controller info
 
     :return: controller version if found, None otherwise
     """
     marker = "ThinkPad Embedded Controller Program"
     dmi_out_lines = sp.check_output(
-        ["dmidecode", "-t", "140"], text=True
+        ["dmidecode", "-t", "140"], text=True, timeout=timeout
     ).splitlines()
 
     L = len(dmi_out_lines)
@@ -64,9 +64,11 @@ def get_cpu_info() -> str:
     return "\n".join(cpu_name_strings)
 
 
-def get_amd_gpu_info() -> str | None:
+def get_amd_gpu_info(timeout: int = 30) -> str | None:
     paths = sp.check_output(
-        ["find", "/sys/devices/", "-name", "vbios_version"], text=True
+        ["find", "/sys/devices/", "-name", "vbios_version"],
+        text=True,
+        timeout=timeout,
     ).split()
     if len(paths) == 0:
         return None
@@ -77,7 +79,9 @@ def get_amd_gpu_info() -> str | None:
     for klass in gpu_related_classes:
         pcis = (
             sp.check_output(
-                ["lspci", "-Dnm", "-d", "1002{}".format(klass)], text=True
+                ["lspci", "-Dnm", "-d", "1002{}".format(klass)],
+                text=True,
+                timeout=timeout,
             )
             .strip()
             .splitlines()
@@ -191,7 +195,7 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
             )
 
     if "AMD" in standard_info["GPU"]:
-        vbios = get_amd_gpu_info()
+        vbios = get_amd_gpu_info(command_timeout)
         standard_info["AMD VBIOS"] = (
             vbios or "Cannot capture AMD VBIOS version"
         )
@@ -203,7 +207,7 @@ def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
         standard_info["Checkbox Version"] = cb_version
         standard_info["Checkbox Type"] = cb_type.capitalize()
 
-    if (ec_version := get_thinkpad_ec_version()) is not None:
+    if (ec_version := get_thinkpad_ec_version(command_timeout)) is not None:
         standard_info["Embedded Controller Version"] = ec_version
 
     return standard_info

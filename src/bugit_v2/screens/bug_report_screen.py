@@ -588,31 +588,64 @@ class BugReportScreen(Screen[BugReport]):
         textarea = self.query_exactly_one("#description", DescriptionEditor)
         textarea.disabled = False  # unlock asap
 
-        if event.worker.state != WorkerState.SUCCESS:
+        if event.worker.state == WorkerState.SUCCESS:
+            # only write if basic info collection succeeded
+            # this also implicitly achieves what on_mount does with app_args
+            # since the values in self.initial_report is only used when there's no
+            # existing report
+            machine_info = cast(dict[str, str], event.worker.result)
+            self.initial_report["Additional Information"] = "\n".join(
+                [
+                    f"CID: {self.app_args.cid or ''}",
+                    f"SKU: {self.app_args.sku or ''}",
+                    *(
+                        (f"{k}: {v}" for k, v in machine_info.items())
+                        # don't put the current machine's info when using a submission
+                        if self.checkbox_submission
+                        is NullSelection.NO_CHECKBOX_SUBMISSION
+                        else []
+                    ),
+                ]
+            )
+            log_selection_list = cast(
+                SelectionList[LogName],
+                self.query_exactly_one("#logs_to_include", SelectionList),
+            )
+            # do not directly query the option by id, they don't exist in the DOM
+            if (
+                "NVIDIA" in machine_info["GPU"]
+                and NVIDIA_BUG_REPORT_PATH.exists()
+            ):
+                # include nvidia logs by default IF we actually have it
+                log_selection_list.enable_option("nvidia-bug-report")
+                log_selection_list.select("nvidia-bug-report")
+            else:
+                # disable the nvidia log collector if there's no nvidia card
+                log_selection_list.remove_option("nvidia-bug-report")
+
+        else:
+            log_selection_list = cast(
+                SelectionList[LogName],
+                self.query_exactly_one("#logs_to_include", SelectionList),
+            )
+            if NVIDIA_BUG_REPORT_PATH.exists():
+                log_selection_list.enable_option("nvidia-bug-report")
+            else:
+                log_selection_list.remove_option("nvidia-bug-report")
+
+            # still put these in
+            self.initial_report["Additional Information"] = "\n".join(
+                [
+                    f"CID: {self.app_args.cid or ''}",
+                    f"SKU: {self.app_args.sku or ''}",
+                ]
+            )
+
             self.notify(
                 title="Failed to collect basic machine info",
                 message=str(event.worker.error),
+                timeout=180,
             )
-            return
-
-        # only write if basic info collection succeeded
-        # this also implicitly achieves what on_mount does with app_args
-        # since the values in self.initial_report is only used when there's no
-        # existing report
-        machine_info = cast(dict[str, str], event.worker.result)
-        self.initial_report["Additional Information"] = "\n".join(
-            [
-                f"CID: {self.app_args.cid or ''}",
-                f"SKU: {self.app_args.sku or ''}",
-                *(
-                    (f"{k}: {v}" for k, v in machine_info.items())
-                    # don't put the current machine's info when using a submission
-                    if self.checkbox_submission
-                    is NullSelection.NO_CHECKBOX_SUBMISSION
-                    else []
-                ),
-            ]
-        )
 
         if self.existing_report is None:
             # only overwrite the textarea if there's no existing report
@@ -620,19 +653,6 @@ class BugReportScreen(Screen[BugReport]):
                 f"[{k}]\n" + v + ("\n" if v else "")
                 for k, v in self.initial_report.items()
             )
-
-        log_selection_list = cast(
-            SelectionList[LogName],
-            self.query_exactly_one("#logs_to_include", SelectionList),
-        )
-        # do not directly query the option by id, they don't exist in the DOM
-        if "NVIDIA" in machine_info["GPU"] and NVIDIA_BUG_REPORT_PATH.exists():
-            # include nvidia logs by default IF we actually have it
-            log_selection_list.enable_option("nvidia-bug-report")
-            log_selection_list.select("nvidia-bug-report")
-        else:
-            # disable the nvidia log collector if there's no nvidia card
-            log_selection_list.remove_option("nvidia-bug-report")
 
     def watch_validation_status(self):
         btn = self.query_exactly_one("#submit_button", Button)
