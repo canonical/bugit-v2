@@ -30,9 +30,11 @@ from bugit_v2.models.app_state import (
     RecoverFromAutosaveState,
     SubmissionProgressState,
 )
+from bugit_v2.models.dut_info import DutInfo
 from bugit_v2.models.visual_customization import ThemeName, VisualConfig
 from bugit_v2.utils import get_bugit_version, is_prod, is_snap
 from bugit_v2.utils.constants import (
+    DUT_INFO_DIR,
     LOGO_ASCII_ART,
     VISUAL_CONFIG_DIR,
     NullSelection,
@@ -332,17 +334,22 @@ def launchpad_mode(
 
     cbs = checkbox_submission_check(checkbox_submission)
 
+    saved_dut_info = DutInfo()  # all none
+    if (info_file := DUT_INFO_DIR / "dut_info.json").exists():
+        with open(info_file) as f:
+            saved_dut_info = DutInfo.model_validate_json(f.read())
+
     BugitApp(
         AppArgs(
             submitter="lp",
             checkbox_submission=cbs,
             bug_to_reopen=None,
-            cid=cid,
-            sku=sku,
-            project=project,
-            assignee=assignee,
-            platform_tags=platform_tags,
-            tags=tags,
+            cid=cid or saved_dut_info.cid,
+            sku=sku or saved_dut_info.sku,
+            project=project or saved_dut_info.project,
+            assignee=assignee or saved_dut_info.jira_assignee,
+            platform_tags=platform_tags or saved_dut_info.platform_tags,
+            tags=tags or saved_dut_info.tags,
         )
     ).run()
 
@@ -447,18 +454,23 @@ def jira_mode(
 
     cbs = checkbox_submission_check(checkbox_submission)
 
+    saved_dut_info = DutInfo()  # all none
+    if (info_file := DUT_INFO_DIR / "dut_info.json").exists():
+        with open(info_file) as f:
+            saved_dut_info = DutInfo.model_validate_json(f.read())
+
     BugitApp(
         # reopen is disabled for now
         AppArgs(
             submitter="jira",
             checkbox_submission=cbs,
             bug_to_reopen=None,
-            cid=cid,
-            sku=sku,
-            project=project,
-            assignee=assignee,
-            platform_tags=platform_tags,
-            tags=tags,
+            cid=cid or saved_dut_info.cid,
+            sku=sku or saved_dut_info.sku,
+            project=project or saved_dut_info.project,
+            assignee=assignee or saved_dut_info.jira_assignee,
+            platform_tags=platform_tags or saved_dut_info.platform_tags,
+            tags=tags or saved_dut_info.tags,
         )
     ).run()
 
