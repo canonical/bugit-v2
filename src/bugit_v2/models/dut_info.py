@@ -32,7 +32,6 @@ class DutInfo(BaseModel):
             str,
             StringConstraints(
                 pattern=r"^[a-zA-Z0-9]+$",  # no spaces in between
-                to_upper=True,
                 strip_whitespace=True,
             ),
         ]
