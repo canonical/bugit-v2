@@ -77,4 +77,4 @@ def ensure_all_directories_exist() -> None:
     if not VISUAL_CONFIG_DIR.exists():
         os.makedirs(VISUAL_CONFIG_DIR)
     if not DUT_INFO_DIR.exists():
-        os.makedirs(VISUAL_CONFIG_DIR)
+        os.makedirs(DUT_INFO_DIR)
