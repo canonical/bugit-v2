@@ -167,6 +167,7 @@ def main(
                 print(err["msg"])
                 if idx != e.error_count() - 1:
                     print()
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":
