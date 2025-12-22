@@ -1,5 +1,6 @@
 import enum
 import os
+import pwd
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -79,17 +80,24 @@ VENDOR_MAP: Mapping[str, tuple[str, ...]] = {
     "Telit": ("ihv-telit",),
 }
 
+
+# only used for pipx version
+try:
+    HOME = Path(pwd.getpwuid(int(os.environ["SUDO_UID"])).pw_dir)
+except Exception:
+    HOME = (  # pyright: ignore[reportConstantRedefinition]
+        Path.home().absolute()
+    )
+
 AUTOSAVE_DIR = (
-    Path(os.getenv("SNAP_DATA", str(Path.home().absolute() / ".cache")))
-    / "bugit-v2-autosave"
+    Path(os.getenv("SNAP_DATA", str(HOME / ".cache"))) / "bugit-v2-autosave"
 )
 VISUAL_CONFIG_DIR = (
-    Path(os.getenv("SNAP_DATA", str(Path.home().absolute() / ".config")))
+    Path(os.getenv("SNAP_DATA", str(HOME / ".config")))
     / "bugit-v2-visual-config"
 )
 DUT_INFO_DIR = (
-    Path(os.getenv("SNAP_DATA", str(Path.home().absolute() / ".config")))
-    / "bugit-v2-dut-info"
+    Path(os.getenv("SNAP_DATA", str(HOME / ".config"))) / "bugit-v2-dut-info"
 )
 
 

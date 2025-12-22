@@ -1,3 +1,5 @@
+import os
+
 import typer
 from pydantic import ValidationError
 from rich import print as rich_print
@@ -145,6 +147,10 @@ def main(
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]):
 ):
     ensure_all_directories_exist()
+
+    if os.getuid() == 0:
+        raise SystemExit("Do not run this as root")
+
     with open(DUT_INFO_DIR / "dut_info.json", "w") as f:
         try:
             f.write(
