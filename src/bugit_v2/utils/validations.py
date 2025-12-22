@@ -7,7 +7,12 @@ import pydantic
 
 from bugit_v2.checkbox_utils.submission_extractor import read_simple_submission
 from bugit_v2.utils import is_snap
-from bugit_v2.utils.constants import NullSelection
+from bugit_v2.utils.constants import (
+    AUTOSAVE_DIR,
+    DUT_INFO_DIR,
+    VISUAL_CONFIG_DIR,
+    NullSelection,
+)
 
 
 def bugit_is_in_devmode() -> bool:
@@ -64,3 +69,12 @@ def checkbox_submission_check(checkbox_submission: Path | None):
 
 def is_cid(cid: str) -> bool:
     return re.compile(r"\d{6}-\d{5}\b").fullmatch(cid) is not None
+
+
+def ensure_all_directories_exist() -> None:
+    if not AUTOSAVE_DIR.exists():
+        os.makedirs(AUTOSAVE_DIR)
+    if not VISUAL_CONFIG_DIR.exists():
+        os.makedirs(VISUAL_CONFIG_DIR)
+    if not DUT_INFO_DIR.exists():
+        os.makedirs(DUT_INFO_DIR)

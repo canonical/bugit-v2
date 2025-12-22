@@ -71,6 +71,10 @@ apps:
     # redirect stderr to suppress errors
     command: bin/python3 $SNAP/src/bugit_v2/scripts/list_sessions.py
 
+  dut_info:
+    # redirect stderr to suppress errors
+    command: bin/python3 $SNAP/src/bugit_v2/scripts/save_dut_info.py
+
 parts:
   launcher:
     plugin: dump

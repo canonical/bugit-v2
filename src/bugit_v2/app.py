@@ -30,6 +30,7 @@ from bugit_v2.models.app_state import (
     RecoverFromAutosaveState,
     SubmissionProgressState,
 )
+from bugit_v2.models.dut_info import DutInfo, get_saved_dut_info
 from bugit_v2.models.visual_customization import ThemeName, VisualConfig
 from bugit_v2.utils import get_bugit_version, is_prod, is_snap
 from bugit_v2.utils.constants import (
@@ -39,6 +40,7 @@ from bugit_v2.utils.constants import (
 )
 from bugit_v2.utils.validations import (
     checkbox_submission_check,
+    ensure_all_directories_exist,
     is_cid,
     sudo_devmode_check,
 )
@@ -330,18 +332,19 @@ def launchpad_mode(
         print(f"Decompressing checkbox submission at {checkbox_submission}")
 
     cbs = checkbox_submission_check(checkbox_submission)
+    saved_dut_info = get_saved_dut_info() or DutInfo()  # all none
 
     BugitApp(
         AppArgs(
             submitter="lp",
             checkbox_submission=cbs,
             bug_to_reopen=None,
-            cid=cid,
-            sku=sku,
-            project=project,
-            assignee=assignee,
-            platform_tags=platform_tags,
-            tags=tags,
+            cid=cid or saved_dut_info.cid,
+            sku=sku or saved_dut_info.sku,
+            project=project or saved_dut_info.project,
+            assignee=assignee or saved_dut_info.lp_assignee,
+            platform_tags=platform_tags or saved_dut_info.platform_tags,
+            tags=tags or saved_dut_info.tags,
         )
     ).run()
 
@@ -445,6 +448,7 @@ def jira_mode(
         print(f"Decompressing checkbox submission at {checkbox_submission}")
 
     cbs = checkbox_submission_check(checkbox_submission)
+    saved_dut_info = get_saved_dut_info() or DutInfo()  # all none
 
     BugitApp(
         # reopen is disabled for now
@@ -452,12 +456,12 @@ def jira_mode(
             submitter="jira",
             checkbox_submission=cbs,
             bug_to_reopen=None,
-            cid=cid,
-            sku=sku,
-            project=project,
-            assignee=assignee,
-            platform_tags=platform_tags,
-            tags=tags,
+            cid=cid or saved_dut_info.cid,
+            sku=sku or saved_dut_info.sku,
+            project=project or saved_dut_info.project,
+            assignee=assignee or saved_dut_info.jira_assignee,
+            platform_tags=platform_tags or saved_dut_info.platform_tags,
+            tags=tags or saved_dut_info.tags,
         )
     ).run()
 
@@ -469,9 +473,11 @@ def configure_visuals(
         typer.Option("-t", "--theme"),
     ],
 ):
+    sudo_devmode_check()
     with open(VISUAL_CONFIG_DIR / "visual-config.json", "w") as f:
         f.write(VisualConfig(theme=theme).model_dump_json())
 
 
 if __name__ == "__main__":
+    ensure_all_directories_exist()
     cli_app(prog_name="bugit.bugit-v2" if is_snap() else "bugit-v2")
