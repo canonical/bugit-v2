@@ -17,6 +17,9 @@ app = typer.Typer(
     pretty_exceptions_enable=not is_prod(),
     pretty_exceptions_show_locals=not is_prod(),
     no_args_is_help=True,
+    help="""
+    Persist DUT info to be later reused by bugit. Specify a subcommand with -h to see more help messages.
+    """,
     add_completion=not is_snap(),  # the built-in ones doesn't work in snap
 )
 
@@ -59,7 +62,7 @@ def assignee_str_check(value: str | None) -> str | None:
     return value.strip()
 
 
-@app.command("clear", help="Clears all existing info")
+@app.command("clear", help="Clear all existing info")
 def clear():
     sudo_devmode_check()
     ensure_all_directories_exist()
@@ -67,7 +70,13 @@ def clear():
         INFO_FILE.unlink()
 
 
-@app.command("show", help="Show what's currently saved")
+@app.command(
+    "show",
+    help="""
+    Show what's currently saved in a human-friendly format.
+    Prints nothing if nothing is saved.
+    """,
+)
 def show(
     print_json: Annotated[
         bool, typer.Option("--json", help="Print in JSON format")
@@ -90,7 +99,8 @@ def show(
     help="""
     Persist DUT info like CID, SKU, platform tags to let bugit reuse it in
     bug reports and info collectors. This has LOWER precedence than the
-    cli arguments to the main program.
+    cli arguments to the main program. It also APPENDS to any existing data.
+    If you would like to write a new file, use the "clear" command first.
     """,
 )
 def main(
