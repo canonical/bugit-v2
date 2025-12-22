@@ -1,6 +1,8 @@
 from pydantic import BaseModel, EmailStr, StringConstraints
 from typing_extensions import Annotated
 
+from bugit_v2.utils.constants import DUT_INFO_DIR
+
 
 class DutInfo(BaseModel):
     """DUT information like CID, SKU, project name, and platform tags"""
@@ -67,3 +69,12 @@ class DutInfo(BaseModel):
         ]
         | None
     ) = None
+
+
+def get_saved_dut_info() -> DutInfo | None:
+    info_file = DUT_INFO_DIR / "dut_info.json"
+    if not info_file.exists():
+        return None
+
+    with open(info_file) as f:
+        return DutInfo.model_validate_json(f.read())

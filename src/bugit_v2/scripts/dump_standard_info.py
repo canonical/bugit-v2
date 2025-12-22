@@ -9,6 +9,7 @@ import typer
 from rich import print as rich_print
 
 from bugit_v2.dut_utils.info_getters import get_standard_info
+from bugit_v2.models.dut_info import get_saved_dut_info
 from bugit_v2.utils import is_prod, is_snap
 from bugit_v2.utils.validations import sudo_devmode_check
 
@@ -37,6 +38,14 @@ def main(
         info = get_standard_info(None)
     else:
         info = get_standard_info()
+    saved_dut_info = get_saved_dut_info()
+
+    if saved_dut_info:
+        if saved_dut_info.cid:
+            info["cid"] = saved_dut_info.cid
+        if saved_dut_info.sku:
+            info["sku"] = saved_dut_info.sku
+
     if print_json:
         out = {}
         for key in info:
@@ -47,6 +56,7 @@ def main(
                     if word.strip()
                 )
             ] = info[key]
+
         print(json.dumps(out))
     else:
         for key, v in info.items():
