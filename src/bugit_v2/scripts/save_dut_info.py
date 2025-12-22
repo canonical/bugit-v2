@@ -61,6 +61,7 @@ def assignee_str_check(value: str | None) -> str | None:
 
 @app.command("clear", help="Clears all existing info")
 def clear():
+    sudo_devmode_check()
     ensure_all_directories_exist()
     if INFO_FILE.exists():
         INFO_FILE.unlink()
@@ -72,6 +73,7 @@ def show(
         bool, typer.Option("--json", help="Print in JSON format")
     ] = False,
 ):
+    sudo_devmode_check()
     ensure_all_directories_exist()
     if (info := get_saved_dut_info()) is None:
         return
