@@ -15,7 +15,7 @@ from bugit_v2.checkbox_utils import get_checkbox_version
 from bugit_v2.utils import is_snap
 
 
-def get_thinkpad_ec_version(timeout: int = 30) -> str | None:
+def get_thinkpad_ec_version(timeout: int | None = 30) -> str | None:
     """Thinkpad specific, get the embedded controller info
 
     :return: controller version if found, None otherwise
@@ -64,7 +64,7 @@ def get_cpu_info() -> str:
     return "\n".join(cpu_name_strings)
 
 
-def get_amd_gpu_info(timeout: int = 30) -> str | None:
+def get_amd_gpu_info(timeout: int | None = 30) -> str | None:
     paths = sp.check_output(
         ["find", "/sys/devices/", "-name", "vbios_version"],
         text=True,
@@ -97,7 +97,7 @@ def get_amd_gpu_info(timeout: int = 30) -> str | None:
     return vbios
 
 
-def get_standard_info(command_timeout: int = 30) -> dict[str, str]:
+def get_standard_info(command_timeout: int | None = 30) -> dict[str, str]:
     """
     Gather standard information that should be present in all bugs.
     This can be very slow so run it asynchronously
