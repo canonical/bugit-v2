@@ -28,9 +28,15 @@ def main(
     print_json: Annotated[
         bool, typer.Option("--json", help="Print in JSON format")
     ] = False,
+    no_timeout: Annotated[
+        bool, typer.Option("-nt", "--no-timeout", help="Ignore all timeouts")
+    ] = False,
 ):
     sudo_devmode_check()
-    info = get_standard_info()
+    if no_timeout:
+        info = get_standard_info(None)
+    else:
+        info = get_standard_info()
     if print_json:
         out = {}
         for key in info:
