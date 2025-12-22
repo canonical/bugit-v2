@@ -630,6 +630,8 @@ class BugReportScreen(Screen[BugReport]):
             )
             if NVIDIA_BUG_REPORT_PATH.exists():
                 log_selection_list.enable_option("nvidia-bug-report")
+            else:
+                log_selection_list.remove_option("nvidia-bug-report")
             self.notify(
                 title="Failed to collect basic machine info",
                 message=str(event.worker.error),
