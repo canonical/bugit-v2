@@ -3,6 +3,7 @@
 ## Added
 
 - Subcommand `visual-config` to save user color theme preference
+- Subcommand `dut-info` to set DUT info reusable by the main bugit program
 
 ## Fixed
 
@@ -11,7 +12,6 @@
 ## Changed
 
 - Autosave timer has been changed to 0.5s to save more frequently
-
 
 # 0.2.6
 
