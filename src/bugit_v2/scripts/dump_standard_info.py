@@ -34,9 +34,9 @@ def main(
 ):
     sudo_devmode_check()
     if no_timeout:
-        info = get_standard_info()
-    else:
         info = get_standard_info(None)
+    else:
+        info = get_standard_info()
     if print_json:
         out = {}
         for key in info:
