@@ -55,12 +55,20 @@ def assignee_str_check(value: str | None) -> str | None:
     return value.strip()
 
 
+@app.command("clear", help="Clears all existing info")
+def clear():
+    ensure_all_directories_exist()
+    if (info_file := DUT_INFO_DIR / "dut_info.json").exists():
+        info_file.unlink
+
+
 @app.command(
+    "set",
     help="""
     Persist DUT info like CID, SKU, platform tags to let bugit reuse it in
     bug reports and info collectors. This has LOWER precedence than the
     cli arguments to the main program.
-    """
+    """,
 )
 def main(
     cid: Annotated[
