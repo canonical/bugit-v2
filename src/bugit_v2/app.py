@@ -473,6 +473,7 @@ def configure_visuals(
         typer.Option("-t", "--theme"),
     ],
 ):
+    sudo_devmode_check()
     with open(VISUAL_CONFIG_DIR / "visual-config.json", "w") as f:
         f.write(VisualConfig(theme=theme).model_dump_json())
 

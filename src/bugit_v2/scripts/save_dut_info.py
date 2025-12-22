@@ -1,5 +1,3 @@
-import os
-
 import typer
 from pydantic import ValidationError
 from rich import print as rich_print
@@ -8,7 +6,11 @@ from typing_extensions import Annotated
 from bugit_v2.models.dut_info import DutInfo, get_saved_dut_info
 from bugit_v2.utils import is_prod, is_snap
 from bugit_v2.utils.constants import DUT_INFO_DIR
-from bugit_v2.utils.validations import ensure_all_directories_exist, is_cid
+from bugit_v2.utils.validations import (
+    ensure_all_directories_exist,
+    is_cid,
+    sudo_devmode_check,
+)
 
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -173,8 +175,7 @@ def main(
         ),
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]):
 ):
-    if os.getuid() == 0:
-        raise SystemExit("Do not run this as root")
+    sudo_devmode_check()
     ensure_all_directories_exist()
 
     try:

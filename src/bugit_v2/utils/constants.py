@@ -1,6 +1,5 @@
 import enum
 import os
-import pwd
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -81,28 +80,20 @@ VENDOR_MAP: Mapping[str, tuple[str, ...]] = {
 }
 
 
-# only used for pipx version
-try:
-    uid = int(os.environ["SUDO_UID"])
-    # Require a non-root, non-system user (commonly uid >= 1000)
-    if uid < 1000:
-        raise ValueError("SUDO_UID refers to a system or root user")
-    HOME = Path(pwd.getpwuid(uid).pw_dir)
-except KeyError:
-    HOME = (  # pyright: ignore[reportConstantRedefinition]
-        Path.home().absolute()
-    )
-
 AUTOSAVE_DIR = (
-    Path(os.getenv("SNAP_USER_DATA", str(HOME / ".cache")))
+    Path(os.getenv("SNAP_USER_DATA", str(Path().home().absolute() / ".cache")))
     / "bugit-v2-autosave"
 )
 VISUAL_CONFIG_DIR = (
-    Path(os.getenv("SNAP_USER_DATA", str(HOME / ".config")))
+    Path(
+        os.getenv("SNAP_USER_DATA", str(Path().home().absolute() / ".config"))
+    )
     / "bugit-v2-visual-config"
 )
 DUT_INFO_DIR = (
-    Path(os.getenv("SNAP_USER_DATA", str(HOME / ".config")))
+    Path(
+        os.getenv("SNAP_USER_DATA", str(Path().home().absolute() / ".config"))
+    )
     / "bugit-v2-dut-info"
 )
 
