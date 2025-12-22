@@ -195,38 +195,38 @@ def main(
     except ValidationError:
         old_info = None
 
-    with open(INFO_FILE, "w") as f:
-        try:
-            new_info = DutInfo(
-                cid=cid,
-                sku=sku,
-                project=project,
-                platform_tags=platform_tags,
-                jira_assignee=jira_assignee,
-                lp_assignee=lp_assignee,
-                tags=tags,
-            )
-            if old_info:
-                old_info_dict = dict(old_info)
-                for k, v in dict(new_info).items():
-                    if v:  # include None and empty list
-                        old_info_dict[k] = v
-
+    try:
+        new_info = DutInfo(
+            cid=cid,
+            sku=sku,
+            project=project,
+            platform_tags=platform_tags,
+            jira_assignee=jira_assignee,
+            lp_assignee=lp_assignee,
+            tags=tags,
+        )
+        if old_info:
+            old_info_dict = dict(old_info)
+            for k, v in dict(new_info).items():
+                if v:  # include None and empty list
+                    old_info_dict[k] = v
+            with open(INFO_FILE, "w") as f:
                 f.write(
                     DutInfo.model_validate(old_info_dict).model_dump_json()
                 )
-            else:
+        else:
+            with open(INFO_FILE, "w") as f:
                 f.write(new_info.model_dump_json())
-        except ValidationError as e:
-            rich_print(f"[red]Found {e.error_count()} validation errors")
-            for idx, err in enumerate(e.errors()):
-                rich_print("[yellow]Key:[/]", end=" ")
-                print(err["loc"][0])
-                rich_print("[yellow]Error:[/]", end=" ")
-                print(err["msg"])
-                if idx != e.error_count() - 1:
-                    print()
-            raise SystemExit(1)
+    except ValidationError as e:
+        rich_print(f"[red]Found {e.error_count()} validation errors")
+        for idx, err in enumerate(e.errors()):
+            rich_print("[yellow]Key:[/]", end=" ")
+            print(err["loc"][0])
+            rich_print("[yellow]Error:[/]", end=" ")
+            print(err["msg"])
+            if idx != e.error_count() - 1:
+                print()
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
