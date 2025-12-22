@@ -632,6 +632,15 @@ class BugReportScreen(Screen[BugReport]):
                 log_selection_list.enable_option("nvidia-bug-report")
             else:
                 log_selection_list.remove_option("nvidia-bug-report")
+
+            # still put these in
+            self.initial_report["Additional Information"] = "\n".join(
+                [
+                    f"CID: {self.app_args.cid or ''}",
+                    f"SKU: {self.app_args.sku or ''}",
+                ]
+            )
+
             self.notify(
                 title="Failed to collect basic machine info",
                 message=str(event.worker.error),
