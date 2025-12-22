@@ -30,11 +30,10 @@ from bugit_v2.models.app_state import (
     RecoverFromAutosaveState,
     SubmissionProgressState,
 )
-from bugit_v2.models.dut_info import DutInfo
+from bugit_v2.models.dut_info import DutInfo, get_saved_dut_info
 from bugit_v2.models.visual_customization import ThemeName, VisualConfig
 from bugit_v2.utils import get_bugit_version, is_prod, is_snap
 from bugit_v2.utils.constants import (
-    DUT_INFO_DIR,
     LOGO_ASCII_ART,
     VISUAL_CONFIG_DIR,
     NullSelection,
@@ -333,11 +332,7 @@ def launchpad_mode(
         print(f"Decompressing checkbox submission at {checkbox_submission}")
 
     cbs = checkbox_submission_check(checkbox_submission)
-
-    saved_dut_info = DutInfo()  # all none
-    if (info_file := DUT_INFO_DIR / "dut_info.json").exists():
-        with open(info_file) as f:
-            saved_dut_info = DutInfo.model_validate_json(f.read())
+    saved_dut_info = get_saved_dut_info() or DutInfo()  # all none
 
     BugitApp(
         AppArgs(
@@ -347,7 +342,7 @@ def launchpad_mode(
             cid=cid or saved_dut_info.cid,
             sku=sku or saved_dut_info.sku,
             project=project or saved_dut_info.project,
-            assignee=assignee or saved_dut_info.jira_assignee,
+            assignee=assignee or saved_dut_info.lp_assignee,
             platform_tags=platform_tags or saved_dut_info.platform_tags,
             tags=tags or saved_dut_info.tags,
         )
@@ -453,11 +448,7 @@ def jira_mode(
         print(f"Decompressing checkbox submission at {checkbox_submission}")
 
     cbs = checkbox_submission_check(checkbox_submission)
-
-    saved_dut_info = DutInfo()  # all none
-    if (info_file := DUT_INFO_DIR / "dut_info.json").exists():
-        with open(info_file) as f:
-            saved_dut_info = DutInfo.model_validate_json(f.read())
+    saved_dut_info = get_saved_dut_info() or DutInfo()  # all none
 
     BugitApp(
         # reopen is disabled for now
