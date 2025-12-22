@@ -46,6 +46,15 @@ class DutInfo(BaseModel):
             ),
         ]
     ] = []
+    tags: list[
+        Annotated[
+            str,
+            StringConstraints(
+                pattern=r"^[a-zA-Z0-9\-]+$",  # no spaces in between
+                strip_whitespace=True,
+            ),
+        ]
+    ] = []
     jira_assignee: EmailStr | None = None
     lp_assignee: (
         Annotated[

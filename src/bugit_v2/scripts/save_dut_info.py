@@ -1,4 +1,6 @@
 import typer
+from pydantic import ValidationError
+from rich import print as rich_print
 from typing_extensions import Annotated
 
 from bugit_v2.models.dut_info import DutInfo
@@ -52,7 +54,11 @@ def assignee_str_check(value: str | None) -> str | None:
 
 
 @app.command(
-    help="Persist DUT info like CID, SKU, platform tags to let bugit reuse it in bug reports and info collectors"
+    help="""
+    Persist DUT info like CID, SKU, platform tags to let bugit reuse it in
+    bug reports and info collectors. This has LOWER precedence than the
+    cli arguments to the main program.
+    """
 )
 def main(
     cid: Annotated[
@@ -140,16 +146,26 @@ def main(
 ):
     ensure_all_directories_exist()
     with open(DUT_INFO_DIR / "dut_info.json", "w") as f:
-        f.write(
-            DutInfo(
-                cid=cid,
-                sku=sku,
-                project=project,
-                platform_tags=platform_tags,
-                jira_assignee=jira_assignee,
-                lp_assignee=lp_assignee,
-            ).model_dump_json()
-        )
+        try:
+            f.write(
+                DutInfo(
+                    cid=cid,
+                    sku=sku,
+                    project=project,
+                    platform_tags=platform_tags,
+                    jira_assignee=jira_assignee,
+                    lp_assignee=lp_assignee,
+                    tags=tags,
+                ).model_dump_json()
+            )
+        except ValidationError as e:
+            rich_print(f"[red]Found {e.error_count()} validation errors")
+            for idx, err in enumerate(e.errors()):
+                rich_print("[yellow]Key:[/]", err["loc"][0])
+                rich_print("[yellow]Error:[/]", err["msg"])
+
+                if idx != e.error_count() - 1:
+                    print()
 
 
 if __name__ == "__main__":
