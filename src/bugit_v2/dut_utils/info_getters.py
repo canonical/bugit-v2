@@ -203,7 +203,7 @@ def get_standard_info(command_timeout: int | None = 30) -> dict[str, str]:
     standard_info["Kernel Version"] = platform.uname().release
 
     if (tv := get_checkbox_version()) is not None:
-        cb_type, cb_version = tv
+        cb_type, cb_version, _ = tv
         standard_info["Checkbox Version"] = cb_version
         standard_info["Checkbox Type"] = cb_type.capitalize()
 

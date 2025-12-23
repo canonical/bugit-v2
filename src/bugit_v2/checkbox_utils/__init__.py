@@ -16,26 +16,29 @@ from bugit_v2.utils import is_snap
 
 SESSION_ROOT_DIR: Final = Path("/var/tmp/checkbox-ng/sessions")
 
+type CheckboxInfo = tuple[Literal["deb", "snap"], str, Path]
+
 
 @lru_cache()
-def get_checkbox_version() -> tuple[Literal["deb", "snap"], str] | None:
+def get_checkbox_version() -> CheckboxInfo | None:
     HOST_FS = Path("/var/lib/snapd/hostfs")
     try:
         if is_snap():
-            if Path(
+            if (
                 deb_checkbox := HOST_FS / "usr" / "bin" / "checkbox-cli"
             ).exists():
                 # host is using debian checkbox
                 return (
                     "deb",
                     sp.check_output(
-                        [deb_checkbox, "--version"],
+                        [str(deb_checkbox), "--version"],
                         text=True,
                         env={
                             "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages"
                         },
                         stderr=sp.DEVNULL,
                     ).strip(),
+                    deb_checkbox,
                 )
             else:
                 # search through /snap/bin and see if a project checkbox is there
@@ -54,6 +57,7 @@ def get_checkbox_version() -> tuple[Literal["deb", "snap"], str] | None:
                                 text=True,
                                 stderr=sp.DEVNULL,
                             ).strip(),
+                            (HOST_FS / "snap" / "bin" / executable),
                         )
         else:
             if (checkbox_bin := shutil.which("checkbox-cli")) is not None:
@@ -64,6 +68,7 @@ def get_checkbox_version() -> tuple[Literal["deb", "snap"], str] | None:
                         text=True,
                         stderr=sp.DEVNULL,
                     ).strip(),
+                    Path(checkbox_bin),
                 )
             else:
                 # search through /snap/bin and see if a project checkbox is there
@@ -82,6 +87,7 @@ def get_checkbox_version() -> tuple[Literal["deb", "snap"], str] | None:
                                 text=True,
                                 stderr=sp.DEVNULL,
                             ).strip(),
+                            Path("/snap/bin") / executable,
                         )
     except sp.CalledProcessError:
         return None
