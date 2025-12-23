@@ -152,7 +152,7 @@ def dmesg_of_current_boot(
         boot_id = boot_id_file.read().strip().replace("-", "")
         with open(target_dir / f"dmesg-of-boot-{boot_id}.log", "w") as f:
             sp.check_call(
-                ["dmesg", "-T"],
+                ["journalctl", "--dmesg"],
                 stdout=f,
                 stderr=sp.DEVNULL,
                 text=True,
