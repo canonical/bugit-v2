@@ -230,4 +230,4 @@ def main(
 
 
 if __name__ == "__main__":
-    app()
+    app(prog_name="bugit.dut-info" if is_snap() else "bugit-dut-info")
