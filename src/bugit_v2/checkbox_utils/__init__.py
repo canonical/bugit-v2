@@ -20,7 +20,7 @@ type CheckboxInfo = tuple[Literal["deb", "snap"], str, Path]
 
 
 @lru_cache()
-def get_checkbox_version() -> CheckboxInfo | None:
+def get_checkbox_info() -> CheckboxInfo | None:
     HOST_FS = Path("/var/lib/snapd/hostfs")
     try:
         if is_snap():

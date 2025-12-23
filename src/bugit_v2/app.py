@@ -20,7 +20,7 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
 )
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
-from bugit_v2.checkbox_utils import get_checkbox_version
+from bugit_v2.checkbox_utils import get_checkbox_info
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.app_state import (
@@ -154,7 +154,7 @@ class BugitApp(App[None]):
 
         # snap checkbox takes a while to respond especially if it's the
         # 1st use after reboot
-        if (tv := get_checkbox_version()) is not None:
+        if (tv := get_checkbox_info()) is not None:
             cb_version = tv[1]
             self.sub_title = f"Checkbox {cb_version}"
 
