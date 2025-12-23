@@ -60,4 +60,6 @@ def main(
 
 
 if __name__ == "__main__":
-    app(prog_name="list_sessions")
+    app(
+        prog_name="bugit.list-sessions" if is_snap() else "bugit-list-sessions"
+    )

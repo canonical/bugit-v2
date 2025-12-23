@@ -64,4 +64,10 @@ def main(
 
 
 if __name__ == "__main__":
-    app(prog_name="dump_standard_info")
+    app(
+        prog_name=(
+            "bugit.dump-standard-info"
+            if is_snap()
+            else "bugit-dump-standard-info"
+        )
+    )
