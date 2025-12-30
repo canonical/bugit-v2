@@ -5,7 +5,10 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-type CertificationStatus = Literal["non-blocker", "blocker"]
+CertificationStatus = Literal["non-blocker", "blocker"]
+
+CERT_STATUSES: tuple[CertificationStatus, ...] = CertificationStatus.__args__
+
 type JobOutcome = Literal[
     "pass",
     "fail",

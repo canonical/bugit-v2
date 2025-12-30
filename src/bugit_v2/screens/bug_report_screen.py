@@ -34,7 +34,11 @@ from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
 from bugit_v2.checkbox_utils import Session
-from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
+from bugit_v2.checkbox_utils.get_cert_status import guess_certification_status
+from bugit_v2.checkbox_utils.models import (
+    CertificationStatus,
+    SimpleCheckboxSubmission,
+)
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.description_editor import DescriptionEditor
 from bugit_v2.components.header import SimpleHeader
@@ -469,6 +473,21 @@ class BugReportScreen(Screen[BugReport]):
             thread=True,
             exit_on_error=False,  # still allow editing
         )
+
+        if (
+            self.session is not NullSelection.NO_SESSION
+            and self.job_id is not NullSelection.NO_JOB
+        ):
+            self.run_worker(
+                # early binding hack
+                lambda tid=self.session.testplan_id, jid=self.job_id: guess_certification_status(
+                    tid, jid
+                ),
+                name=guess_certification_status.__name__,
+                thread=True,
+                exit_on_error=False,  # still allow editing
+            )
+
         self.query_exactly_one("#title", Input).focus()
 
         if self.existing_report is not None:
@@ -484,6 +503,7 @@ class BugReportScreen(Screen[BugReport]):
                 self.query_exactly_one("#logs_to_include", SelectionList),
             )
             selection_list.remove_option("checkbox-submission")
+        # TODO: select the severity button automatically when using a submission
 
     @work
     @on(Button.Pressed, "#submit_button")
@@ -579,80 +599,104 @@ class BugReportScreen(Screen[BugReport]):
         ).deselect_all()
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
-        if (
-            not event.worker.is_finished
-            or event.worker.name != get_standard_info.__name__
-        ):
+        if not event.worker.is_finished:
             return
 
-        textarea = self.query_exactly_one("#description", DescriptionEditor)
-        textarea.disabled = False  # unlock asap
+        elif (
+            event.worker.name == guess_certification_status.__name__
+            and event.worker.state == WorkerState.SUCCESS
+        ):
+            if event.worker.result is None:
+                return
+            cert_status, guess_or_exact = cast(
+                tuple[CertificationStatus, Literal["exact", "guess"]],
+                event.worker.result,
+            )
+            match cert_status:
+                case "blocker":
+                    self.notify(
+                        message=f"Because certification status is{' probably ' if guess_or_exact == 'guess' else ' '}[u]blocker",
+                        title="Bugit thinks this bug's severity should be set to highest",
+                        timeout=15,
+                    )
+                case "non-blocker":
+                    self.notify(
+                        message=f"Because certification status is{' probably ' if guess_or_exact == 'guess' else ' '}[u]non-blocker",
+                        title="Bugit thinks this bug's severity should be set to high",
+                        timeout=15,
+                    )
 
-        if event.worker.state == WorkerState.SUCCESS:
-            # only write if basic info collection succeeded
-            # this also implicitly achieves what on_mount does with app_args
-            # since the values in self.initial_report is only used when there's no
-            # existing report
-            machine_info = cast(dict[str, str], event.worker.result)
-            self.initial_report["Additional Information"] = "\n".join(
-                [
-                    f"CID: {self.app_args.cid or ''}",
-                    f"SKU: {self.app_args.sku or ''}",
-                    *(
-                        (f"{k}: {v}" for k, v in machine_info.items())
-                        # don't put the current machine's info when using a submission
-                        if self.checkbox_submission
-                        is NullSelection.NO_CHECKBOX_SUBMISSION
-                        else []
-                    ),
-                ]
+        elif event.worker.name == get_standard_info.__name__:
+            textarea = self.query_exactly_one(
+                "#description", DescriptionEditor
             )
-            log_selection_list = cast(
-                SelectionList[LogName],
-                self.query_exactly_one("#logs_to_include", SelectionList),
-            )
-            # do not directly query the option by id, they don't exist in the DOM
-            if (
-                "NVIDIA" in machine_info["GPU"]
-                and NVIDIA_BUG_REPORT_PATH.exists()
-            ):
-                # include nvidia logs by default IF we actually have it
-                log_selection_list.enable_option("nvidia-bug-report")
-                log_selection_list.select("nvidia-bug-report")
+            textarea.disabled = False  # unlock asap
+
+            if event.worker.state == WorkerState.SUCCESS:
+                # only write if basic info collection succeeded
+                # this also implicitly achieves what on_mount does with app_args
+                # since the values in self.initial_report is only used when there's no
+                # existing report
+                machine_info = cast(dict[str, str], event.worker.result)
+                self.initial_report["Additional Information"] = "\n".join(
+                    [
+                        f"CID: {self.app_args.cid or ''}",
+                        f"SKU: {self.app_args.sku or ''}",
+                        *(
+                            (f"{k}: {v}" for k, v in machine_info.items())
+                            # don't put the current machine's info when using a submission
+                            if self.checkbox_submission
+                            is NullSelection.NO_CHECKBOX_SUBMISSION
+                            else []
+                        ),
+                    ]
+                )
+                log_selection_list = cast(
+                    SelectionList[LogName],
+                    self.query_exactly_one("#logs_to_include", SelectionList),
+                )
+                # do not directly query the option by id, they don't exist in the DOM
+                if (
+                    "NVIDIA" in machine_info["GPU"]
+                    and NVIDIA_BUG_REPORT_PATH.exists()
+                ):
+                    # include nvidia logs by default IF we actually have it
+                    log_selection_list.enable_option("nvidia-bug-report")
+                    log_selection_list.select("nvidia-bug-report")
+                else:
+                    # disable the nvidia log collector if there's no nvidia card
+                    log_selection_list.remove_option("nvidia-bug-report")
+
             else:
-                # disable the nvidia log collector if there's no nvidia card
-                log_selection_list.remove_option("nvidia-bug-report")
+                log_selection_list = cast(
+                    SelectionList[LogName],
+                    self.query_exactly_one("#logs_to_include", SelectionList),
+                )
+                if NVIDIA_BUG_REPORT_PATH.exists():
+                    log_selection_list.enable_option("nvidia-bug-report")
+                else:
+                    log_selection_list.remove_option("nvidia-bug-report")
 
-        else:
-            log_selection_list = cast(
-                SelectionList[LogName],
-                self.query_exactly_one("#logs_to_include", SelectionList),
-            )
-            if NVIDIA_BUG_REPORT_PATH.exists():
-                log_selection_list.enable_option("nvidia-bug-report")
-            else:
-                log_selection_list.remove_option("nvidia-bug-report")
+                # still put these in
+                self.initial_report["Additional Information"] = "\n".join(
+                    [
+                        f"CID: {self.app_args.cid or ''}",
+                        f"SKU: {self.app_args.sku or ''}",
+                    ]
+                )
 
-            # still put these in
-            self.initial_report["Additional Information"] = "\n".join(
-                [
-                    f"CID: {self.app_args.cid or ''}",
-                    f"SKU: {self.app_args.sku or ''}",
-                ]
-            )
+                self.notify(
+                    title="Failed to collect basic machine info",
+                    message=str(event.worker.error),
+                    timeout=180,
+                )
 
-            self.notify(
-                title="Failed to collect basic machine info",
-                message=str(event.worker.error),
-                timeout=180,
-            )
-
-        if self.existing_report is None:
-            # only overwrite the textarea if there's no existing report
-            textarea.text = "\n".join(
-                f"[{k}]\n" + v + ("\n" if v else "")
-                for k, v in self.initial_report.items()
-            )
+            if self.existing_report is None:
+                # only overwrite the textarea if there's no existing report
+                textarea.text = "\n".join(
+                    f"[{k}]\n" + v + ("\n" if v else "")
+                    for k, v in self.initial_report.items()
+                )
 
     def watch_validation_status(self):
         btn = self.query_exactly_one("#submit_button", Button)
