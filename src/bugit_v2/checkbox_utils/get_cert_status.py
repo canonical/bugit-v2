@@ -53,6 +53,20 @@ def expand_test_plan(
 def guess_certification_status(
     test_plan: str, job_id: str
 ) -> tuple[CertificationStatus, Literal["exact", "guess"]] | None:
+    """Guess the certification status of a job in the given test plan
+
+    Uses Levenshtein edit distance to determine similarity
+    TODO: find a way to directly query this
+
+    :return:
+        None if:
+            1. not applicable (like attachment jobs)
+            2. the job is not in the test plan
+        Tuple if:
+            1. Found an exact match
+            2. Found an approximate match
+        Use the 2nd tuple element to see if it's an exact match or a guess
+    """
     cb_info = get_checkbox_info()
 
     if cb_info is None:
