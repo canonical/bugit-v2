@@ -601,8 +601,10 @@ class BugReportScreen(Screen[BugReport]):
         if not event.worker.is_finished:
             return
 
-        elif event.worker.name == guess_certification_status.__name__:
-            print("guess result", event.worker.result)
+        elif (
+            event.worker.name == guess_certification_status.__name__
+            and event.worker.state == WorkerState.SUCCESS
+        ):
             if event.worker.result is None:
                 return
             cert_status, guess_or_exact = cast(
