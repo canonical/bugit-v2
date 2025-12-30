@@ -503,6 +503,7 @@ class BugReportScreen(Screen[BugReport]):
                 self.query_exactly_one("#logs_to_include", SelectionList),
             )
             selection_list.remove_option("checkbox-submission")
+        # TODO: select the severity button automatically when using a submission
 
     @work
     @on(Button.Pressed, "#submit_button")
