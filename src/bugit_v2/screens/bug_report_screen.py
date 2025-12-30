@@ -602,6 +602,7 @@ class BugReportScreen(Screen[BugReport]):
             return
 
         elif event.worker.name == guess_certification_status.__name__:
+            print("guess result", event.worker.result)
             if event.worker.result is None:
                 return
             cert_status, guess_or_exact = cast(
@@ -611,14 +612,14 @@ class BugReportScreen(Screen[BugReport]):
             match cert_status:
                 case "blocker":
                     self.notify(
-                        message=f"Because certification status is {'probably' if guess_or_exact == 'guess' else ''}[red]blocker",
-                        title="Bugit thinks this bug's severity should be set to [b]highest[/]",
+                        message=f"Because certification status is{' probably ' if guess_or_exact == 'guess' else ' '}[u]blocker",
+                        title="Bugit thinks this bug's severity should be set to highest",
                         timeout=15,
                     )
                 case "non-blocker":
                     self.notify(
-                        message=f"Because certification status is {'probably' if guess_or_exact == 'guess' else ''}[red]non-blocker",
-                        title="Bugit thinks this bug's severity should be set to [b]high[/]",
+                        message=f"Because certification status is{' probably ' if guess_or_exact == 'guess' else ' '}[u]non-blocker",
+                        title="Bugit thinks this bug's severity should be set to high",
                         timeout=15,
                     )
 
