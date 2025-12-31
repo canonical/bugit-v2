@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
+from sys import stderr
 
 import typer
 from rich import print as rich_print
+from textual.markup import escape as escape_markup
 from typing_extensions import Annotated
 
 from bugit_v2.checkbox_utils import Session, get_valid_sessions
@@ -37,7 +39,11 @@ def main(
     if print_json:
         d: list[dict[str, str]] = []
         for session_path in valid_sessions:
-            session = Session(session_path)
+            try:
+                session = Session(session_path)
+            except Exception as e:
+                print(repr(e), file=stderr)
+                continue
             d.append(
                 {
                     "session_path": str(session_path),
@@ -47,10 +53,14 @@ def main(
         print(json.dumps(d))
     else:
         for idx, session_path in enumerate(valid_sessions):
+            try:
+                session = Session(session_path)
+            except Exception as e:
+                rich_print(f"[red]{escape_markup(repr(e))}", file=stderr)
+                continue
             rich_print(
                 f"[yellow]Session directory[/]: [bold white]{session_path}"
             )
-            session = Session(session_path)
             rich_print(
                 f"[yellow]Test Plan[/]: [bold white]{session.testplan_id}"
             )
