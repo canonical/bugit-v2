@@ -1,12 +1,18 @@
+import configparser as cp
 import json
+import shutil
 import subprocess as sp
 from functools import lru_cache
 from math import inf
 from pathlib import Path
+from sys import stderr
+from tempfile import TemporaryDirectory
 from typing import Any, Literal
 
-from bugit_v2.checkbox_utils import get_checkbox_info
+from bugit_v2.checkbox_utils import CheckboxInfo, get_checkbox_info
 from bugit_v2.checkbox_utils.models import CERT_STATUSES, CertificationStatus
+from bugit_v2.utils import is_snap
+from bugit_v2.utils.constants import HOST_FS
 
 
 @lru_cache
@@ -36,23 +42,84 @@ def edit_distance(word1: str, word2: str) -> int:
 
 @lru_cache
 def expand_test_plan(
-    test_plan: str, checkbox_bin_path: Path
+    test_plan: str, checkbox_info: CheckboxInfo
 ) -> list[dict[str, Any]]:
-    expand_main_test_plan_out = sp.run(
-        [str(checkbox_bin_path), "expand", test_plan, "-f", "json"],
-        text=True,
-        capture_output=True,
-    )
+    if checkbox_info.type == "snap" or not is_snap():
+        # snap checkbox is easy, just call checkbox-cli expand
+        # for both snap bugit and pipx bugit
+        expand_main_test_plan_out = sp.run(
+            [str(checkbox_info.bin_path), "expand", test_plan, "-f", "json"],
+            text=True,
+            capture_output=True,
+        )
 
-    if expand_main_test_plan_out.returncode != 0:
-        return []
+        if expand_main_test_plan_out.returncode != 0:
+            return []
 
-    return json.loads(expand_main_test_plan_out.stdout)
+        return json.loads(expand_main_test_plan_out.stdout)
+    else:
+        # snap bugit + deb checkbox case
+        # try to find .provider files under /usr/share/plainbox-providers-1/
+        # and prepend /var/lib/snapd/hostfs to these keys
+        """
+        [PlainBox Provider]
+        bin_dir = /usr/lib/checkbox-provider-base/bin
+        data_dir = /usr/share/checkbox-provider-base/data
+        units_dir = /usr/share/checkbox-provider-base/units
+        """
+        with TemporaryDirectory() as temp_dir:
+            for src_file in Path(
+                "/var/lib/snapd/hostfs/usr/share/plainbox-providers-1/"
+            ).iterdir():
+                dst_file = shutil.copy(src_file, temp_dir)
+                provider_config = cp.ConfigParser()
+                provider_config.read(dst_file)
+
+                for key in ("bin_dir", "data_dir", "units_dir"):
+                    if key not in provider_config["PlainBox Provider"]:
+                        print("No such key", key, "in", src_file)
+                        continue
+
+                    new_path = HOST_FS / (
+                        provider_config["PlainBox Provider"][key]
+                        # vvvvvv prevent pathlib from treating it as abs path
+                    ).lstrip("/")
+
+                    if not new_path.exists():
+                        print("No such path", new_path, file=stderr)
+                        continue
+
+                    provider_config["PlainBox Provider"][key] = str(new_path)
+                    with open(dst_file, "w") as f:
+                        provider_config.write(f)
+
+            expand_main_test_plan_out = sp.run(
+                [
+                    str(checkbox_info.bin_path),
+                    "expand",
+                    test_plan,
+                    "-f",
+                    "json",
+                ],
+                text=True,
+                capture_output=True,
+                env={
+                    "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages",
+                    "PROVIDERPATH": str(
+                        Path(temp_dir).absolute(),
+                    ),
+                },
+            )
+
+            if expand_main_test_plan_out.returncode != 0:
+                return []
+
+            return json.loads(expand_main_test_plan_out.stdout)
 
 
 def guess_certification_status(
     test_plan: str, job_id: str
-) -> tuple[CertificationStatus, Literal["exact", "guess"]] | None:
+) -> tuple[CertificationStatus, str, Literal["exact", "guess"]] | None:
     """Guess the certification status of a job in the given test plan
 
     Uses Levenshtein edit distance to determine similarity
@@ -72,14 +139,16 @@ def guess_certification_status(
     if cb_info is None:
         return None
 
-    checkbox_bin = str(cb_info[2].absolute())
-    test_job_list = expand_test_plan(test_plan, checkbox_bin)
+    test_job_list = expand_test_plan(test_plan, cb_info)
 
     if type(test_job_list) is not list:
         return None
 
     # each item should have the "id" and "certification-status" keys
-    min_edit_dist, min_edit_dist_job_cert_status = inf, None
+    min_edit_dist = inf
+    best_match_job_name: str | None = None
+    min_edit_dist_job_cert_status: CertificationStatus | None = None
+
     for test_job in test_job_list:
         if type(test_job) is not dict:
             continue
@@ -87,19 +156,24 @@ def guess_certification_status(
             continue
         if test_job["certification-status"] not in CERT_STATUSES:
             continue
+        if type(test_job["id"]) is not str:  # pyright: ignore[reportAny]
+            continue
+
         if (
             test_job["id"] == job_id
             or test_job["id"] == job_id.split("::")[-1]
         ):
             if test_job.get("plugin") == "attachment":
                 return None  # ignore attachment jobs
-            return test_job["certification-status"], "exact"
+            return test_job["certification-status"], test_job["id"], "exact"
 
         if (ed := edit_distance(job_id, test_job["id"])) < min_edit_dist:
             min_edit_dist = ed
+            best_match_job_name = test_job["id"]
             min_edit_dist_job_cert_status = test_job["certification-status"]
 
     if min_edit_dist_job_cert_status is None:
         return None
     else:
-        return min_edit_dist_job_cert_status, "guess"
+        assert best_match_job_name is not None
+        return min_edit_dist_job_cert_status, best_match_job_name, "guess"
