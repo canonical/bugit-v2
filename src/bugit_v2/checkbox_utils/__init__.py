@@ -7,6 +7,7 @@ import subprocess as sp
 from collections.abc import Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path
+from sys import stderr
 from typing import Any, Final, Literal, NamedTuple, TypedDict, cast, final
 
 from typing_extensions import override
@@ -167,7 +168,11 @@ class Session:
                 self.description = app_blob["description"]
                 self.testplan_id = app_blob["testplan_id"]
             except KeyError as e:
-                print(f"{self} is missing field(s): {', '.join(e.args)}.")
+                print(
+                    f"{self} is missing field(s): {', '.join(e.args)}.",
+                    file=stderr,
+                )
+                raise e
         else:
             print(f"{self} does not contain valid information.")
         self.failed_jobs = self.get_run_jobs()
