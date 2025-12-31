@@ -7,28 +7,34 @@ import subprocess as sp
 from collections.abc import Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Final, Literal, TypedDict, cast, final
+from typing import Any, Final, Literal, NamedTuple, TypedDict, cast, final
 
 from typing_extensions import override
 
 from bugit_v2.checkbox_utils.models import JobOutcome
 from bugit_v2.utils import is_snap
+from bugit_v2.utils.constants import HOST_FS
 
 SESSION_ROOT_DIR: Final = Path("/var/tmp/checkbox-ng/sessions")
 
-type CheckboxInfo = tuple[Literal["deb", "snap"], str, Path]
+# type CheckboxInfo = tuple[Literal["deb", "snap"], str, Path]
+
+
+class CheckboxInfo(NamedTuple):
+    type: Literal["deb", "snap"]
+    version: str
+    bin_path: Path  # absolute path
 
 
 @lru_cache()
 def get_checkbox_info() -> CheckboxInfo | None:
-    HOST_FS = Path("/var/lib/snapd/hostfs")
     try:
         if is_snap():
             if (
                 deb_checkbox := HOST_FS / "usr" / "bin" / "checkbox-cli"
             ).exists():
                 # host is using debian checkbox
-                return (
+                return CheckboxInfo(
                     "deb",
                     sp.check_output(
                         [str(deb_checkbox), "--version"],
@@ -47,7 +53,7 @@ def get_checkbox_info() -> CheckboxInfo | None:
                         executable.endswith("checkbox-cli")
                         and "ce-oem" not in executable
                     ):
-                        return (
+                        return CheckboxInfo(
                             "snap",
                             sp.check_output(
                                 [
@@ -61,7 +67,7 @@ def get_checkbox_info() -> CheckboxInfo | None:
                         )
         else:
             if (checkbox_bin := shutil.which("checkbox-cli")) is not None:
-                return (
+                return CheckboxInfo(
                     "deb",
                     sp.check_output(
                         [checkbox_bin, "--version"],
@@ -77,7 +83,7 @@ def get_checkbox_info() -> CheckboxInfo | None:
                         executable.endswith("checkbox-cli")
                         and "ce-oem" not in executable
                     ):
-                        return (
+                        return CheckboxInfo(
                             "snap",
                             sp.check_output(
                                 [

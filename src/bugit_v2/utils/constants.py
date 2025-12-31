@@ -96,6 +96,7 @@ DUT_INFO_DIR = (
     )
     / "bugit-v2-dut-info"
 )
+HOST_FS = Path("/var/lib/snapd/hostfs")
 
 
 class NullSelection(enum.Enum):

@@ -608,22 +608,43 @@ class BugReportScreen(Screen[BugReport]):
         ):
             if event.worker.result is None:
                 return
-            cert_status, guess_or_exact = cast(
-                tuple[CertificationStatus, Literal["exact", "guess"]],
+            cert_status, best_match, guess_or_exact = cast(
+                tuple[CertificationStatus, str, Literal["exact", "guess"]],
                 event.worker.result,
             )
+            msg_template = "Because cert status is{}[u]{}[/]{}"
             match cert_status:
                 case "blocker":
+                    msg = msg_template.format(
+                        " probably " if guess_or_exact == "guess" else " ",
+                        "blocker",
+                        (
+                            f", inferred from {best_match}"
+                            if guess_or_exact == "guess"
+                            else ""
+                        ),
+                    )
                     self.notify(
-                        message=f"Because certification status is{' probably ' if guess_or_exact == 'guess' else ' '}[u]blocker",
-                        title="Bugit thinks this bug's severity should be set to highest",
+                        message=msg,
+                        title="Bugit thinks this bug's severity should be set to HIGHEST",
                         timeout=15,
+                        severity="warning",
                     )
                 case "non-blocker":
+                    msg = msg_template.format(
+                        " probably " if guess_or_exact == "guess" else " ",
+                        "non-blocker",
+                        (
+                            f", inferred from {best_match}"
+                            if guess_or_exact == "guess"
+                            else ""
+                        ),
+                    )
                     self.notify(
-                        message=f"Because certification status is{' probably ' if guess_or_exact == 'guess' else ' '}[u]non-blocker",
-                        title="Bugit thinks this bug's severity should be set to high",
+                        message=msg,
+                        title="Bugit thinks this bug's severity should be set to HIGH",
                         timeout=15,
+                        severity="warning",
                     )
 
         elif event.worker.name == get_standard_info.__name__:
