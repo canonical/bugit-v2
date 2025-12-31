@@ -17,8 +17,6 @@ from bugit_v2.utils.constants import HOST_FS
 
 SESSION_ROOT_DIR: Final = Path("/var/tmp/checkbox-ng/sessions")
 
-# type CheckboxInfo = tuple[Literal["deb", "snap"], str, Path]
-
 
 class CheckboxInfo(NamedTuple):
     type: Literal["deb", "snap"]

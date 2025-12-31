@@ -177,14 +177,3 @@ def guess_certification_status(
     else:
         assert best_match_job_name is not None
         return min_edit_dist_job_cert_status, best_match_job_name, "guess"
-
-
-"""
-deb checkbox needs
-sp.run(["/var/lib/snapd/hostfs/usr/bin/checkbox-cli", "show", "kernel_cmdline_attachment"], env={"PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages", "PROVIDERPATH": "/var/lib/snapd/hostfs/usr/share/checkbox-provider-base:/var/lib/snapd/hostfs/usr/lib/checkbox-provider-base:/var/lib/snapd/hostfs/usr/share/checkbox-provider-certification-client/:/var/lib/snapd/hostfs/usr/share/plainbox-providers-1/", "PYTHONHOME":"/var/lib/snapd/hostfs/usr/"})
-
-change the files in /var/lib/snapd/hostfs/usr/share/plainbox-providers-1/
-to point to the real dirs on host
-
-then set PROVIDERPATH to /var/lib/snapd/hostfs/usr/share/plainbox-providers-1/
-"""
