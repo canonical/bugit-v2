@@ -619,7 +619,7 @@ class BugReportScreen(Screen[BugReport]):
                         " probably " if guess_or_exact == "guess" else " ",
                         "blocker",
                         (
-                            f", inferred from {best_match}"
+                            f", inferred from [u]{best_match}"
                             if guess_or_exact == "guess"
                             else ""
                         ),
@@ -627,7 +627,7 @@ class BugReportScreen(Screen[BugReport]):
                     self.notify(
                         message=msg,
                         title="Bugit thinks this bug's severity should be set to HIGHEST",
-                        timeout=15,
+                        timeout=60,
                         severity="warning",
                     )
                 case "non-blocker":
@@ -635,7 +635,7 @@ class BugReportScreen(Screen[BugReport]):
                         " probably " if guess_or_exact == "guess" else " ",
                         "non-blocker",
                         (
-                            f", inferred from {best_match}"
+                            f", inferred from [u]{best_match}"
                             if guess_or_exact == "guess"
                             else ""
                         ),
@@ -643,7 +643,7 @@ class BugReportScreen(Screen[BugReport]):
                     self.notify(
                         message=msg,
                         title="Bugit thinks this bug's severity should be set to HIGH",
-                        timeout=15,
+                        timeout=60,
                         severity="warning",
                     )
 
