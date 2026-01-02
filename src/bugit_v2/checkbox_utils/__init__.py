@@ -139,7 +139,6 @@ class Session:
     A Checkbox session
     """
 
-    description: str
     testplan_id: str
     session_path: Path
     failed_jobs: Sequence[str]
@@ -164,7 +163,6 @@ class Session:
                 )
             )
             try:
-                self.description = app_blob["description"]
                 self.testplan_id = app_blob["testplan_id"]
             except KeyError as e:
                 raise KeyError(
