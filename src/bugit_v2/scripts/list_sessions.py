@@ -4,7 +4,6 @@ from sys import stderr
 
 import typer
 from rich import print as rich_print
-from textual.markup import escape as escape_markup
 from typing_extensions import Annotated
 
 from bugit_v2.checkbox_utils import Session, get_valid_sessions
@@ -33,7 +32,10 @@ def main(
     valid_sessions = get_valid_sessions()
 
     if len(valid_sessions) == 0:
-        rich_print("[red]No sessions were found on this device")
+        if print_json:
+            print("[]")
+        else:
+            rich_print("[red]No sessions were found on this device")
         exit()
 
     if print_json:
@@ -56,7 +58,11 @@ def main(
             try:
                 session = Session(session_path)
             except Exception as e:
-                rich_print(f"[red]{escape_markup(repr(e))}", file=stderr)
+                rich_print(
+                    f"This session [red]{session_path}[/] doesn't seem valid because of this error:",
+                    file=stderr,
+                )
+                print(f"  {repr(e)}", file=stderr)
                 continue
             rich_print(
                 f"[yellow]Session directory[/]: [bold white]{session_path}"
