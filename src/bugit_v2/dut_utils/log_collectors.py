@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Callable
 
 from bugit_v2.models.bug_report import BugReport, LogName, PartialBugReport
-from bugit_v2.utils import is_snap
+from bugit_v2.utils import host_is_ubuntu_core, is_snap
 
 COMMAND_TIMEOUT = 10 * 60  # 10 minutes
 NVIDIA_BUG_REPORT_PATH = Path(
@@ -325,7 +325,7 @@ real_collectors: Sequence[LogCollector] = (
         "snap-debug",
         snap_debug,
         "snapd team's snap-debug.sh (has apparmor logs and gadget snap info)",
-        False,  # can be very big
+        host_is_ubuntu_core(),  # can be very big
         "curl -fsSL https://raw.githubusercontent.com/canonical/snapd/refs/heads/master/debug-tools/snap-debug-info.sh | bash",
         advertised_timeout=COMMAND_TIMEOUT,
     ),

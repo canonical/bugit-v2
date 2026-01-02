@@ -2,6 +2,8 @@ import datetime as dt
 import importlib.metadata
 import os
 
+from bugit_v2.utils.constants import HOST_FS
+
 
 def is_prod() -> bool:
     """Is bugit in a prod environment?"""
@@ -10,6 +12,12 @@ def is_prod() -> bool:
 
 def is_snap() -> bool:
     return "SNAP" in os.environ
+
+
+def host_is_ubuntu_core() -> bool:
+    # TODO: this is prob not the best way to do this
+    apt_path = HOST_FS / "usr" / "bin" / "apt"
+    return not apt_path.exists() or not apt_path.is_file()
 
 
 def get_bugit_version() -> str:
