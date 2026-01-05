@@ -184,6 +184,7 @@ def snap_debug(target_dir: Path, _: BugReport | PartialBugReport):
         sp.check_call(
             [str(script_path)],
             stdout=f,
+            stderr=sp.DEVNULL,
             text=True,
             timeout=COMMAND_TIMEOUT,
         )
