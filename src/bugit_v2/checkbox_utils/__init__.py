@@ -18,6 +18,8 @@ from bugit_v2.utils.constants import HOST_FS
 SESSION_ROOT_DIR: Final = Path("/var/tmp/checkbox-ng/sessions")
 
 
+# do not change this to a dataclass without a __hash__ method
+# this is already hashable since all 3 members are hashable
 class CheckboxInfo(NamedTuple):
     type: Literal["deb", "snap"]
     version: str
