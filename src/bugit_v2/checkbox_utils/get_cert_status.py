@@ -114,19 +114,23 @@ def get_session_envs(session_path: Path) -> dict[str, str]:
     with gzip.open(env_gz) as f:
         for line in f:
             elems = json.loads(line.decode().strip())
+
             if len(elems) != 3:
                 continue
+
             env_elems = b64decode(elems[2]).decode().split(":")
 
             if len(env_elems) != 2:
                 continue
 
             k, v = env_elems[0].strip(), env_elems[1].strip()
+
             if not k.isupper():
                 # handle the SUDO_COMMAND line
                 continue
             if k == "PATH":
                 continue
+
             out[k] = v
 
     return out
