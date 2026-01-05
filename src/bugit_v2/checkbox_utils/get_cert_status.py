@@ -1,5 +1,6 @@
 import gzip
 import json
+import os
 from base64 import b64decode
 from functools import lru_cache
 from math import inf
@@ -7,6 +8,7 @@ from pathlib import Path
 from sys import stderr
 from typing import Any, Literal, NamedTuple
 
+from bugit_v2.checkbox_utils import SESSION_ROOT_DIR
 from bugit_v2.checkbox_utils.checkbox_exec import (
     checkbox_exec,  # pyright: ignore[reportUnknownVariableType]
 )
@@ -146,7 +148,20 @@ def get_certification_status(
         print(f"Using envs from {session_path}")
         cb_env = get_session_envs(session_path)
 
-    return list_bootstrapped_cert_status(test_plan, cb_env)
+    sessions_before = set(os.listdir(SESSION_ROOT_DIR))
+    out = list_bootstrapped_cert_status(test_plan, cb_env)
+    sessions_after = set(os.listdir(SESSION_ROOT_DIR))
+
+    try:
+        # list-bootstrapped always generates a new 'session'
+        for extra_dir in sessions_after.difference(sessions_before):
+            if extra_dir.startswith("checkbox-listing-ephemeral"):
+                os.removedirs(extra_dir)
+                break
+    except Exception:
+        pass
+
+    return out
 
 
 def guess_certification_status(
