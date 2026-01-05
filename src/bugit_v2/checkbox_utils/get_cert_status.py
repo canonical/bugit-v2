@@ -1,6 +1,9 @@
+import gzip
 import json
+from base64 import b64decode
 from functools import lru_cache
 from math import inf
+from pathlib import Path
 from sys import stderr
 from typing import Any, Literal, NamedTuple
 
@@ -93,6 +96,53 @@ def list_bootstrapped_cert_status(
         )
 
     return out
+
+
+@lru_cache()
+def get_session_envs(session_path: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
+    env_gz = (
+        session_path
+        / "io-logs"
+        / "com.canonical.certification__environment.record.gz"
+    )
+
+    if not env_gz.exists():
+        # possible to not exist in a valid session
+        return {}
+
+    with gzip.open(env_gz) as f:
+        for line in f:
+            elems = json.loads(line.decode().strip())
+            if len(elems) != 3:
+                continue
+            env_elems = b64decode(elems[2]).decode().split(":")
+
+            if len(env_elems) != 2:
+                continue
+
+            k, v = env_elems[0].strip(), env_elems[1].strip()
+            if not k.isupper():
+                # handle the SUDO_COMMAND line
+                continue
+            if k == "PATH":
+                continue
+            out[k] = v
+
+    return out
+
+
+@lru_cache
+def get_certification_status(
+    test_plan: str, session_path: Path | None = None
+) -> dict[str, TestCaseWithCertStatus] | None:
+    cb_env: dict[str, str] | None = None
+
+    if session_path is not None:
+        print(f"Using envs from {session_path}")
+        cb_env = get_session_envs(session_path)
+
+    return list_bootstrapped_cert_status(test_plan, cb_env)
 
 
 def guess_certification_status(
