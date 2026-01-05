@@ -39,7 +39,7 @@ def checkbox_exec(
             [str(checkbox_info.bin_path), *checkbox_args],
             text=True,
             capture_output=True,
-            env=os.environ | (additional_env or {}),
+            env=(additional_env or {}) | os.environ,
             **subprocess_run_args,
         )
     else:
@@ -90,14 +90,14 @@ def checkbox_exec(
                 [str(checkbox_info.bin_path), *checkbox_args],
                 text=True,
                 capture_output=True,
-                env={
+                env=(additional_env or {})
+                | {
                     "PATH": PATH,
                     "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages",
                     "PROVIDERPATH": str(
                         Path(temp_dir).absolute(),
                     ),
-                }
-                | (additional_env or {}),
+                },
                 **subprocess_run_args,
             )
 
