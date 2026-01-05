@@ -1,6 +1,7 @@
 import gzip
 import json
 import os
+import shutil
 from base64 import b64decode
 from functools import lru_cache
 from math import inf
@@ -157,7 +158,8 @@ def get_certification_status(
         # list-bootstrapped always generates a new 'session'
         for extra_dir in sessions_after.difference(sessions_before):
             if extra_dir.startswith("checkbox-listing-ephemeral"):
-                os.removedirs(SESSION_ROOT_DIR / extra_dir)
+                print("removing", extra_dir)
+                shutil.rmtree(SESSION_ROOT_DIR / extra_dir)
                 break
     except Exception:
         pass
