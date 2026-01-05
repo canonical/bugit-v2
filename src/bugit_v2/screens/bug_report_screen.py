@@ -62,6 +62,7 @@ from bugit_v2.models.bug_report import (
 from bugit_v2.utils.constants import (
     AUTOSAVE_DIR,
     FEATURE_MAP,
+    MAX_JOB_OUTPUT_LEN,
     VENDOR_MAP,
     NullSelection,
 )
@@ -163,7 +164,6 @@ class BugReportScreen(Screen[BugReport]):
     }
     """
     CSS_PATH = "styles.tcss"
-    MAX_JOB_OUTPUT_LEN = 10_000
 
     # inputs that have validators
     # the keys should appear in elem_id_to_border_title
@@ -251,7 +251,7 @@ class BugReportScreen(Screen[BugReport]):
             # add an empty string at the end for a new line
             lines: list[str] = []
             for k in ("stdout", "stderr", "comments"):
-                if len(job_output[k]) < self.MAX_JOB_OUTPUT_LEN:
+                if len(job_output[k]) < MAX_JOB_OUTPUT_LEN:
                     lines.extend(
                         [
                             k,
@@ -391,11 +391,13 @@ class BugReportScreen(Screen[BugReport]):
                         collectors = [
                             c
                             for c in LOG_NAME_TO_COLLECTOR.values()
-                            if c.name != "checkbox-session"
+                            if c.name != "checkbox-session" and not c.hidden
                         ]
                     else:
                         collectors = [
-                            c for c in LOG_NAME_TO_COLLECTOR.values()
+                            c
+                            for c in LOG_NAME_TO_COLLECTOR.values()
+                            if not c.hidden
                         ]
 
                     with VerticalGroup():

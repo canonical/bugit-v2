@@ -55,6 +55,7 @@ LogName = Literal[
     "dmesg",
     "snap-list",
     "snap-debug",
+    "long-job-outputs",
 ]
 LOG_NAMES: tuple[LogName, ...] = LogName.__args__
 # pretty log names should be specified in the LogCollector class

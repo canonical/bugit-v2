@@ -17,6 +17,7 @@ from typing import Callable
 
 from bugit_v2.models.bug_report import BugReport, LogName, PartialBugReport
 from bugit_v2.utils import host_is_ubuntu_core, is_snap
+from bugit_v2.utils.constants import MAX_JOB_OUTPUT_LEN
 
 COMMAND_TIMEOUT = 10 * 60  # 10 minutes
 NVIDIA_BUG_REPORT_PATH = Path(
@@ -32,7 +33,7 @@ class LogCollector:
     name: LogName
     # the function that actually collects the logs
     collect: Callable[
-        [Path, BugReport | PartialBugReport],
+        [Path, BugReport],
         str | None,  # (target_dir: Path) -> optional result string
         # if returns None, a generic success message is logged to the screen
         # errors should be raised as regular exceptions
@@ -48,6 +49,9 @@ class LogCollector:
     # this is purely visual and doesn't change any behaviors
     # each collector, if specifies this, should actually implement a timeout
     advertised_timeout: int | None = None
+    # whether to make this collector visible on screen
+    # if true, then collect_by_default will dictate if this log collector is run
+    hidden: bool = False
 
 
 def pack_checkbox_session(
@@ -199,6 +203,38 @@ def pack_checkbox_submission(
     return f"Added checkbox submission to {target_dir}"
 
 
+def long_job_outputs(target_dir: Path, bug_report: BugReport):
+    """
+    Only used when the job's stdout is way too long for the description
+    """
+
+    assert (
+        bug_report.checkbox_session is not None
+    ), "Can't use this collector if there's no checkbox session"
+    assert (
+        bug_report.job_id is not None
+    ), "Can't use this collector if there's no job id"
+    assert (
+        bug_report.checkbox_session.session_path.exists()
+    ), f"{bug_report.checkbox_session.session_path} was deleted after the bug report was created!"
+
+    job_output = bug_report.checkbox_session.get_job_output(bug_report.job_id)
+
+    assert (
+        job_output
+    ), "This collector should not be called if there's no job output. Please report this bug to bugit's repo."
+
+    added_keys: list[str] = []
+    for k, v in job_output.items():
+        sv = str(v)
+        if len(sv) >= MAX_JOB_OUTPUT_LEN:
+            with open(target_dir / f"job_{k}.txt", "w") as f:
+                f.write(sv)
+                added_keys.append(k)
+
+    return f"Added {','.join(added_keys)} to {target_dir}"
+
+
 mock_collectors: Sequence[LogCollector] = (
     LogCollector(
         "immediate",
@@ -328,6 +364,9 @@ real_collectors: Sequence[LogCollector] = (
         host_is_ubuntu_core(),  # can be very big
         "curl -fsSL https://raw.githubusercontent.com/canonical/snapd/refs/heads/master/debug-tools/snap-debug-info.sh | bash",
         advertised_timeout=COMMAND_TIMEOUT,
+    ),
+    LogCollector(
+        "long-job-outputs", long_job_outputs, "Long Job Outputs", hidden=True
     ),
 )
 

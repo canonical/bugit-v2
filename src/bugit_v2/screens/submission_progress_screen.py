@@ -37,7 +37,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     The progress screen shown while submission/log collection is happening
     """
 
-    bug_report: BugReport | PartialBugReport
+    bug_report: BugReport
     app_args: AppArgs
 
     finished = var(False)
@@ -71,7 +71,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
     def __init__(
         self,
-        bug_report: BugReport | PartialBugReport,
+        bug_report: BugReport,
         submitter: BugReportSubmitter[TAuth, TReturn],
         app_args: AppArgs,
         name: str | None = None,
