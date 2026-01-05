@@ -61,7 +61,7 @@ def expand_test_plan(test_plan: str) -> list[dict[str, Any]]:
 
 def list_bootstrapped_cert_status(
     test_plan: str, checkbox_env: dict[str, str] | None = None
-) -> list[dict[str, TestCaseWithCertStatus]]:
+) -> dict[str, TestCaseWithCertStatus]:
     lb_out = checkbox_exec(
         [
             "list-bootstrapped",
@@ -77,7 +77,7 @@ def list_bootstrapped_cert_status(
             f"Failed to run checkbox-cli list-bootstrapped {repr(lb_out)}"
         )
 
-    out: list[dict[str, TestCaseWithCertStatus]] = []
+    out: dict[str, TestCaseWithCertStatus] = {}
 
     # split by empty line
     raw_cases = lb_out.stdout.strip().split("\n\n")
@@ -88,12 +88,8 @@ def list_bootstrapped_cert_status(
             print("Bad group", lines, file=stderr)
             continue
 
-        out.append(
-            {
-                lines[0]: TestCaseWithCertStatus(
-                    full_id=lines[0], cert_status=lines[1]
-                )
-            }
+        out[lines[0]] = TestCaseWithCertStatus(
+            full_id=lines[0], cert_status=lines[1]
         )
 
     return out
