@@ -1,18 +1,12 @@
-import configparser as cp
 import json
-import shutil
-import subprocess as sp
 from functools import lru_cache
 from math import inf
-from pathlib import Path
-from sys import stderr
-from tempfile import TemporaryDirectory
 from typing import Any, Literal
 
-from bugit_v2.checkbox_utils import CheckboxInfo, get_checkbox_info
+from bugit_v2.checkbox_utils.checkbox_exec import (
+    checkbox_exec,  # pyright: ignore[reportUnknownVariableType]
+)
 from bugit_v2.checkbox_utils.models import CERT_STATUSES, CertificationStatus
-from bugit_v2.utils import is_snap
-from bugit_v2.utils.constants import HOST_FS
 
 
 @lru_cache
@@ -41,80 +35,22 @@ def edit_distance(word1: str, word2: str) -> int:
 
 
 @lru_cache
-def expand_test_plan(
-    test_plan: str, checkbox_info: CheckboxInfo
-) -> list[dict[str, Any]]:
-    if checkbox_info.type == "snap" or not is_snap():
-        # snap checkbox is easy, just call checkbox-cli expand
-        # for both snap bugit and pipx bugit
-        expand_main_test_plan_out = sp.run(
-            [str(checkbox_info.bin_path), "expand", test_plan, "-f", "json"],
-            text=True,
-            capture_output=True,
-        )
+def expand_test_plan(test_plan: str) -> list[dict[str, Any]]:
+    """Runs checkbox-cli expand for a given test plan
 
-        if expand_main_test_plan_out.returncode != 0:
-            return []
+    The result of this function is lru cached.
+    Directly call checkbox_exec if fresh results is needed
 
-        return json.loads(expand_main_test_plan_out.stdout)
-    else:
-        # snap bugit + deb checkbox case
-        # try to find .provider files under /usr/share/plainbox-providers-1/
-        # and prepend /var/lib/snapd/hostfs to these keys
-        """
-        [PlainBox Provider]
-        bin_dir = /usr/lib/checkbox-provider-base/bin
-        data_dir = /usr/share/checkbox-provider-base/data
-        units_dir = /usr/share/checkbox-provider-base/units
-        """
-        with TemporaryDirectory() as temp_dir:
-            for src_file in Path(
-                "/var/lib/snapd/hostfs/usr/share/plainbox-providers-1/"
-            ).iterdir():
-                dst_file = shutil.copy(src_file, temp_dir)
-                provider_config = cp.ConfigParser()
-                provider_config.read(dst_file)
+    :param test_plan: the test plan to expand. Include the namespace
+    :raises RuntimeError: when `checkbox-cli expand` fails
+    :raises json.decoder.JSONDecodeError: from json.loads
+    :return: list of dicts, each dict is a checkbox unit
+    """
+    out = checkbox_exec(["expand", test_plan, "-f", "json"])
+    if out.returncode != 0:
+        raise RuntimeError(f"Failed to run checkbox-cli expand {repr(out)}")
 
-                for key in ("bin_dir", "data_dir", "units_dir"):
-                    if key not in provider_config["PlainBox Provider"]:
-                        print("No such key", key, "in", src_file)
-                        continue
-
-                    new_path = HOST_FS / (
-                        provider_config["PlainBox Provider"][key]
-                        # vvvvvv prevent pathlib from treating it as abs path
-                    ).lstrip("/")
-
-                    if not new_path.exists():
-                        print("No such path", new_path, file=stderr)
-                        continue
-
-                    provider_config["PlainBox Provider"][key] = str(new_path)
-                    with open(dst_file, "w") as f:
-                        provider_config.write(f)
-
-            expand_main_test_plan_out = sp.run(
-                [
-                    str(checkbox_info.bin_path),
-                    "expand",
-                    test_plan,
-                    "-f",
-                    "json",
-                ],
-                text=True,
-                capture_output=True,
-                env={
-                    "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages",
-                    "PROVIDERPATH": str(
-                        Path(temp_dir).absolute(),
-                    ),
-                },
-            )
-
-            if expand_main_test_plan_out.returncode != 0:
-                return []
-
-            return json.loads(expand_main_test_plan_out.stdout)
+    return json.loads(out.stdout)
 
 
 def guess_certification_status(
@@ -134,12 +70,8 @@ def guess_certification_status(
             2. Found an approximate match
         Use the 2nd tuple element to see if it's an exact match or a guess
     """
-    cb_info = get_checkbox_info()
 
-    if cb_info is None:
-        return None
-
-    test_job_list = expand_test_plan(test_plan, cb_info)
+    test_job_list = expand_test_plan(test_plan)
 
     if type(test_job_list) is not list:
         return None
