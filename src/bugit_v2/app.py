@@ -154,9 +154,8 @@ class BugitApp(App[None]):
 
         # snap checkbox takes a while to respond especially if it's the
         # 1st use after reboot
-        if (tv := get_checkbox_info()) is not None:
-            cb_version = tv[1]
-            self.sub_title = f"Checkbox {cb_version}"
+        if (cb := get_checkbox_info()) is not None:
+            self.sub_title = f"Checkbox {cb.version}"
 
         self.call_after_refresh(self.watch_state)
 

@@ -34,11 +34,11 @@ from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
 from bugit_v2.checkbox_utils import Session
-from bugit_v2.checkbox_utils.get_cert_status import guess_certification_status
-from bugit_v2.checkbox_utils.models import (
-    CertificationStatus,
-    SimpleCheckboxSubmission,
+from bugit_v2.checkbox_utils.get_cert_status import (
+    TestCaseWithCertStatus,
+    get_certification_status,
 )
+from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.description_editor import DescriptionEditor
 from bugit_v2.components.header import SimpleHeader
@@ -65,6 +65,9 @@ from bugit_v2.utils.constants import (
     VENDOR_MAP,
     NullSelection,
 )
+
+GET_CERT_STATUS_WORKER_NAME = "get_certification_status"
+GET_STANDARD_INFO_WORKER_NAME = "get_standard_info"
 
 
 class ValidSpaceSeparatedTags(Validator):
@@ -469,7 +472,7 @@ class BugReportScreen(Screen[BugReport]):
         # must launch the worker
         self.run_worker(
             get_standard_info,
-            name=get_standard_info.__name__,
+            name=GET_STANDARD_INFO_WORKER_NAME,
             thread=True,
             exit_on_error=False,  # still allow editing
         )
@@ -480,10 +483,10 @@ class BugReportScreen(Screen[BugReport]):
         ):
             self.run_worker(
                 # early binding hack
-                lambda tid=self.session.testplan_id, jid=self.job_id: guess_certification_status(
-                    tid, jid
+                lambda tid=self.session.testplan_id, session_path=self.session.session_path: get_certification_status(
+                    tid, session_path
                 ),
-                name=guess_certification_status.__name__,
+                name=GET_CERT_STATUS_WORKER_NAME,
                 thread=True,
                 exit_on_error=False,  # still allow editing
             )
@@ -603,51 +606,35 @@ class BugReportScreen(Screen[BugReport]):
             return
 
         elif (
-            event.worker.name == guess_certification_status.__name__
+            event.worker.name == GET_CERT_STATUS_WORKER_NAME
             and event.worker.state == WorkerState.SUCCESS
         ):
             if event.worker.result is None:
                 return
-            cert_status, best_match, guess_or_exact = cast(
-                tuple[CertificationStatus, str, Literal["exact", "guess"]],
+            all_cert_statuses = cast(
+                dict[str, TestCaseWithCertStatus],
                 event.worker.result,
             )
-            msg_template = "Because cert status is{}[u]{}[/]{}"
-            match cert_status:
-                case "blocker":
-                    msg = msg_template.format(
-                        " probably " if guess_or_exact == "guess" else " ",
-                        "blocker",
-                        (
-                            f", inferred from [u]{best_match}"
-                            if guess_or_exact == "guess"
-                            else ""
-                        ),
-                    )
-                    self.notify(
-                        message=msg,
-                        title="Bugit thinks this bug's severity should be set to HIGHEST",
-                        timeout=60,
-                        severity="warning",
-                    )
-                case "non-blocker":
-                    msg = msg_template.format(
-                        " probably " if guess_or_exact == "guess" else " ",
-                        "non-blocker",
-                        (
-                            f", inferred from [u]{best_match}"
-                            if guess_or_exact == "guess"
-                            else ""
-                        ),
-                    )
-                    self.notify(
-                        message=msg,
-                        title="Bugit thinks this bug's severity should be set to HIGH",
-                        timeout=60,
-                        severity="warning",
-                    )
 
-        elif event.worker.name == get_standard_info.__name__:
+            assert self.job_id is not NullSelection.NO_JOB
+            curr_status = all_cert_statuses[self.job_id]
+
+            if curr_status.cert_status == "blocker":
+                self.notify(
+                    message="Because this is a [$error]blocker[/] test case (click to dismiss)",
+                    title="Bugit thinks this bug's severity should be set to HIGHEST",
+                    timeout=60,
+                    severity="error",
+                )
+            elif curr_status.cert_status == "non-blocker":
+                self.notify(
+                    message="Because this is a [$warning]non-blocker[/] test case (click to dismiss)",
+                    title="Bugit thinks this bug's severity should be set to HIGH",
+                    timeout=60,
+                    severity="warning",
+                )
+
+        elif event.worker.name == GET_STANDARD_INFO_WORKER_NAME:
             textarea = self.query_exactly_one(
                 "#description", DescriptionEditor
             )
