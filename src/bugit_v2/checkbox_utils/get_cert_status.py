@@ -57,7 +57,7 @@ def expand_test_plan(test_plan: str) -> list[dict[str, Any]]:
     :raises json.decoder.JSONDecodeError: from json.loads
     :return: list of dicts, each dict is a checkbox unit
     """
-    out = checkbox_exec(["expand", test_plan, "-f", "json"])
+    out = checkbox_exec(["expand", test_plan, "-f", "json"], timeout=60)
     if out.returncode != 0:
         raise RuntimeError(f"Failed to run checkbox-cli expand {repr(out)}")
 
@@ -75,6 +75,7 @@ def list_bootstrapped_cert_status(
             "{full_id}\n{certification_status}\n\n",
         ],
         checkbox_env,
+        timeout=60,
     )
 
     if lb_out.returncode != 0:
