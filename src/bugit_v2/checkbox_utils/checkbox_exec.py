@@ -39,7 +39,7 @@ def checkbox_exec(
             [str(checkbox_info.bin_path), *checkbox_args],
             text=True,
             capture_output=True,
-            env=os.environ,
+            env=os.environ | (additional_env or {}),
             **subprocess_run_args,
         )
     else:
