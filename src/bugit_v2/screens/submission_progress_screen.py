@@ -37,7 +37,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     The progress screen shown while submission/log collection is happening
     """
 
-    bug_report: BugReport | PartialBugReport
+    bug_report: BugReport
     app_args: AppArgs
 
     finished = var(False)
@@ -71,7 +71,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
     def __init__(
         self,
-        bug_report: BugReport | PartialBugReport,
+        bug_report: BugReport,
         submitter: BugReportSubmitter[TAuth, TReturn],
         app_args: AppArgs,
         name: str | None = None,
@@ -140,7 +140,13 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         # get the log collectors running first
         # all log collectors are allowed to fail. If they do, write a message
         # to the screen to tell the user how to get the logs manually
-        for log_name in self.bug_report.logs_to_include:
+
+        final_logs_to_include = set(self.bug_report.logs_to_include)
+        for log_name, collector in LOG_NAME_TO_COLLECTOR.items():
+            if collector.hidden and collector.collect_by_default:
+                final_logs_to_include.add(log_name)
+
+        for log_name in final_logs_to_include:
 
             def run_collect(log: LogName):
                 collector = LOG_NAME_TO_COLLECTOR[log]

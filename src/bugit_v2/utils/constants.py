@@ -97,6 +97,7 @@ DUT_INFO_DIR = (
     / "bugit-v2-dut-info"
 )
 HOST_FS = Path("/var/lib/snapd/hostfs")
+MAX_JOB_OUTPUT_LEN = 10_000
 
 
 class NullSelection(enum.Enum):

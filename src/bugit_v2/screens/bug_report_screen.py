@@ -62,6 +62,7 @@ from bugit_v2.models.bug_report import (
 from bugit_v2.utils.constants import (
     AUTOSAVE_DIR,
     FEATURE_MAP,
+    MAX_JOB_OUTPUT_LEN,
     VENDOR_MAP,
     NullSelection,
 )
@@ -250,14 +251,24 @@ class BugReportScreen(Screen[BugReport]):
             # add an empty string at the end for a new line
             lines: list[str] = []
             for k in ("stdout", "stderr", "comments"):
-                lines.extend(
-                    [
-                        k,
-                        "------",
-                        job_output[k] or f"No {k} were found for this job",
-                        "",
-                    ]
-                )
+                if len(job_output[k]) < MAX_JOB_OUTPUT_LEN:
+                    lines.extend(
+                        [
+                            k,
+                            "------",
+                            job_output[k] or f"No {k} were found for this job",
+                            "",
+                        ]
+                    )
+                else:
+                    lines.extend(
+                        [
+                            k,
+                            "------",
+                            f"{k} of this job is too long. It will be attached as a file.",
+                            "",
+                        ]
+                    )
 
             self.initial_report["Job Output"] = "\n".join(lines)
         elif checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION:
@@ -380,11 +391,13 @@ class BugReportScreen(Screen[BugReport]):
                         collectors = [
                             c
                             for c in LOG_NAME_TO_COLLECTOR.values()
-                            if c.name != "checkbox-session"
+                            if c.name != "checkbox-session" and not c.hidden
                         ]
                     else:
                         collectors = [
-                            c for c in LOG_NAME_TO_COLLECTOR.values()
+                            c
+                            for c in LOG_NAME_TO_COLLECTOR.values()
+                            if not c.hidden
                         ]
 
                     with VerticalGroup():

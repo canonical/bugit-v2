@@ -201,10 +201,12 @@ class Session:
             io_log_filename: str | None = self.session_json["session"][
                 "results"
             ][job_id][-1].get("io_log_filename")
-            comments: str = self.session_json["session"]["results"][job_id][
-                -1
-            ].get("comments", "")
-            print(comments, type(comments))
+            comments: str = (
+                self.session_json["session"]["results"][job_id][-1].get(
+                    "comments", ""
+                )
+                or ""  # the key can exist while the value is None
+            )
 
             if io_log_filename:
                 stdout_filename = io_log_filename.replace(
