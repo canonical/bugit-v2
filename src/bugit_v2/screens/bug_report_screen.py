@@ -163,6 +163,7 @@ class BugReportScreen(Screen[BugReport]):
     }
     """
     CSS_PATH = "styles.tcss"
+    MAX_JOB_OUTPUT_LEN = 10_000
 
     # inputs that have validators
     # the keys should appear in elem_id_to_border_title
@@ -250,14 +251,24 @@ class BugReportScreen(Screen[BugReport]):
             # add an empty string at the end for a new line
             lines: list[str] = []
             for k in ("stdout", "stderr", "comments"):
-                lines.extend(
-                    [
-                        k,
-                        "------",
-                        job_output[k] or f"No {k} were found for this job",
-                        "",
-                    ]
-                )
+                if len(job_output[k]) < self.MAX_JOB_OUTPUT_LEN:
+                    lines.extend(
+                        [
+                            k,
+                            "------",
+                            job_output[k] or f"No {k} were found for this job",
+                            "",
+                        ]
+                    )
+                else:
+                    lines.extend(
+                        [
+                            k,
+                            "------",
+                            f"{k} of this job is too long. It will be attached as a file.",
+                            "",
+                        ]
+                    )
 
             self.initial_report["Job Output"] = "\n".join(lines)
         elif checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION:
