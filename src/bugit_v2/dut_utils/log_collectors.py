@@ -367,7 +367,11 @@ real_collectors: Sequence[LogCollector] = (
         advertised_timeout=COMMAND_TIMEOUT,
     ),
     LogCollector(
-        "long-job-outputs", long_job_outputs, "Long Job Outputs", hidden=True
+        "long-job-outputs",
+        long_job_outputs,
+        "Long Job Outputs",
+        collect_by_default=True,
+        hidden=True,
     ),
 )
 
