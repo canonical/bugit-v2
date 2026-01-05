@@ -1,12 +1,18 @@
 import json
 from functools import lru_cache
 from math import inf
-from typing import Any, Literal
+from sys import stderr
+from typing import Any, Literal, NamedTuple
 
 from bugit_v2.checkbox_utils.checkbox_exec import (
     checkbox_exec,  # pyright: ignore[reportUnknownVariableType]
 )
 from bugit_v2.checkbox_utils.models import CERT_STATUSES, CertificationStatus
+
+
+class TestCaseWithCertStatus(NamedTuple):
+    full_id: str
+    cert_status: CertificationStatus
 
 
 @lru_cache
@@ -51,6 +57,42 @@ def expand_test_plan(test_plan: str) -> list[dict[str, Any]]:
         raise RuntimeError(f"Failed to run checkbox-cli expand {repr(out)}")
 
     return json.loads(out.stdout)
+
+
+def list_bootstrapped(
+    test_plan: str, checkbox_env: dict[str, str] | None = None
+) -> list[TestCaseWithCertStatus]:
+    lb_out = checkbox_exec(
+        [
+            "list-bootstrapped",
+            test_plan,
+            "-f",
+            "{full_id}\n{certification_status}\n\n",
+        ],
+        checkbox_env,
+    )
+
+    if lb_out.returncode != 0:
+        raise RuntimeError(
+            f"Failed to run checkbox-cli list-bootstrapped {repr(lb_out)}"
+        )
+
+    out: list[TestCaseWithCertStatus] = []
+
+    # split by empty line
+    raw_cases = lb_out.stdout.strip().split("\n\n")
+    for raw_case in raw_cases:
+        lines = raw_case.splitlines()
+
+        if len(lines) != 2 or lines[1] not in CERT_STATUSES:
+            print("Bad group", lines, file=stderr)
+            continue
+
+        out.append(
+            TestCaseWithCertStatus(full_id=lines[0], cert_status=lines[1])
+        )
+
+    return out
 
 
 def guess_certification_status(
