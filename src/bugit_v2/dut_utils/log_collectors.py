@@ -6,6 +6,7 @@ here is that each log collectors is a (slow-running) function and is *independen
 from all other collectors.
 """
 
+import importlib.resources
 import os
 import shutil
 import subprocess as sp
@@ -176,10 +177,14 @@ def snap_list(target_dir: Path, _: BugReport | PartialBugReport):
 
 
 def snap_debug(target_dir: Path, _: BugReport | PartialBugReport):
+    script_path = (
+        importlib.resources.files("bugit_v2.dut_utils") / "snap_debug.sh"
+    )
     with open(target_dir / "snap_debug.log", "w") as f:
         sp.check_call(
-            ["./snap_debug.sh"],
+            [str(script_path)],
             stdout=f,
+            stderr=sp.DEVNULL,
             text=True,
             timeout=COMMAND_TIMEOUT,
         )
