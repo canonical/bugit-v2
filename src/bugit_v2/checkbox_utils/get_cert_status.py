@@ -139,7 +139,7 @@ def get_session_envs(session_path: Path) -> dict[str, str]:
 @lru_cache
 def get_certification_status(
     test_plan: str, session_path: Path | None = None
-) -> dict[str, TestCaseWithCertStatus] | None:
+) -> dict[str, TestCaseWithCertStatus]:
     cb_env: dict[str, str] | None = None
 
     if session_path is not None:
