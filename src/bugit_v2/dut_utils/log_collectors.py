@@ -232,7 +232,8 @@ def long_job_outputs(target_dir: Path, bug_report: BugReport):
                 f.write(sv)
                 added_keys.append(k)
 
-    return f"Added {','.join(added_keys)} to {target_dir}"
+    if added_keys:
+        return f"Added job {','.join(added_keys)} to {target_dir}"
 
 
 mock_collectors: Sequence[LogCollector] = (
