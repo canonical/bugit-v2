@@ -129,7 +129,7 @@
 }
 
 .default_box {
-    border: round $boost 700%;
+    border: round $boost 500%;
     padding: 0;
     background: white 0%;
 }
@@ -152,7 +152,7 @@
 }
 
 .boost {
-    color: $boost 700%;
+    color: $boost 500%;
 }
 
 .selection-list--button-selected {

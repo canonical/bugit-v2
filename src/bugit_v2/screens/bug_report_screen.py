@@ -162,6 +162,12 @@ class BugReportScreen(Screen[BugReport]):
     #bug_report_metadata_header Label:last-child {
         margin-bottom: 1;
     }
+
+    #cert_status_box {
+        width: 50%;
+        height: 100%;
+        content-align: center middle;
+    }
     """
     CSS_PATH = "styles.tcss"
 
@@ -363,28 +369,38 @@ class BugReportScreen(Screen[BugReport]):
                         classes="default_box",
                     )
 
-                    highest_display_name = (
-                        "Highest (Jira)"
-                        if self.app_args.submitter == "jira"
-                        else "Critical (LP)"
-                    )
-                    yield RadioSet(
-                        *(
-                            RadioButton(
-                                (
-                                    highest_display_name
-                                    if severity == "highest"
-                                    else display_name
-                                ),
-                                name=severity,
-                                value=severity
-                                == "highest",  # default to critical
-                            )
-                            for severity, display_name in pretty_severities.items()
-                        ),
-                        id="severity",
-                        classes="default_box",
-                    )
+                    with HorizontalGroup():
+                        highest_display_name = (
+                            "Highest (Jira)"
+                            if self.app_args.submitter == "jira"
+                            else "Critical (LP)"
+                        )
+                        yield RadioSet(
+                            *(
+                                RadioButton(
+                                    (
+                                        highest_display_name
+                                        if severity == "highest"
+                                        else display_name
+                                    ),
+                                    name=severity,
+                                    value=severity
+                                    == "highest",  # default to critical
+                                )
+                                for severity, display_name in pretty_severities.items()
+                            ),
+                            id="severity",
+                            classes="default_box",
+                        )
+
+                        cert_status_label = Label(
+                            "Querying checkbox for the certification status (60s timeout)...",
+                            id="cert_status_box",
+                            classes="default_box",
+                            disabled=True,
+                        )
+                        cert_status_label.border_title = "Certification Status"
+                        yield cert_status_label
 
                     if self.session is NullSelection.NO_SESSION:
                         # don't even include the session collector if there's no session
@@ -622,29 +638,44 @@ class BugReportScreen(Screen[BugReport]):
             event.worker.name == GET_CERT_STATUS_WORKER_NAME
             and event.worker.state == WorkerState.SUCCESS
         ):
+            assert self.job_id is not NullSelection.NO_JOB
+
+            cert_status_box = self.query_exactly_one("#cert_status_box", Label)
+
             if event.worker.result is None:
-                return
+                cert_status_box.update("Unable to determine cert status")
+
             all_cert_statuses = cast(
                 dict[str, TestCaseWithCertStatus],
                 event.worker.result,
             )
-
-            assert self.job_id is not NullSelection.NO_JOB
             curr_status = all_cert_statuses[self.job_id]
 
             if curr_status.cert_status == "blocker":
-                self.notify(
-                    message="Because this is a [$error]blocker[/] test case (click to dismiss)",
-                    title="Bugit thinks this bug's severity should be set to HIGHEST",
-                    timeout=60,
-                    severity="error",
+                cert_status_box.update(
+                    "\n".join(
+                        [
+                            "[$error]Blocker[/]",
+                            "Suggested severity: Highest/Critical",
+                        ]
+                    )
+                )
+                cert_status_box.styles.border = (
+                    "round",
+                    self.app.theme_variables["error"],
                 )
             elif curr_status.cert_status == "non-blocker":
-                self.notify(
-                    message="Because this is a [$warning]non-blocker[/] test case (click to dismiss)",
-                    title="Bugit thinks this bug's severity should be set to HIGH",
-                    timeout=60,
-                    severity="warning",
+                cert_status_box.update(
+                    "\n".join(
+                        [
+                            "[$warning]Non-Blocker[/]",
+                            "Suggested severity: High",
+                        ]
+                    )
+                )
+                cert_status_box.styles.border = (
+                    "round",
+                    self.app.theme_variables["warning"],
                 )
 
         elif event.worker.name == GET_STANDARD_INFO_WORKER_NAME:
