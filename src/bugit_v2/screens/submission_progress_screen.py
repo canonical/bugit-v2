@@ -540,7 +540,10 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     show_eta=False,
                 )
             yield RichLog(
-                id="submission_logs", markup=True, classes="solid_border"
+                id="submission_logs",
+                markup=True,
+                classes="solid_border",
+                wrap=True,
             )
 
         with VerticalGroup(classes="db"):
