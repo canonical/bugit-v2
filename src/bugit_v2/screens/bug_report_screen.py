@@ -162,6 +162,12 @@ class BugReportScreen(Screen[BugReport]):
     #bug_report_metadata_header Label:last-child {
         margin-bottom: 1;
     }
+
+    #cert_status_box {
+        width: 50%;
+        height: 100%;
+        content-align: center middle;
+    }
     """
     CSS_PATH = "styles.tcss"
 
@@ -363,28 +369,37 @@ class BugReportScreen(Screen[BugReport]):
                         classes="default_box",
                     )
 
-                    highest_display_name = (
-                        "Highest (Jira)"
-                        if self.app_args.submitter == "jira"
-                        else "Critical (LP)"
-                    )
-                    yield RadioSet(
-                        *(
-                            RadioButton(
-                                (
-                                    highest_display_name
-                                    if severity == "highest"
-                                    else display_name
-                                ),
-                                name=severity,
-                                value=severity
-                                == "highest",  # default to critical
-                            )
-                            for severity, display_name in pretty_severities.items()
-                        ),
-                        id="severity",
-                        classes="default_box",
-                    )
+                    with HorizontalGroup():
+                        highest_display_name = (
+                            "Highest (Jira)"
+                            if self.app_args.submitter == "jira"
+                            else "Critical (LP)"
+                        )
+                        yield RadioSet(
+                            *(
+                                RadioButton(
+                                    (
+                                        highest_display_name
+                                        if severity == "highest"
+                                        else display_name
+                                    ),
+                                    name=severity,
+                                    value=severity
+                                    == "highest",  # default to critical
+                                )
+                                for severity, display_name in pretty_severities.items()
+                            ),
+                            id="severity",
+                            classes="default_box",
+                        )
+
+                        cert_status_label = Label(
+                            "Querying checkbox for the certification status...",
+                            id="cert_status_box",
+                            classes="default_box",
+                        )
+                        cert_status_label.border_title = "Certification Status"
+                        yield cert_status_label
 
                     if self.session is NullSelection.NO_SESSION:
                         # don't even include the session collector if there's no session
