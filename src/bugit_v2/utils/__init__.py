@@ -1,6 +1,7 @@
 import datetime as dt
 import importlib.metadata
 import os
+import shutil
 
 from bugit_v2.utils.constants import HOST_FS
 
@@ -15,6 +16,8 @@ def is_snap() -> bool:
 
 
 def host_is_ubuntu_core() -> bool:
+    if shutil.which("apt") is not None:
+        return False
     # TODO: this is prob not the best way to do this
     apt_path = HOST_FS / "usr" / "bin" / "apt"
     return not apt_path.exists() or not apt_path.is_file()
