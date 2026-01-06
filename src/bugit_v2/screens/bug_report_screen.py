@@ -1,8 +1,8 @@
+import enum
 import json
 import uuid
 from collections.abc import Mapping
 from dataclasses import asdict
-from enum import StrEnum
 from functools import wraps
 from typing import Callable, Final, Literal, cast, final
 
@@ -69,9 +69,9 @@ from bugit_v2.utils.constants import (
 )
 
 
-class BugReportScreenWorkerName(StrEnum):
-    GET_CERT_STATUS_WORKER_NAME = "get_certification_status"
-    GET_STANDARD_INFO_WORKER_NAME = "get_standard_info"
+class BugReportScreenWorkerName(enum.StrEnum):
+    GET_CERT_STATUS = enum.auto()
+    GET_STANDARD_INFO = enum.auto()
 
 
 class ValidSpaceSeparatedTags(Validator):
@@ -504,7 +504,7 @@ class BugReportScreen(Screen[BugReport]):
         # must launch the worker
         self.run_worker(
             get_standard_info,
-            name=BugReportScreenWorkerName.GET_STANDARD_INFO_WORKER_NAME,
+            name=BugReportScreenWorkerName.GET_STANDARD_INFO,
             thread=True,
             exit_on_error=False,  # still allow editing
         )
@@ -521,7 +521,7 @@ class BugReportScreen(Screen[BugReport]):
                 lambda tid=self.session.testplan_id, session_path=self.session.session_path: get_certification_status(
                     tid, session_path
                 ),
-                name=BugReportScreenWorkerName.GET_CERT_STATUS_WORKER_NAME,
+                name=BugReportScreenWorkerName.GET_CERT_STATUS,
                 thread=True,
                 exit_on_error=False,  # still allow editing
             )
@@ -641,9 +641,9 @@ class BugReportScreen(Screen[BugReport]):
             return
 
         match event.worker.name:
-            case BugReportScreenWorkerName.GET_CERT_STATUS_WORKER_NAME:
+            case BugReportScreenWorkerName.GET_CERT_STATUS:
                 self._get_cert_status_worker_callback(event)
-            case BugReportScreenWorkerName.GET_STANDARD_INFO_WORKER_NAME:
+            case BugReportScreenWorkerName.GET_STANDARD_INFO:
                 self._standard_info_worker_callback(event)
             case _:
                 pass
