@@ -646,7 +646,7 @@ class BugReportScreen(Screen[BugReport]):
             case BugReportScreenWorkerName.GET_STANDARD_INFO_WORKER_NAME:
                 self._standard_info_worker_callback(event)
             case _:
-                raise ValueError(f"Unhandled worker: {event.worker.name}")
+                pass
 
     def watch_validation_status(self):
         btn = self.query_exactly_one("#submit_button", Button)
