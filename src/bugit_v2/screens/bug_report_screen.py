@@ -659,7 +659,7 @@ class BugReportScreen(Screen[BugReport]):
     def _standard_info_worker_callback(self, event: Worker.StateChanged):
         assert (
             event.worker.is_finished
-        ), f"{__name__} invoked but the worker has not finished"
+        ), "Standard info callback invoked but the worker has not finished"
 
         textarea = self.query_exactly_one("#description", DescriptionEditor)
         textarea.disabled = False  # unlock asap
@@ -734,7 +734,7 @@ class BugReportScreen(Screen[BugReport]):
         assert self.job_id is not NullSelection.NO_JOB
         assert (
             event.worker.is_finished
-        ), f"{__name__} invoked but the worker has not finished"
+        ), "Cert status callback invoked but the worker has not finished"
 
         cert_status_box = self.query_exactly_one("#cert_status_box", Label)
 
