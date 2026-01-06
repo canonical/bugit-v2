@@ -394,9 +394,10 @@ class BugReportScreen(Screen[BugReport]):
                         )
 
                         cert_status_label = Label(
-                            "Querying checkbox for the certification status...",
+                            "Querying checkbox for the certification status (60s timeout)...",
                             id="cert_status_box",
                             classes="default_box",
+                            disabled=True,
                         )
                         cert_status_label.border_title = "Certification Status"
                         yield cert_status_label
@@ -637,29 +638,36 @@ class BugReportScreen(Screen[BugReport]):
             event.worker.name == GET_CERT_STATUS_WORKER_NAME
             and event.worker.state == WorkerState.SUCCESS
         ):
+            assert self.job_id is not NullSelection.NO_JOB
+
+            cert_status_box = self.query_exactly_one("#cert_status_box", Label)
+
             if event.worker.result is None:
-                return
+                cert_status_box.update("Unable to determine cert status")
+
             all_cert_statuses = cast(
                 dict[str, TestCaseWithCertStatus],
                 event.worker.result,
             )
-
-            assert self.job_id is not NullSelection.NO_JOB
             curr_status = all_cert_statuses[self.job_id]
 
             if curr_status.cert_status == "blocker":
-                self.notify(
-                    message="Because this is a [$error]blocker[/] test case (click to dismiss)",
-                    title="Bugit thinks this bug's severity should be set to HIGHEST",
-                    timeout=60,
-                    severity="error",
+                cert_status_box.update(
+                    "\n".join(
+                        [
+                            "[$error]Blocker[/]",
+                            "Suggested severity: Highest/Critical",
+                        ]
+                    )
                 )
             elif curr_status.cert_status == "non-blocker":
-                self.notify(
-                    message="Because this is a [$warning]non-blocker[/] test case (click to dismiss)",
-                    title="Bugit thinks this bug's severity should be set to HIGH",
-                    timeout=60,
-                    severity="warning",
+                cert_status_box.update(
+                    "\n".join(
+                        [
+                            "[$warning]Non-Blocker[/]",
+                            "Suggested severity: High",
+                        ]
+                    )
                 )
 
         elif event.worker.name == GET_STANDARD_INFO_WORKER_NAME:
