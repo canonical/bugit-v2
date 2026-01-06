@@ -660,6 +660,10 @@ class BugReportScreen(Screen[BugReport]):
                         ]
                     )
                 )
+                cert_status_box.styles.border = (
+                    "round",
+                    self.app.theme_variables["error"],
+                )
             elif curr_status.cert_status == "non-blocker":
                 cert_status_box.update(
                     "\n".join(
@@ -668,6 +672,10 @@ class BugReportScreen(Screen[BugReport]):
                             "Suggested severity: High",
                         ]
                     )
+                )
+                cert_status_box.styles.border = (
+                    "round",
+                    self.app.theme_variables["warning"],
                 )
 
         elif event.worker.name == GET_STANDARD_INFO_WORKER_NAME:
