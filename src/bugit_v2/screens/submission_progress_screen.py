@@ -530,7 +530,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         yield SimpleHeader()
 
         with Center(classes="lrm1"):
-            with HorizontalGroup():
+            with HorizontalGroup(classes="w100 center"):
                 yield Label("Submission Progress", classes="mr1")
                 yield ProgressBar(
                     total=self.submitter.steps
