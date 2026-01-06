@@ -525,6 +525,15 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         if event.button.id in RETURN_SCREEN_CHOICES:
             self.dismiss(event.button.id)
 
+    @on(Button.Pressed, "#give_up")
+    def cancel_all_unfinished_collectors(self, event: Button.Pressed):
+        assert self.log_widget
+        for key, worker in self.attachment_workers.items():
+            if worker.is_running:
+                self.log_widget.write(f"Cancelling {key}")
+                worker.cancel()
+                self.attachment_worker_checker_timers[key].stop()
+
     @override
     def compose(self) -> ComposeResult:
         yield SimpleHeader()
@@ -542,9 +551,15 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             yield RichLog(
                 id="submission_logs",
                 markup=True,
-                classes="solid_border",
                 wrap=True,
             )
+            with HorizontalGroup(classes="w100 right"):
+                yield Button(
+                    "Give up",
+                    id="give_up",
+                    compact=True,
+                    tooltip="Cancel all unfinished log collectors",
+                )
 
         with VerticalGroup(classes="db"):
             with VerticalGroup(
