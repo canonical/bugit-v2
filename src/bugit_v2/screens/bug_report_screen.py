@@ -506,6 +506,9 @@ class BugReportScreen(Screen[BugReport]):
             exit_on_error=False,  # still allow editing
         )
 
+        if self.job_id is NullSelection.NO_JOB:
+            self.query_exactly_one("#cert_status_box", Label).display = False
+
         if (
             self.session is not NullSelection.NO_SESSION
             and self.job_id is not NullSelection.NO_JOB
