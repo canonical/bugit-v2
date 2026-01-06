@@ -93,6 +93,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     async def on_mount(self) -> None:
         self.log_widget = self.query_exactly_one("#submission_logs", RichLog)
         self.query_exactly_one("#menu_after_finish").display = False
+
         if self.submitter.auth_modal:
             # submission screen controls how the credentials are assigned
             try:
@@ -128,6 +129,12 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             thread=True,
             name=self.BUG_CREATION_WORKER_NAME,
             exit_on_error=False,
+        )
+
+        # correct the progress bar length
+        progress_bar = self.query_exactly_one("#progress", ProgressBar)
+        progress_bar.total = (
+            self.submitter.steps + len(self.attachment_workers) * 2
         )
 
     def start_parallel_log_collection(self) -> None:
@@ -532,7 +539,9 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     id="progress",
                     show_eta=False,
                 )
-            yield RichLog(id="submission_logs", markup=True)
+            yield RichLog(
+                id="submission_logs", markup=True, classes="solid_border"
+            )
 
         with VerticalGroup(classes="db"):
             with VerticalGroup(
