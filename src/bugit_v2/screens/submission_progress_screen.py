@@ -505,7 +505,9 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     or event.worker.name in self.attachment_workers
                 ) and self.ready_to_upload_attachments():
                     # nothing to give up, disable the button
-                    self.query_exactly_one("#give_up", Button).disabled = True
+                    give_up_btn = self.query_exactly_one("#give_up", Button)
+                    give_up_btn.disabled = True
+                    give_up_btn.label = "All collectors finished"
 
                     if self.submitter.allow_parallel_upload:
                         self.start_parallel_attachment_upload()
@@ -555,6 +557,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                 yield Button(
                     "Give up",
                     id="give_up",
+                    variant="error",
                     compact=True,
                     tooltip="Cancel all unfinished log collectors",
                 )

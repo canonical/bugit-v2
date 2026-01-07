@@ -909,10 +909,8 @@ class BugReportScreen(Screen[BugReport]):
                         self.existing_report.get_with_type(elem_id, list),
                     )
                     for v in elem_value:
-                        try:
+                        if v in elem.options:
                             cast(SelectionList[str], elem).select(str(v))
-                        except Exception:
-                            pass
                 case _:
                     pass
 
