@@ -18,6 +18,7 @@ from textual.markup import escape as escape_markup
 from textual.reactive import var
 from textual.screen import Screen
 from textual.timer import Timer
+from textual.types import OptionDoesNotExist
 from textual.validation import ValidationResult, Validator
 from textual.widgets import (
     Button,
@@ -908,11 +909,15 @@ class BugReportScreen(Screen[BugReport]):
                         list[str],
                         self.existing_report.get_with_type(elem_id, list),
                     )
+                    elem.deselect_all()  # clear first, then recover
+
                     for v in elem_value:
+                        # if v in elem.options:
                         try:
-                            cast(SelectionList[str], elem).select(str(v))
-                        except Exception:
-                            pass
+                            elem.select(elem.get_option(v))
+                            # cast(SelectionList[str], elem).select(str(v))
+                        except OptionDoesNotExist:
+                            self.log.warning("Ignoring option", v)
                 case _:
                     pass
 

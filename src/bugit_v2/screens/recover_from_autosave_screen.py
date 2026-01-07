@@ -110,20 +110,20 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                 yield Rule(classes="m0 boost", line_style="ascii")
                 with HorizontalGroup():
                     yield Checkbox(
+                        "Relative Timestamp",
                         id="mode_toggle",
                         classes="mr1 nb",
                         value=self.is_relative,
                         compact=True,
                     )
-                    yield Label("Relative Timestamp")
                 with HorizontalGroup():
                     yield Checkbox(
+                        "Lock Delete Button",
                         id="show_delete_toggle",
                         classes="mr1 nb",
                         value=self.lock_delete,
                         compact=True,
                     )
-                    yield Label("Lock Delete Button")
                     with Right():
                         yield Button(
                             "Start a New Bug Report (Don't recover)",

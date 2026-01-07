@@ -197,12 +197,18 @@ class BugitApp(App[None]):
             case QuitState():
                 self.exit()
             case _:
-                self.state = self.state.go_forward(
-                    # never used anywhere else
-                    # Any is ok
-                    await self.push_screen_wait(  # pyright: ignore[reportAny]
+                screen = self.state.get_screen_constructor()()
+                screen_result = (  # pyright: ignore[reportAny]
+                    await self.push_screen_wait(
                         self.state.get_screen_constructor()()
                     )
+                )
+                try:
+                    screen.workers.cancel_all()
+                except Exception:
+                    pass
+                self.state = self.state.go_forward(
+                    screen_result  # pyright: ignore[reportAny]
                 )
 
     def action_go_back(self):

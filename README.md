@@ -216,6 +216,22 @@ pseudo_classes={'dark', 'focus'})>
 ready in 91 milliseconds
 ```
 
+### REPL
+
+You can also debug library functions without invoking the UI. In the virtual environment, run
+
+```sh
+sudo env PATH="$PATH" DEBUG=1 APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<your_url> BUGIT_APP_NAME=bugit python3 -m asyncio
+```
+Change bugit specific envs as needed. This will drop you into a asyncio REPL that allows top level `await`.
+
+To check if this is working, import `bugit_v2`:
+
+```py
+import bugit_v2
+```
+
+
 ## Limitations
 
 This app only looks pretty when it's used through a graphical terminal such as:

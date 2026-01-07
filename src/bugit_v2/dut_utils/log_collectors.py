@@ -6,15 +6,17 @@ here is that each log collectors is a (slow-running) function and is *independen
 from all other collectors.
 """
 
+import asyncio
+import asyncio.subprocess as asp
 import importlib.resources
 import os
 import shutil
-import subprocess as sp
 import tarfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from subprocess import CalledProcessError
+from typing import IO, Any, Callable, Literal
 
 from bugit_v2.models.bug_report import BugReport, LogName, PartialBugReport
 from bugit_v2.utils import host_is_ubuntu_core, is_snap
@@ -28,6 +30,77 @@ NVIDIA_BUG_REPORT_PATH = Path(
 )
 
 
+async def asp_check_output(
+    cmd: list[str],
+    timeout: int | None = None,
+    env: dict[str, str] | None = None,
+) -> str:
+    """Async version of subprocess.check_output
+
+    :param cmd: command array like the sync version
+    :param timeout: timeout in seconds. Wait forever if None
+    :param env: env override
+    :raises CalledProcessError: when the process doesn't return 0
+    :return: stdout as a string if successful
+    """
+    if env:
+        proc = await asp.create_subprocess_exec(
+            *cmd, stdout=asp.PIPE, stderr=asp.PIPE, env=env
+        )
+    else:
+        proc = await asp.create_subprocess_exec(
+            *cmd, stdout=asp.PIPE, stderr=asp.PIPE
+        )
+
+    if timeout:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)
+    else:
+        stdout, stderr = await proc.communicate()
+
+    assert proc.returncode is not None
+    if proc.returncode != 0:
+        raise CalledProcessError(proc.returncode, cmd, stdout, stderr)
+
+    return stdout.decode()
+
+
+async def asp_check_call(
+    cmd: list[str],
+    timeout: int | None = None,
+    env: dict[str, str] | None = None,
+    stdout: IO[Any] | int = asp.DEVNULL,
+    stderr: IO[Any] | int = asp.DEVNULL,
+) -> Literal[0]:
+    """Async version of sp.check_call
+
+    :param cmd: command array like the sync version
+    :param timeout: timeout in seconds. Wait forever if None
+    :param env: env override
+    :param stdout: where to put stdout, defaults to asp.DEVNULL
+    :param stderr: where to put stderr, defaults to asp.DEVNULL
+    :raises CalledProcessError: when return code is not 0
+    :return: 0
+    """
+    if env:
+        proc = await asp.create_subprocess_exec(
+            *cmd, stdout=stdout, stderr=stderr, env=env
+        )
+    else:
+        proc = await asp.create_subprocess_exec(
+            *cmd, stdout=stdout, stderr=stderr
+        )
+
+    if timeout:
+        rc = await asyncio.wait_for(proc.wait(), timeout)
+    else:
+        rc = await proc.wait()
+
+    if rc != 0:
+        raise CalledProcessError(rc, cmd)
+
+    return rc
+
+
 @dataclass(slots=True, frozen=True)
 class LogCollector:
     # internal name, alphanumeric or dashes only
@@ -35,7 +108,7 @@ class LogCollector:
     # the function that actually collects the logs
     collect: Callable[
         [Path, BugReport],
-        str | None,  # (target_dir: Path) -> optional result string
+        Awaitable[str | None],  # (target_dir: Path) -> optional result string
         # if returns None, a generic success message is logged to the screen
         # errors should be raised as regular exceptions
     ]
@@ -55,7 +128,7 @@ class LogCollector:
     hidden: bool = False
 
 
-def pack_checkbox_session(
+async def pack_checkbox_session(
     target_dir: Path, bug_report: BugReport | PartialBugReport
 ) -> str:
     assert (
@@ -68,7 +141,7 @@ def pack_checkbox_session(
     return f"Added checkbox session to {target_dir}"
 
 
-def nvidia_bug_report(
+async def nvidia_bug_report(
     target_dir: Path, _: BugReport | PartialBugReport
 ) -> str:
     if is_snap():
@@ -94,32 +167,37 @@ def nvidia_bug_report(
         }
     else:
         env = os.environ
-    return sp.check_output(
-        [
-            str(NVIDIA_BUG_REPORT_PATH),
-            "--extra-system-data",
-            "--output-file",
-            str(target_dir / "nvidia-bug-report.log.gz"),
-        ],
-        text=True,
-        timeout=COMMAND_TIMEOUT,
+
+    proc = await asp.create_subprocess_exec(
+        str(NVIDIA_BUG_REPORT_PATH),
+        "--extra-system-data",
+        "--output-file",
+        str(target_dir / "nvidia-bug-report.log.gz"),
+        stdout=asp.PIPE,
+        stderr=asp.PIPE,
         env=env,
     )
 
+    stdout, stderr = await proc.communicate()
 
-def journal_logs(
+    if proc.returncode != 0:
+        raise RuntimeError(stderr.decode())
+
+    return stdout.decode()
+
+
+async def journal_logs(
     target_dir: Path, _: BugReport | PartialBugReport, num_days: int = 7
 ) -> None:
     filepath = target_dir / f"journalctl_{num_days}_days.log"
     with open(filepath, "w") as f:
         try:
-            sp.check_call(
+            await asp_check_call(
                 ["journalctl", "--since", f"{num_days} days ago"],
                 stdout=f,
-                text=True,
                 timeout=COMMAND_TIMEOUT,
             )
-        except sp.TimeoutExpired:
+        except asyncio.TimeoutError:
             raise RuntimeError(
                 "Journalctl didn't finish dumping the logs in 600 seconds"
             )
@@ -142,55 +220,50 @@ def journal_logs(
         )
 
 
-def acpidump(target_dir: Path, _: BugReport | PartialBugReport) -> str:
-    return sp.check_output(
-        ["acpidump", "-o", str(target_dir.absolute() / "acpidump.log")],
-        text=True,
-        timeout=COMMAND_TIMEOUT,
+async def acpidump(target_dir: Path, _: BugReport | PartialBugReport) -> None:
+    await asp_check_call(
+        [
+            "acpidump",
+            "-o",
+            str(target_dir.absolute() / "acpidump.log"),
+        ],
     )
 
 
-def dmesg_of_current_boot(
+async def dmesg_of_current_boot(
     target_dir: Path, _: BugReport | PartialBugReport
 ) -> str:
     with open("/proc/sys/kernel/random/boot_id") as boot_id_file:
         boot_id = boot_id_file.read().strip().replace("-", "")
         with open(target_dir / f"dmesg-of-boot-{boot_id}.log", "w") as f:
-            sp.check_call(
-                ["journalctl", "--dmesg"],
-                stdout=f,
-                stderr=sp.DEVNULL,
-                text=True,
-                timeout=COMMAND_TIMEOUT,
+            await asp_check_call(
+                ["journalctl", "--dmesg"], timeout=COMMAND_TIMEOUT, stdout=f
             )
             return f"Saved dmesg logs of boot {boot_id} to {f.name}"
 
 
-def snap_list(target_dir: Path, _: BugReport | PartialBugReport):
+async def snap_list(target_dir: Path, _: BugReport | PartialBugReport):
     with open(target_dir / "snap_list.log", "w") as f:
-        sp.check_call(
+        await asp_check_call(
             ["snap", "list", "--all"],
             stdout=f,
-            text=True,
             timeout=COMMAND_TIMEOUT,
         )
 
 
-def snap_debug(target_dir: Path, _: BugReport | PartialBugReport):
+async def snap_debug(target_dir: Path, _: BugReport | PartialBugReport):
     script_path = (
         importlib.resources.files("bugit_v2.dut_utils") / "snap_debug.sh"
     )
     with open(target_dir / "snap_debug.log", "w") as f:
-        sp.check_call(
+        await asp_check_call(
             [str(script_path)],
             stdout=f,
-            stderr=sp.DEVNULL,
-            text=True,
             timeout=COMMAND_TIMEOUT,
         )
 
 
-def pack_checkbox_submission(
+async def pack_checkbox_submission(
     target_dir: Path, bug_report: BugReport | PartialBugReport
 ):
     assert (
@@ -208,7 +281,7 @@ def pack_checkbox_submission(
     return f"Added checkbox submission to {target_dir}"
 
 
-def long_job_outputs(target_dir: Path, bug_report: BugReport):
+async def long_job_outputs(target_dir: Path, bug_report: BugReport):
     """
     Only used when the job's stdout is way too long for the description
     """
@@ -241,66 +314,14 @@ def long_job_outputs(target_dir: Path, bug_report: BugReport):
         return f"Added job {','.join(added_keys)} to {target_dir}"
 
 
+async def slow(target_dir: Path, bug_report: BugReport, secs: int):
+    await asp_check_call(["sleep", "10"])
+
+
 mock_collectors: Sequence[LogCollector] = (
-    LogCollector(
-        "immediate",
-        lambda p, b: sp.check_output(["echo"], text=True),
-        "Immediate return",
-    ),
-    LogCollector(
-        "fast1",
-        lambda p, b: sp.check_output(["sleep", "3"], text=True),
-        "Fast collect 1",
-    ),
-    LogCollector(
-        "fast2",
-        lambda p, b: sp.check_output(["sleep", "5"], text=True),
-        "Fast collect 2",
-    ),
-    LogCollector(
-        "slow1",
-        lambda p, b: sp.check_output(
-            ["sleep", "60"], text=True, timeout=COMMAND_TIMEOUT
-        ),
-        "Slow collect 1",
-        advertised_timeout=COMMAND_TIMEOUT,
-    ),
-    LogCollector(
-        "slow2",
-        lambda p, b: sp.check_output(
-            ["sleep", "700"], text=True, timeout=COMMAND_TIMEOUT
-        ),
-        "Slow collect 2",
-    ),
-    LogCollector(
-        "always-fail",
-        lambda p, b: sp.check_output(["false"], text=True),
-        "Always fail",
-    ),
-    LogCollector(
-        "checkbox-session",
-        pack_checkbox_session,
-        "Checkbox Session",
-    ),
-    LogCollector(
-        "nvidia-bug-report",
-        nvidia_bug_report,
-        "NVIDIA Bug Report",
-    ),
-    LogCollector(
-        "journalctl-7-days",
-        lambda target_dir, bug_report: journal_logs(target_dir, bug_report, 7),
-        "Journalctl Logs of This Week",
-        False,
-        'journalctl --since="1 week ago"',
-    ),
-    LogCollector(
-        "journalctl-3-days",
-        lambda target_dir, bug_report: journal_logs(target_dir, bug_report, 3),
-        "Journalctl Logs of the Last 3 Days",
-        True,
-        'journalctl --since="3 days ago"',
-    ),
+    LogCollector("slow2", lambda p, b: slow(p, b, 30), "Slow2"),
+    LogCollector("slow1", lambda p, b: slow(p, b, 10), "Slow1"),
+    LogCollector("fast1", lambda p, b: slow(p, b, 2), "Fast1"),
 )
 
 
@@ -309,6 +330,7 @@ real_collectors: Sequence[LogCollector] = (
         "acpidump",
         acpidump,
         "ACPI Dump",
+        # acpi dump is not applicable to ubuntu core
         os.uname().machine in ("x86_64", "x86", "amd64"),
         "sudo acpidump -o acpidump.log",
     ),
@@ -367,11 +389,14 @@ real_collectors: Sequence[LogCollector] = (
         "snap-debug",
         snap_debug,
         "snapd team's snap-debug.sh (has apparmor logs and gadget snap info)",
-        host_is_ubuntu_core(),  # can be very big
+        # can be very big because it tries to get journal logs
+        # only run this by default on ubuntu core
+        host_is_ubuntu_core(),
         "curl -fsSL https://raw.githubusercontent.com/canonical/snapd/refs/heads/master/debug-tools/snap-debug-info.sh | bash",
         advertised_timeout=COMMAND_TIMEOUT,
     ),
     LogCollector(
+        # only invoked when job outputs are too long
         "long-job-outputs",
         long_job_outputs,
         "Long Job Outputs",

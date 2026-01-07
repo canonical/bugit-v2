@@ -114,7 +114,7 @@ def get_certification_status(
         for extra_dir in sessions_after.difference(sessions_before):
             if extra_dir.startswith("checkbox-listing-ephemeral"):
                 print("removing", extra_dir)
-                shutil.rmtree(SESSION_ROOT_DIR / extra_dir)
+                shutil.rmtree(SESSION_ROOT_DIR / extra_dir, ignore_errors=True)
                 break
     except Exception:
         pass
