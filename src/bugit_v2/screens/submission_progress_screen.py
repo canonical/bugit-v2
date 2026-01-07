@@ -131,12 +131,6 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             exit_on_error=False,
         )
 
-        # correct the progress bar length
-        progress_bar = self.query_exactly_one("#progress", ProgressBar)
-        progress_bar.total = (
-            self.submitter.steps + len(self.attachment_workers) * 2
-        )
-
     def start_parallel_log_collection(self) -> None:
         """Launches all log collectors and keep the worker objects
 
@@ -515,6 +509,15 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                         self.start_parallel_attachment_upload()
                     else:
                         self.start_sequential_attachment_upload()
+
+                    progress_bar = self.query_exactly_one(
+                        "#progress", ProgressBar
+                    )
+                    progress_bar.total = (
+                        self.submitter.steps
+                        + len(self.attachment_workers)
+                        + len(self.upload_workers)
+                    )
 
             case _:  # pyright: ignore[reportUnknownVariableType]
                 pass
