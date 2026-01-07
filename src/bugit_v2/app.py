@@ -20,7 +20,7 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
 )
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
-from bugit_v2.checkbox_utils.checkbox_session import get_checkbox_info
+from bugit_v2.checkbox_utils.checkbox_exec import get_checkbox_info
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.app_state import (

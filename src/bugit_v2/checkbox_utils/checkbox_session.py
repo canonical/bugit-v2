@@ -2,101 +2,15 @@ import base64
 import gzip
 import json
 import os
-import shutil
-import subprocess as sp
 from collections.abc import Mapping, Sequence
-from functools import lru_cache
 from pathlib import Path
-from typing import Any, Final, Literal, NamedTuple, TypedDict, cast, final
+from typing import Any, Final, TypedDict, cast, final
 
 from typing_extensions import override
 
 from bugit_v2.checkbox_utils.models import JobOutcome
-from bugit_v2.utils import is_snap
-from bugit_v2.utils.constants import HOST_FS
 
 SESSION_ROOT_DIR: Final = Path("/var/tmp/checkbox-ng/sessions")
-
-
-# do not change this to a dataclass without a __hash__ method
-# this is already hashable since all 3 members are hashable
-class CheckboxInfo(NamedTuple):
-    type: Literal["deb", "snap"]
-    version: str
-    bin_path: Path  # absolute path
-
-
-@lru_cache()
-def get_checkbox_info() -> CheckboxInfo | None:
-    try:
-        if is_snap():
-            if (
-                deb_checkbox := HOST_FS / "usr" / "bin" / "checkbox-cli"
-            ).exists():
-                # host is using debian checkbox
-                return CheckboxInfo(
-                    "deb",
-                    sp.check_output(
-                        [str(deb_checkbox), "--version"],
-                        text=True,
-                        env={
-                            "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages"
-                        },
-                        stderr=sp.DEVNULL,
-                    ).strip(),
-                    deb_checkbox,
-                )
-            else:
-                # search through /snap/bin and see if a project checkbox is there
-                for executable in os.listdir(HOST_FS / "snap" / "bin"):
-                    if (
-                        executable.endswith("checkbox-cli")
-                        and "ce-oem" not in executable
-                    ):
-                        return CheckboxInfo(
-                            "snap",
-                            sp.check_output(
-                                [
-                                    str(HOST_FS / "snap" / "bin" / executable),
-                                    "--version",
-                                ],
-                                text=True,
-                                stderr=sp.DEVNULL,
-                            ).strip(),
-                            (HOST_FS / "snap" / "bin" / executable),
-                        )
-        else:
-            if (checkbox_bin := shutil.which("checkbox-cli")) is not None:
-                return CheckboxInfo(
-                    "deb",
-                    sp.check_output(
-                        [checkbox_bin, "--version"],
-                        text=True,
-                        stderr=sp.DEVNULL,
-                    ).strip(),
-                    Path(checkbox_bin),
-                )
-            else:
-                # search through /snap/bin and see if a project checkbox is there
-                for executable in os.listdir("/snap/bin"):
-                    if (
-                        executable.endswith("checkbox-cli")
-                        and "ce-oem" not in executable
-                    ):
-                        return CheckboxInfo(
-                            "snap",
-                            sp.check_output(
-                                [
-                                    (f"/snap/bin/{executable}"),
-                                    "--version",
-                                ],
-                                text=True,
-                                stderr=sp.DEVNULL,
-                            ).strip(),
-                            Path("/snap/bin") / executable,
-                        )
-    except sp.CalledProcessError:
-        return None
 
 
 def get_valid_sessions() -> list[Path]:
