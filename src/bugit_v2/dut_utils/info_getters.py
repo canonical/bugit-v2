@@ -111,24 +111,26 @@ async def get_standard_info(
     """
     standard_info: dict[str, str] = {}
 
-    async def build_stamp():
-        build_stamp_paths = [
-            "/var/lib/snapd/hostfs/var/lib/ubuntu_dist_channel",  # PC project
-            "/var/lib/snapd/hostfs/.disk/info",  # ubuntu classic
-            "/run/mnt/ubuntu-seed/.disk/info",  # ubuntu core
-        ]
-        for path in build_stamp_paths:
-            if os.path.isfile(path):
-                log = (
-                    await asp_check_output(
-                        ["tail", "-n", "1", path], timeout=command_timeout
-                    )
-                ).strip()
-                standard_info["Image"] = log
-                break
+    build_stamp_paths = [
+        "/var/lib/snapd/hostfs/var/lib/ubuntu_dist_channel",  # PC project
+        "/var/lib/snapd/hostfs/.disk/info",  # ubuntu classic
+        "/run/mnt/ubuntu-seed/.disk/info",  # ubuntu core
+    ]
+    for path in build_stamp_paths:
+        if os.path.isfile(path):
+            with open(path, "rb") as f:
+                try:  # catch OSError in case of a one line file
+                    f.seek(-2, os.SEEK_END)
+                    while f.read(1) != b"\n":
+                        f.seek(-2, os.SEEK_CUR)
+                except OSError:
+                    f.seek(0)
+                last_line = f.readline().decode().strip()
+                standard_info["Image"] = last_line
+            break
 
-        if "Image" not in standard_info:
-            standard_info["Image"] = "Failed to get build stamp"
+    if "Image" not in standard_info:
+        standard_info["Image"] = "Failed to get build stamp"
 
     async def dmi():
         for dmi_key in (
@@ -164,9 +166,7 @@ async def get_standard_info(
         ) is not None:
             standard_info["Embedded Controller Version"] = ec_version
 
-    await asyncio.gather(
-        build_stamp(), dmi(), lspci(), ec(), return_exceptions=True
-    )
+    await asyncio.gather(dmi(), lspci(), ec(), return_exceptions=True)
 
     if "NVIDIA" in standard_info["GPU"]:
         nvidia_err = "Cannot capture driver or VBIOS version"
