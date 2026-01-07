@@ -426,6 +426,8 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         if not self.finished:
             return
 
+        self.query_exactly_one("#give_up", Button).display = False
+
         all_upload_ok = all(
             w.state == WorkerState.SUCCESS
             for w in self.upload_workers.values()
