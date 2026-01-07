@@ -1,5 +1,6 @@
 import asyncio
 import asyncio.subprocess as asp
+import subprocess as sp
 from collections.abc import MutableMapping, Sequence
 from subprocess import CalledProcessError
 from typing import IO, Any, Literal
@@ -74,3 +75,37 @@ async def asp_check_call(
         raise CalledProcessError(rc, cmd)
 
     return rc
+
+
+async def asp_run(
+    cmd: Sequence[str],
+    timeout: int | None = None,
+    env: MutableMapping[str, str] | None = None,
+) -> sp.CompletedProcess[str]:
+    """Async version of subprocess.check_output
+
+    :param cmd: command array like the sync version
+    :param timeout: timeout in seconds. Wait forever if None
+    :param env: env override
+    :raises CalledProcessError: when the process doesn't return 0
+    :return: stdout as a string if successful
+    """
+    if env:
+        proc = await asp.create_subprocess_exec(
+            *cmd, stdout=asp.PIPE, stderr=asp.PIPE, env=env
+        )
+    else:
+        proc = await asp.create_subprocess_exec(
+            *cmd, stdout=asp.PIPE, stderr=asp.PIPE
+        )
+
+    if timeout:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)
+    else:
+        stdout, stderr = await proc.communicate()
+
+    assert proc.returncode is not None
+
+    return sp.CompletedProcess[str](
+        cmd, proc.returncode, stdout.decode(), stderr.decode()
+    )
