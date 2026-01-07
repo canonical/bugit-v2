@@ -87,7 +87,6 @@ async def asp_run(
     :param cmd: command array like the sync version
     :param timeout: timeout in seconds. Wait forever if None
     :param env: env override
-    :raises CalledProcessError: when the process doesn't return 0
     :return: stdout as a string if successful
     """
     if env:
