@@ -197,16 +197,11 @@ class BugitApp(App[None]):
             case QuitState():
                 self.exit()
             case _:
-                screen = self.state.get_screen_constructor()()
                 screen_result = (  # pyright: ignore[reportAny]
                     await self.push_screen_wait(
                         self.state.get_screen_constructor()()
                     )
                 )
-                try:
-                    screen.workers.cancel_all()
-                except Exception:
-                    pass
                 self.state = self.state.go_forward(
                     screen_result  # pyright: ignore[reportAny]
                 )
