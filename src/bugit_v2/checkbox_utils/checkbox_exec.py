@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typing import Literal, NamedTuple
 
 from bugit_v2.utils import is_snap
+from bugit_v2.utils.async_subprocess import asp_run
 from bugit_v2.utils.constants import HOST_FS
 
 
@@ -18,10 +19,10 @@ class CheckboxInfo(NamedTuple):
     bin_path: Path  # absolute path
 
 
-def checkbox_exec(
+async def checkbox_exec(
     checkbox_args: list[str],
     additional_env: dict[str, str] | None = None,
-    **subprocess_run_args,
+    timeout: int | None = None,
 ) -> sp.CompletedProcess[str]:
     """Run checkbox commands with already prepped environment
 
@@ -35,12 +36,11 @@ def checkbox_exec(
     if checkbox_info.type == "snap" or not is_snap():
         # pipx bugit or snap checkbox
         # no need to setup anything, just run the command
-        return sp.run(
+        print("normal path")
+        return await asp_run(
             [str(checkbox_info.bin_path), *checkbox_args],
-            text=True,
-            capture_output=True,
             env=(additional_env or {}) | os.environ,
-            **subprocess_run_args,
+            timeout=timeout,
         )
     else:
         print("special path")
@@ -86,10 +86,8 @@ def checkbox_exec(
                     ],
                 )
             )
-            return sp.run(
+            return await asp_run(
                 [str(checkbox_info.bin_path), *checkbox_args],
-                text=True,
-                capture_output=True,
                 env=(additional_env or {})
                 | {
                     "PATH": PATH,
@@ -98,7 +96,7 @@ def checkbox_exec(
                         Path(temp_dir).absolute(),
                     ),
                 },
-                **subprocess_run_args,
+                timeout=timeout,
             )
 
 

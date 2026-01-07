@@ -8,10 +8,10 @@ from pathlib import Path
 from sys import stderr
 from typing import NamedTuple
 
+from async_lru import alru_cache
+
 from bugit_v2.checkbox_utils import SESSION_ROOT_DIR
-from bugit_v2.checkbox_utils.checkbox_exec import (
-    checkbox_exec,  # pyright: ignore[reportUnknownVariableType]
-)
+from bugit_v2.checkbox_utils.checkbox_exec import checkbox_exec
 from bugit_v2.checkbox_utils.models import CERT_STATUSES, CertificationStatus
 
 
@@ -20,10 +20,10 @@ class TestCaseWithCertStatus(NamedTuple):
     cert_status: CertificationStatus
 
 
-def list_bootstrapped_cert_status(
+async def list_bootstrapped_cert_status(
     test_plan: str, checkbox_env: dict[str, str] | None = None
 ) -> dict[str, TestCaseWithCertStatus]:
-    lb_out = checkbox_exec(
+    lb_out = await checkbox_exec(
         [
             "list-bootstrapped",
             test_plan,
@@ -31,7 +31,7 @@ def list_bootstrapped_cert_status(
             "{full_id}\n{certification_status}\n\n",
         ],
         checkbox_env,
-        timeout=60,
+        60,
     )
 
     if lb_out.returncode != 0:
@@ -95,8 +95,8 @@ def get_session_envs(session_path: Path) -> dict[str, str]:
     return out
 
 
-@lru_cache
-def get_certification_status(
+@alru_cache
+async def get_certification_status(
     test_plan: str, session_path: Path | None = None
 ) -> dict[str, TestCaseWithCertStatus]:
     cb_env: dict[str, str] | None = None
@@ -106,7 +106,7 @@ def get_certification_status(
         cb_env = get_session_envs(session_path)
 
     sessions_before = set(os.listdir(SESSION_ROOT_DIR))
-    out = list_bootstrapped_cert_status(test_plan, cb_env)
+    out = await list_bootstrapped_cert_status(test_plan, cb_env)
     sessions_after = set(os.listdir(SESSION_ROOT_DIR))
 
     try:

@@ -70,7 +70,7 @@ from bugit_v2.utils.constants import (
 )
 
 
-class BugReportScreenWorkerName(enum.StrEnum):
+class WorkerName(enum.StrEnum):
     GET_CERT_STATUS = enum.auto()
     GET_STANDARD_INFO = enum.auto()
 
@@ -505,7 +505,7 @@ class BugReportScreen(Screen[BugReport]):
         # must launch the worker
         self.run_worker(
             get_standard_info,
-            name=BugReportScreenWorkerName.GET_STANDARD_INFO,
+            name=WorkerName.GET_STANDARD_INFO,
             thread=True,
             exit_on_error=False,  # still allow editing
         )
@@ -518,13 +518,11 @@ class BugReportScreen(Screen[BugReport]):
             and self.job_id is not NullSelection.NO_JOB
         ):
             self.run_worker(
-                # early binding hack
-                lambda tid=self.session.testplan_id, session_path=self.session.session_path: get_certification_status(
-                    tid, session_path
+                get_certification_status(
+                    self.session.testplan_id, self.session.session_path
                 ),
-                name=BugReportScreenWorkerName.GET_CERT_STATUS,
-                thread=True,
-                exit_on_error=False,  # still allow editing
+                name=WorkerName.GET_CERT_STATUS,
+                exit_on_error=False,
             )
 
         self.query_exactly_one("#title", Input).focus()
@@ -558,6 +556,7 @@ class BugReportScreen(Screen[BugReport]):
             == "yes"
         )
         if ok:
+            self.workers.cancel_all()
             self.dismiss(self._build_bug_report())
 
     def _debounce[**P, R](
@@ -642,9 +641,9 @@ class BugReportScreen(Screen[BugReport]):
             return
 
         match event.worker.name:
-            case BugReportScreenWorkerName.GET_CERT_STATUS:
+            case WorkerName.GET_CERT_STATUS:
                 self._get_cert_status_worker_callback(event)
-            case BugReportScreenWorkerName.GET_STANDARD_INFO:
+            case WorkerName.GET_STANDARD_INFO:
                 self._standard_info_worker_callback(event)
             case _:
                 pass
