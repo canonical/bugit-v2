@@ -506,10 +506,10 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     event.worker.name == self.BUG_CREATION_WORKER_NAME
                     or event.worker.name in self.attachment_workers
                 ) and self.ready_to_upload_attachments():
-                    # nothing to give up, disable the button
                     give_up_btn = self.query_exactly_one("#give_up", Button)
                     give_up_btn.disabled = True
                     give_up_btn.label = "All collectors finished"
+                    give_up_btn.styles.width = "auto"
 
                     if self.submitter.allow_parallel_upload:
                         self.start_parallel_attachment_upload()
@@ -536,6 +536,11 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                 worker.cancel()
                 self.attachment_worker_checker_timers[key].stop()
 
+        # nothing to give up, disable the button
+        event.button.disabled = True
+        event.button.label = "All collectors finished"
+        event.button.styles.width = "auto"
+
     @override
     def compose(self) -> ComposeResult:
         yield SimpleHeader()
@@ -559,6 +564,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                 yield Button(
                     "Give up",
                     id="give_up",
+                    classes="wa",
                     variant="error",
                     compact=True,
                     tooltip="Cancel all unfinished log collectors",
