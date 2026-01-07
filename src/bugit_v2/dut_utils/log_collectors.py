@@ -330,6 +330,7 @@ real_collectors: Sequence[LogCollector] = (
         "acpidump",
         acpidump,
         "ACPI Dump",
+        # acpi dump is not applicable to ubuntu core
         os.uname().machine in ("x86_64", "x86", "amd64"),
         "sudo acpidump -o acpidump.log",
     ),
@@ -388,11 +389,14 @@ real_collectors: Sequence[LogCollector] = (
         "snap-debug",
         snap_debug,
         "snapd team's snap-debug.sh (has apparmor logs and gadget snap info)",
-        host_is_ubuntu_core(),  # can be very big
+        # can be very big because it tries to get journal logs
+        # only run this by default on ubuntu core
+        host_is_ubuntu_core(),
         "curl -fsSL https://raw.githubusercontent.com/canonical/snapd/refs/heads/master/debug-tools/snap-debug-info.sh | bash",
         advertised_timeout=COMMAND_TIMEOUT,
     ),
     LogCollector(
+        # only invoked when job outputs are too long
         "long-job-outputs",
         long_job_outputs,
         "Long Job Outputs",
