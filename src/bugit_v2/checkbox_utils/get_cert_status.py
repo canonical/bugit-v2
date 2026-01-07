@@ -8,6 +8,8 @@ from pathlib import Path
 from sys import stderr
 from typing import NamedTuple
 
+from async_lru import alru_cache
+
 from bugit_v2.checkbox_utils import SESSION_ROOT_DIR
 from bugit_v2.checkbox_utils.checkbox_exec import checkbox_exec
 from bugit_v2.checkbox_utils.models import CERT_STATUSES, CertificationStatus
@@ -92,6 +94,7 @@ def get_session_envs(session_path: Path) -> dict[str, str]:
     return out
 
 
+@alru_cache
 async def get_certification_status(
     test_plan: str, session_path: Path | None = None
 ) -> dict[str, TestCaseWithCertStatus]:
