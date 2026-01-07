@@ -430,7 +430,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         )
         if is_prod() and all_upload_ok:
             # only cleanup if everything was uploaded
-            shutil.rmtree(self.attachment_dir)
+            shutil.rmtree(self.attachment_dir, ignore_errors=True)
 
         finish_message_lines = [
             "[green]Submission finished![/]",
@@ -438,7 +438,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             "You can go back to job/session selection or quit BugIt.",
         ]
 
-        if not all_upload_ok:
+        if not all_upload_ok and self.attachment_dir.exists():
             if is_snap():
                 attachment_dir = (
                     "/tmp/snap-private-tmp/snap.bugit-v2/tmp"
@@ -575,7 +575,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     worker.cancel()
 
                     if is_prod():
-                        shutil.rmtree(self.attachment_dir)
+                        shutil.rmtree(self.attachment_dir, ignore_errors=True)
 
                     def dismiss_wrapper(_: ReturnScreenChoice | None):
                         # force a null return to avoid awaiting inside a msg handler
