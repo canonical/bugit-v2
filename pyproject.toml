@@ -12,6 +12,7 @@ dependencies = [
     "launchpadlib (>=2.1.0,<3.0.0)",
     "pydantic[email]>=2.11.7,<3.0.0",
     "typer>=0.16.1",
+    "async-lru>=2.0.5",
 ]
 
 [project.scripts]
