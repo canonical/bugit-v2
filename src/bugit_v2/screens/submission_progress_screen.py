@@ -535,6 +535,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                 self._log_with_time(f"Cancelling collector [b]{key}[/]")
                 worker.cancel()
                 self.attachment_worker_checker_timers[key].stop()
+                self.query_exactly_one("#progress", ProgressBar).advance()
 
         # nothing to give up, disable the button
         event.button.disabled = True
