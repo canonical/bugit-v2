@@ -21,7 +21,7 @@ from textual.widgets.selection_list import Selection
 from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
-from bugit_v2.checkbox_utils import Session
+from bugit_v2.checkbox_utils.checkbox_session import Session
 from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.description_editor import DescriptionEditor

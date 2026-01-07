@@ -10,7 +10,10 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Label
 from typing_extensions import override
 
-from bugit_v2.checkbox_utils import SESSION_ROOT_DIR, get_valid_sessions
+from bugit_v2.checkbox_utils.checkbox_session import (
+    SESSION_ROOT_DIR,
+    get_valid_sessions,
+)
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.utils.constants import NullSelection
 

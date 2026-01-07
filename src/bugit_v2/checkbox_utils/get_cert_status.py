@@ -10,8 +10,8 @@ from typing import NamedTuple
 
 from async_lru import alru_cache
 
-from bugit_v2.checkbox_utils import SESSION_ROOT_DIR
 from bugit_v2.checkbox_utils.checkbox_exec import checkbox_exec
+from bugit_v2.checkbox_utils.checkbox_session import SESSION_ROOT_DIR
 from bugit_v2.checkbox_utils.models import CERT_STATUSES, CertificationStatus
 
 

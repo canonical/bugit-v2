@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from bugit_v2.checkbox_utils import Session
+from bugit_v2.checkbox_utils.checkbox_session import Session
 from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.checkbox_utils.submission_extractor import read_simple_submission
 

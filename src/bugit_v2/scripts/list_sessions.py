@@ -6,7 +6,10 @@ import typer
 from rich import print as rich_print
 from typing_extensions import Annotated
 
-from bugit_v2.checkbox_utils import Session, get_valid_sessions
+from bugit_v2.checkbox_utils.checkbox_session import (
+    Session,
+    get_valid_sessions,
+)
 from bugit_v2.utils import is_prod, is_snap
 
 SESSION_ROOT_DIR = Path("/var/tmp/checkbox-ng/sessions")
