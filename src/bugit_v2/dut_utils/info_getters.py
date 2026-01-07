@@ -159,7 +159,6 @@ async def get_standard_info(
         )
 
     async def ec():
-
         if (
             ec_version := await get_thinkpad_ec_version(command_timeout)
         ) is not None:
