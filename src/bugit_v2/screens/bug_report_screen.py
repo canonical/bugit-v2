@@ -398,7 +398,7 @@ class BugReportScreen(Screen[BugReport]):
                         )
 
                         cert_status_label = Label(
-                            "Querying checkbox for the certification status (60s timeout)...",
+                            "Querying checkbox for the certification status (10s timeout)...",
                             id="cert_status_box",
                             classes="default_box",
                             disabled=True,
