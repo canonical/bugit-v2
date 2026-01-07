@@ -31,6 +31,7 @@ async def list_bootstrapped_cert_status(
             "{full_id}\n{certification_status}\n\n",
         ],
         checkbox_env,
+        60,
     )
 
     if lb_out.returncode != 0:
