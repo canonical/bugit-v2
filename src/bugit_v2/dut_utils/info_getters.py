@@ -5,6 +5,7 @@ These are carried over from the original bugit
 https://git.launchpad.net/bugit/tree/bugit/bug_assistant.py
 """
 
+import asyncio
 import os
 import platform
 import re
@@ -110,47 +111,62 @@ async def get_standard_info(
     """
     standard_info: dict[str, str] = {}
 
-    build_stamp_paths = [
-        "/var/lib/snapd/hostfs/var/lib/ubuntu_dist_channel",  # PC project
-        "/var/lib/snapd/hostfs/.disk/info",  # ubuntu classic
-        "/run/mnt/ubuntu-seed/.disk/info",  # ubuntu core
-    ]
-    for path in build_stamp_paths:
-        if os.path.isfile(path):
-            log = (
+    async def build_stamp():
+        build_stamp_paths = [
+            "/var/lib/snapd/hostfs/var/lib/ubuntu_dist_channel",  # PC project
+            "/var/lib/snapd/hostfs/.disk/info",  # ubuntu classic
+            "/run/mnt/ubuntu-seed/.disk/info",  # ubuntu core
+        ]
+        for path in build_stamp_paths:
+            if os.path.isfile(path):
+                log = (
+                    await asp_check_output(
+                        ["tail", "-n", "1", path], timeout=command_timeout
+                    )
+                ).strip()
+                standard_info["Image"] = log
+                break
+
+        if "Image" not in standard_info:
+            standard_info["Image"] = "Failed to get build stamp"
+
+    async def dmi():
+        for dmi_key in (
+            "system-manufacturer",
+            "system-product-name",
+            "bios-version",
+        ):
+            standard_info[
+                " ".join(word.capitalize() for word in dmi_key.split("-"))
+            ] = (
                 await asp_check_output(
-                    ["tail", "-n", "1", path], timeout=command_timeout
+                    ["dmidecode", "-s", dmi_key],
+                    timeout=command_timeout,
                 )
             ).strip()
-            standard_info["Image"] = log
-            break
 
-    if "Image" not in standard_info:
-        standard_info["Image"] = "Failed to get build stamp"
+    async def cpu():
+        standard_info["CPU"] = await get_cpu_info()
 
-    for dmi_key in (
-        "system-manufacturer",
-        "system-product-name",
-        "bios-version",
-    ):
-        standard_info[
-            " ".join(word.capitalize() for word in dmi_key.split("-"))
-        ] = (
-            await asp_check_output(
-                ["dmidecode", "-s", dmi_key],
-                timeout=command_timeout,
-            )
+    async def lspci():
+        lspci_log = (
+            await asp_check_output(["lspci", "-nn"], timeout=command_timeout)
         ).strip()
+        lspci_output = lspci_log.splitlines()
+        # '03' is the PCI class for display controllers
+        standard_info["GPU"] = "\n".join(
+            [line for line in lspci_output if "[03" in line]
+        )
 
-    standard_info["CPU"] = await get_cpu_info()
+    async def ec():
 
-    lspci_log = (
-        await asp_check_output(["lspci", "-nn"], timeout=command_timeout)
-    ).strip()
-    lspci_output = lspci_log.splitlines()
-    # '03' is the PCI class for display controllers
-    standard_info["GPU"] = "\n".join(
-        [line for line in lspci_output if "[03" in line]
+        if (
+            ec_version := await get_thinkpad_ec_version(command_timeout)
+        ) is not None:
+            standard_info["Embedded Controller Version"] = ec_version
+
+    await asyncio.gather(
+        build_stamp(), dmi(), lspci(), ec(), return_exceptions=True
     )
 
     if "NVIDIA" in standard_info["GPU"]:
@@ -214,10 +230,5 @@ async def get_standard_info(
     if (cb := get_checkbox_info()) is not None:
         standard_info["Checkbox Version"] = cb.version
         standard_info["Checkbox Type"] = cb.type.capitalize()
-
-    if (
-        ec_version := await get_thinkpad_ec_version(command_timeout)
-    ) is not None:
-        standard_info["Embedded Controller Version"] = ec_version
 
     return standard_info
