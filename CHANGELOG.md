@@ -4,14 +4,19 @@
 
 - Subcommand `visual-config` to save user color theme preference
 - Subcommand `dut-info` to set DUT info reusable by the main bugit program
+- Ability to give up log collection if there's any running log collector
+- Ability to detect certification status of the current test case
 
 ## Fixed
 
 - Autosave not working when -s is specified
+- Missing snap-debug.sh file in pipx version
+- list-sessions crashing when there's an invalid session
 
 ## Changed
 
 - Autosave timer has been changed to 0.5s to save more frequently
+- Upgraded textual to v7
 
 # 0.2.6
 
