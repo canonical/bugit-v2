@@ -1,15 +1,16 @@
 import configparser as cp
 import os
 import shutil
-import subprocess as sp
-from functools import lru_cache
 from pathlib import Path
+from subprocess import CalledProcessError, CompletedProcess
 from sys import stderr
 from tempfile import TemporaryDirectory
 from typing import Literal, NamedTuple
 
+from async_lru import alru_cache
+
 from bugit_v2.utils import is_snap
-from bugit_v2.utils.async_subprocess import asp_run
+from bugit_v2.utils.async_subprocess import asp_check_output, asp_run
 from bugit_v2.utils.constants import HOST_FS
 
 
@@ -23,7 +24,7 @@ async def checkbox_exec(
     checkbox_args: list[str],
     additional_env: dict[str, str] | None = None,
     timeout: int | None = None,
-) -> sp.CompletedProcess[str]:
+) -> CompletedProcess[str]:
     """Run checkbox commands with already prepped environment
 
     :param args: the arguments to subprocess.run().
@@ -31,7 +32,7 @@ async def checkbox_exec(
     :param additional_env: Additional environment variables
     :return: whatever subprocess.run returns
     """
-    checkbox_info = get_checkbox_info()
+    checkbox_info = await get_checkbox_info()
     assert checkbox_info, "Unable to find checkbox on this DUT"
     if checkbox_info.type == "snap" or not is_snap():
         # pipx bugit or snap checkbox
@@ -100,8 +101,8 @@ async def checkbox_exec(
             )
 
 
-@lru_cache()
-def get_checkbox_info() -> CheckboxInfo | None:
+@alru_cache()
+async def get_checkbox_info() -> CheckboxInfo | None:
     try:
         if is_snap():
             if (
@@ -110,13 +111,13 @@ def get_checkbox_info() -> CheckboxInfo | None:
                 # host is using debian checkbox
                 return CheckboxInfo(
                     "deb",
-                    sp.check_output(
-                        [str(deb_checkbox), "--version"],
-                        text=True,
-                        env={
-                            "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages"
-                        },
-                        stderr=sp.DEVNULL,
+                    (
+                        await asp_check_output(
+                            [str(deb_checkbox), "--version"],
+                            env={
+                                "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages"
+                            },
+                        )
                     ).strip(),
                     deb_checkbox,
                 )
@@ -129,13 +130,18 @@ def get_checkbox_info() -> CheckboxInfo | None:
                     ):
                         return CheckboxInfo(
                             "snap",
-                            sp.check_output(
-                                [
-                                    str(HOST_FS / "snap" / "bin" / executable),
-                                    "--version",
-                                ],
-                                text=True,
-                                stderr=sp.DEVNULL,
+                            (
+                                await asp_check_output(
+                                    [
+                                        str(
+                                            HOST_FS
+                                            / "snap"
+                                            / "bin"
+                                            / executable
+                                        ),
+                                        "--version",
+                                    ],
+                                )
                             ).strip(),
                             (HOST_FS / "snap" / "bin" / executable),
                         )
@@ -143,10 +149,10 @@ def get_checkbox_info() -> CheckboxInfo | None:
             if (checkbox_bin := shutil.which("checkbox-cli")) is not None:
                 return CheckboxInfo(
                     "deb",
-                    sp.check_output(
-                        [checkbox_bin, "--version"],
-                        text=True,
-                        stderr=sp.DEVNULL,
+                    (
+                        await asp_check_output(
+                            [checkbox_bin, "--version"],
+                        )
                     ).strip(),
                     Path(checkbox_bin),
                 )
@@ -159,15 +165,15 @@ def get_checkbox_info() -> CheckboxInfo | None:
                     ):
                         return CheckboxInfo(
                             "snap",
-                            sp.check_output(
-                                [
-                                    (f"/snap/bin/{executable}"),
-                                    "--version",
-                                ],
-                                text=True,
-                                stderr=sp.DEVNULL,
+                            (
+                                await asp_check_output(
+                                    [
+                                        (f"/snap/bin/{executable}"),
+                                        "--version",
+                                    ],
+                                )
                             ).strip(),
                             Path("/snap/bin") / executable,
                         )
-    except sp.CalledProcessError:
+    except CalledProcessError:
         return None

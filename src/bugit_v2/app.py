@@ -139,8 +139,8 @@ class BugitApp(App[None]):
             checkbox_submission=args.checkbox_submission,
         )
 
-    @work(thread=True)
-    def on_mount(self) -> None:
+    @work
+    async def on_mount(self) -> None:
         try:
             with open(VISUAL_CONFIG_DIR / "visual-config.json") as f:
                 self.theme = VisualConfig.model_validate(json.load(f)).theme
@@ -154,7 +154,7 @@ class BugitApp(App[None]):
 
         # snap checkbox takes a while to respond especially if it's the
         # 1st use after reboot
-        if (cb := get_checkbox_info()) is not None:
+        if (cb := await get_checkbox_info()) is not None:
             self.sub_title = f"Checkbox {cb.version}"
 
         self.call_after_refresh(self.watch_state)
@@ -197,16 +197,11 @@ class BugitApp(App[None]):
             case QuitState():
                 self.exit()
             case _:
-                screen = self.state.get_screen_constructor()()
                 screen_result = (  # pyright: ignore[reportAny]
                     await self.push_screen_wait(
                         self.state.get_screen_constructor()()
                     )
                 )
-                try:
-                    screen.workers.cancel_all()
-                except Exception:
-                    pass
                 self.state = self.state.go_forward(
                     screen_result  # pyright: ignore[reportAny]
                 )

@@ -2,7 +2,9 @@
 Generates the "Additional Information" section from the bug report
 """
 
+import asyncio
 import json
+from functools import wraps
 from typing import Annotated
 
 import typer
@@ -22,10 +24,19 @@ app = typer.Typer(
 )
 
 
+def syncify(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        return asyncio.run(f(*args, **kwargs))
+
+    return wrapper
+
+
 @app.command(
     help="(sudo required) Print the info in a human-friendly format. Pipe the output to 'cat' to remove colors.",
 )
-def main(
+@syncify
+async def main(
     print_json: Annotated[
         bool, typer.Option("--json", help="Print in JSON format")
     ] = False,
@@ -35,9 +46,9 @@ def main(
 ):
     sudo_devmode_check()
     if no_timeout:
-        info = get_standard_info(None)
+        info = await get_standard_info(None)
     else:
-        info = get_standard_info()
+        info = await get_standard_info()
     saved_dut_info = get_saved_dut_info()
 
     if saved_dut_info:

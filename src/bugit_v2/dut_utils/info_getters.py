@@ -5,24 +5,25 @@ These are carried over from the original bugit
 https://git.launchpad.net/bugit/tree/bugit/bug_assistant.py
 """
 
+import asyncio
 import os
 import platform
 import re
-import subprocess as sp
 from collections import Counter
 
 from bugit_v2.checkbox_utils.checkbox_exec import get_checkbox_info
 from bugit_v2.utils import is_snap
+from bugit_v2.utils.async_subprocess import asp_check_output, asp_run
 
 
-def get_thinkpad_ec_version(timeout: int | None = 30) -> str | None:
+async def get_thinkpad_ec_version(timeout: int | None = 30) -> str | None:
     """Thinkpad specific, get the embedded controller info
 
     :return: controller version if found, None otherwise
     """
     marker = "ThinkPad Embedded Controller Program"
-    dmi_out_lines = sp.check_output(
-        ["dmidecode", "-t", "140"], text=True, timeout=timeout
+    dmi_out_lines = (
+        await asp_check_output(["dmidecode", "-t", "140"], timeout=timeout)
     ).splitlines()
 
     L = len(dmi_out_lines)
@@ -47,7 +48,7 @@ def get_thinkpad_ec_version(timeout: int | None = 30) -> str | None:
             i += 1
 
 
-def get_cpu_info() -> str:
+async def get_cpu_info() -> str:
     cpu_names = Counter[str]()
     with open("/proc/cpuinfo") as file:
         for line in file:
@@ -64,11 +65,12 @@ def get_cpu_info() -> str:
     return "\n".join(cpu_name_strings)
 
 
-def get_amd_gpu_info(timeout: int | None = 30) -> str | None:
-    paths = sp.check_output(
-        ["find", "/sys/devices/", "-name", "vbios_version"],
-        text=True,
-        timeout=timeout,
+async def get_amd_gpu_info(timeout: int | None = 30) -> str | None:
+    paths = (
+        await asp_check_output(
+            ["find", "/sys/devices/", "-name", "vbios_version"],
+            timeout=timeout,
+        )
     ).split()
     if len(paths) == 0:
         return None
@@ -78,10 +80,11 @@ def get_amd_gpu_info(timeout: int | None = 30) -> str | None:
 
     for klass in gpu_related_classes:
         pcis = (
-            sp.check_output(
-                ["lspci", "-Dnm", "-d", "1002{}".format(klass)],
-                text=True,
-                timeout=timeout,
+            (
+                await asp_check_output(
+                    ["lspci", "-Dnm", "-d", "1002{}".format(klass)],
+                    timeout=timeout,
+                )
             )
             .strip()
             .splitlines()
@@ -92,12 +95,16 @@ def get_amd_gpu_info(timeout: int | None = 30) -> str | None:
             for pci in pcis:
                 p = pci.split()
                 if len(p) > 3 and p[0] in path:
-                    v = sp.check_output(["cat", path], text=True).strip()
-                    vbios += f"{v.strip()}[{pci.split()[3].upper()}] "
+                    with open(path) as f:
+                        vbios += (
+                            f"{f.read().strip()}[{pci.split()[3].upper()}] "
+                        )
     return vbios
 
 
-def get_standard_info(command_timeout: int | None = 30) -> dict[str, str]:
+async def get_standard_info(
+    command_timeout: int | None = 30,
+) -> dict[str, str]:
     """
     Gather standard information that should be present in all bugs.
     This can be very slow so run it asynchronously
@@ -111,49 +118,72 @@ def get_standard_info(command_timeout: int | None = 30) -> dict[str, str]:
     ]
     for path in build_stamp_paths:
         if os.path.isfile(path):
-            log = sp.check_output(
-                ["tail", "-n", "1", path], text=True, timeout=command_timeout
-            ).strip()
-            standard_info["Image"] = log
+            with open(path, "rb") as f:
+                try:  # catch OSError in case of a one line file
+                    f.seek(-2, os.SEEK_END)
+                    while f.read(1) != b"\n":
+                        f.seek(-2, os.SEEK_CUR)
+                except OSError:
+                    f.seek(0)
+                last_line = f.readline().decode().strip()
+                standard_info["Image"] = last_line
             break
 
     if "Image" not in standard_info:
         standard_info["Image"] = "Failed to get build stamp"
 
-    for dmi_key in (
-        "system-manufacturer",
-        "system-product-name",
-        "bios-version",
-    ):
-        standard_info[
-            " ".join(word.capitalize() for word in dmi_key.split("-"))
-        ] = sp.check_output(
-            ["dmidecode", "-s", dmi_key], text=True, timeout=command_timeout
+    async def dmi():
+        for dmi_key in (
+            "system-manufacturer",
+            "system-product-name",
+            "bios-version",
+        ):
+            standard_info[
+                " ".join(word.capitalize() for word in dmi_key.split("-"))
+            ] = (
+                await asp_check_output(
+                    ["dmidecode", "-s", dmi_key],
+                    timeout=command_timeout,
+                )
+            ).strip()
+
+    async def cpu():
+        standard_info["CPU"] = await get_cpu_info()
+
+    async def lspci():
+        lspci_log = (
+            await asp_check_output(["lspci", "-nn"], timeout=command_timeout)
         ).strip()
+        lspci_output = lspci_log.splitlines()
+        # '03' is the PCI class for display controllers
+        standard_info["GPU"] = "\n".join(
+            [line for line in lspci_output if "[03" in line]
+        )
 
-    standard_info["CPU"] = get_cpu_info()
+    async def ec():
+        if (
+            ec_version := await get_thinkpad_ec_version(command_timeout)
+        ) is not None:
+            standard_info["Embedded Controller Version"] = ec_version
 
-    lspci_log = sp.check_output(
-        ["lspci", "-nn"], text=True, timeout=command_timeout
-    ).strip()
-    lspci_output = lspci_log.splitlines()
-    # '03' is the PCI class for display controllers
-    standard_info["GPU"] = "\n".join(
-        [line for line in lspci_output if "[03" in line]
+    await asyncio.gather(
+        dmi(),
+        lspci(),
+        ec(),
+        get_checkbox_info(),  # populates cache
+        return_exceptions=True,
     )
 
     if "NVIDIA" in standard_info["GPU"]:
         nvidia_err = "Cannot capture driver or VBIOS version"
         try:
-            nvidia_log = sp.run(
+            nvidia_log = await asp_run(
                 [
                     ("/var/lib/snapd/hostfs/usr/bin/" if is_snap() else "")
                     + "nvidia-smi",
                     "-q",
                 ],
-                text=True,
                 timeout=command_timeout,
-                capture_output=True,
             )
 
             if nvidia_log.returncode == 0:
@@ -195,18 +225,15 @@ def get_standard_info(command_timeout: int | None = 30) -> dict[str, str]:
             )
 
     if "AMD" in standard_info["GPU"]:
-        vbios = get_amd_gpu_info(command_timeout)
+        vbios = await get_amd_gpu_info(command_timeout)
         standard_info["AMD VBIOS"] = (
             vbios or "Cannot capture AMD VBIOS version"
         )
 
     standard_info["Kernel Version"] = platform.uname().release
 
-    if (cb := get_checkbox_info()) is not None:
-        standard_info["Checkbox Version"] = cb.version
-        standard_info["Checkbox Type"] = cb.type.capitalize()
-
-    if (ec_version := get_thinkpad_ec_version(command_timeout)) is not None:
-        standard_info["Embedded Controller Version"] = ec_version
+    if (cb_info := await get_checkbox_info()) is not None:
+        standard_info["Checkbox Version"] = cb_info.version
+        standard_info["Checkbox Type"] = cb_info.type.capitalize()
 
     return standard_info
