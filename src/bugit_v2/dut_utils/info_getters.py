@@ -166,7 +166,13 @@ async def get_standard_info(
         ) is not None:
             standard_info["Embedded Controller Version"] = ec_version
 
-    await asyncio.gather(dmi(), lspci(), ec(), return_exceptions=True)
+    await asyncio.gather(
+        dmi(),
+        lspci(),
+        ec(),
+        get_checkbox_info(),  # populates cache
+        return_exceptions=True,
+    )
 
     if "NVIDIA" in standard_info["GPU"]:
         nvidia_err = "Cannot capture driver or VBIOS version"
@@ -226,8 +232,8 @@ async def get_standard_info(
 
     standard_info["Kernel Version"] = platform.uname().release
 
-    if (cb := get_checkbox_info()) is not None:
-        standard_info["Checkbox Version"] = cb.version
-        standard_info["Checkbox Type"] = cb.type.capitalize()
+    if (cb_info := await get_checkbox_info()) is not None:
+        standard_info["Checkbox Version"] = cb_info.version
+        standard_info["Checkbox Type"] = cb_info.type.capitalize()
 
     return standard_info
