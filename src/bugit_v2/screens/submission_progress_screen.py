@@ -157,7 +157,6 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
             async def run_collect(log: LogName):
                 collector = LOG_NAME_TO_COLLECTOR[log]
-                self._log_with_time("inside!")
                 try:
                     rv = await collector.collect(
                         self.attachment_dir, self.bug_report
@@ -527,10 +526,9 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
     @on(Button.Pressed, "#give_up")
     def cancel_all_unfinished_collectors(self, event: Button.Pressed):
-        assert self.log_widget
         for key, worker in self.attachment_workers.items():
             if worker.is_running:
-                self.log_widget.write(f"Cancelling {key}")
+                self._log_with_time(f"Cancelling collector [b]{key}[/]")
                 worker.cancel()
                 self.attachment_worker_checker_timers[key].stop()
 
