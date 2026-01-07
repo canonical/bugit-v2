@@ -1,13 +1,14 @@
 import asyncio
 import asyncio.subprocess as asp
+from collections.abc import MutableMapping, Sequence
 from subprocess import CalledProcessError
 from typing import IO, Any, Literal
 
 
 async def asp_check_output(
-    cmd: list[str],
+    cmd: Sequence[str],
     timeout: int | None = None,
-    env: dict[str, str] | None = None,
+    env: MutableMapping[str, str] | None = None,
 ) -> str:
     """Async version of subprocess.check_output
 

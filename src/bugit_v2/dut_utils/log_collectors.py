@@ -7,7 +7,6 @@ from all other collectors.
 """
 
 import asyncio
-import asyncio.subprocess as asp
 import importlib.resources
 import os
 import shutil
@@ -15,11 +14,11 @@ import tarfile
 from collections.abc import Awaitable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from subprocess import CalledProcessError
-from typing import IO, Any, Callable, Literal
+from typing import Callable
 
 from bugit_v2.models.bug_report import BugReport, LogName, PartialBugReport
 from bugit_v2.utils import host_is_ubuntu_core, is_snap
+from bugit_v2.utils.async_subprocess import asp_check_call, asp_check_output
 from bugit_v2.utils.constants import MAX_JOB_OUTPUT_LEN
 
 COMMAND_TIMEOUT = 10 * 60  # 10 minutes
@@ -28,77 +27,6 @@ NVIDIA_BUG_REPORT_PATH = Path(
     if is_snap()
     else "nvidia-bug-report.sh"
 )
-
-
-async def asp_check_output(
-    cmd: list[str],
-    timeout: int | None = None,
-    env: dict[str, str] | None = None,
-) -> str:
-    """Async version of subprocess.check_output
-
-    :param cmd: command array like the sync version
-    :param timeout: timeout in seconds. Wait forever if None
-    :param env: env override
-    :raises CalledProcessError: when the process doesn't return 0
-    :return: stdout as a string if successful
-    """
-    if env:
-        proc = await asp.create_subprocess_exec(
-            *cmd, stdout=asp.PIPE, stderr=asp.PIPE, env=env
-        )
-    else:
-        proc = await asp.create_subprocess_exec(
-            *cmd, stdout=asp.PIPE, stderr=asp.PIPE
-        )
-
-    if timeout:
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)
-    else:
-        stdout, stderr = await proc.communicate()
-
-    assert proc.returncode is not None
-    if proc.returncode != 0:
-        raise CalledProcessError(proc.returncode, cmd, stdout, stderr)
-
-    return stdout.decode()
-
-
-async def asp_check_call(
-    cmd: list[str],
-    timeout: int | None = None,
-    env: dict[str, str] | None = None,
-    stdout: IO[Any] | int = asp.DEVNULL,
-    stderr: IO[Any] | int = asp.DEVNULL,
-) -> Literal[0]:
-    """Async version of sp.check_call
-
-    :param cmd: command array like the sync version
-    :param timeout: timeout in seconds. Wait forever if None
-    :param env: env override
-    :param stdout: where to put stdout, defaults to asp.DEVNULL
-    :param stderr: where to put stderr, defaults to asp.DEVNULL
-    :raises CalledProcessError: when return code is not 0
-    :return: 0
-    """
-    if env:
-        proc = await asp.create_subprocess_exec(
-            *cmd, stdout=stdout, stderr=stderr, env=env
-        )
-    else:
-        proc = await asp.create_subprocess_exec(
-            *cmd, stdout=stdout, stderr=stderr
-        )
-
-    if timeout:
-        rc = await asyncio.wait_for(proc.wait(), timeout)
-    else:
-        rc = await proc.wait()
-
-    if rc != 0:
-        raise CalledProcessError(rc, cmd)
-
-    return rc
 
 
 @dataclass(slots=True, frozen=True)
@@ -168,22 +96,15 @@ async def nvidia_bug_report(
     else:
         env = os.environ
 
-    proc = await asp.create_subprocess_exec(
-        str(NVIDIA_BUG_REPORT_PATH),
-        "--extra-system-data",
-        "--output-file",
-        str(target_dir / "nvidia-bug-report.log.gz"),
-        stdout=asp.PIPE,
-        stderr=asp.PIPE,
+    return await asp_check_output(
+        [
+            str(NVIDIA_BUG_REPORT_PATH),
+            "--extra-system-data",
+            "--output-file",
+            str(target_dir / "nvidia-bug-report.log.gz"),
+        ],
         env=env,
     )
-
-    stdout, stderr = await proc.communicate()
-
-    if proc.returncode != 0:
-        raise RuntimeError(stderr.decode())
-
-    return stdout.decode()
 
 
 async def journal_logs(
