@@ -155,10 +155,11 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
         for log_name in final_logs_to_include:
 
-            def run_collect(log: LogName):
+            async def run_collect(log: LogName):
                 collector = LOG_NAME_TO_COLLECTOR[log]
+                self._log_with_time("inside!")
                 try:
-                    rv = collector.collect(
+                    rv = await collector.collect(
                         self.attachment_dir, self.bug_report
                     )
                     if rv and rv.strip():
@@ -215,11 +216,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     self.attachment_worker_checker_timers[name].stop()
 
             self.attachment_workers[log_name] = self.run_worker(
-                # closure workaround
-                # https://stackoverflow.com/a/1107260
-                # bind the value early
-                lambda n=log_name: run_collect(n),
-                thread=True,  # not async
+                run_collect(log_name),
                 name=log_name,
                 exit_on_error=False,  # hold onto the err, don't crash
             )
@@ -508,6 +505,9 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     event.worker.name == self.BUG_CREATION_WORKER_NAME
                     or event.worker.name in self.attachment_workers
                 ) and self.ready_to_upload_attachments():
+                    # nothing to give up, disable the button
+                    self.query_exactly_one("#give_up", Button).disabled = True
+
                     if self.submitter.allow_parallel_upload:
                         self.start_parallel_attachment_upload()
                     else:
