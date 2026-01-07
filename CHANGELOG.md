@@ -12,6 +12,7 @@
 - Autosave not working when -s is specified
 - Missing snap-debug.sh file in pipx version
 - list-sessions crashing when there's an invalid session
+- "Return to Editor" button not immediately returning to the editor
 
 ## Changed
 
