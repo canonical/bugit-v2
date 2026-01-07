@@ -555,7 +555,6 @@ class BugReportScreen(Screen[BugReport]):
             == "yes"
         )
         if ok:
-            self.workers.cancel_all()
             self.dismiss(self._build_bug_report())
 
     def _debounce[**P, R](
