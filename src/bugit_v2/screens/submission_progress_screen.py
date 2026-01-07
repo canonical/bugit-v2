@@ -577,22 +577,23 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     if is_prod():
                         shutil.rmtree(self.attachment_dir, ignore_errors=True)
 
-                    def dismiss_wrapper(_: ReturnScreenChoice | None):
-                        # force a null return to avoid awaiting inside a msg handler
-                        self.dismiss("report_editor")
-                        return None
+                def dismiss_wrapper(_: ReturnScreenChoice | None):
+                    # force a null return to avoid awaiting inside a msg handler
+                    self.dismiss("report_editor")
+                    return None
 
-                    self.app.push_screen(
-                        ConfirmScreen[ReturnScreenChoice](
-                            "Got the following error during submission",
-                            sub_prompt=f"[red]{event.worker.error}",
-                            choices=(
-                                ("Return to Report Editor", "report_editor"),
-                            ),
-                            focus_id_on_mount="report_editor",
+                self.log.warning("pushing confirm screen")
+                self.app.push_screen(
+                    ConfirmScreen[ReturnScreenChoice](
+                        "Got the following error during submission",
+                        sub_prompt=f"[red]{event.worker.error}",
+                        choices=(
+                            ("Return to Report Editor", "report_editor"),
                         ),
-                        dismiss_wrapper,
-                    )
+                        focus_id_on_mount="report_editor",
+                    ),
+                    dismiss_wrapper,
+                )
             case WorkerState.SUCCESS:
                 if self._ready_to_upload_attachments():
                     self._launch_upload_workers()
