@@ -35,7 +35,7 @@ from textual.widgets.selection_list import Selection
 from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
-from bugit_v2.checkbox_utils import Session
+from bugit_v2.checkbox_utils.checkbox_session import Session
 from bugit_v2.checkbox_utils.get_cert_status import (
     TestCaseWithCertStatus,
     get_certification_status,

@@ -9,7 +9,7 @@ from textual.screen import Screen
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
 )
-from bugit_v2.checkbox_utils import Session
+from bugit_v2.checkbox_utils.checkbox_session import Session
 from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import (

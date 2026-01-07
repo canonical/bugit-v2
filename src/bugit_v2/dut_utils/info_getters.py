@@ -11,7 +11,7 @@ import re
 import subprocess as sp
 from collections import Counter
 
-from bugit_v2.checkbox_utils import get_checkbox_info
+from bugit_v2.checkbox_utils.checkbox_exec import get_checkbox_info
 from bugit_v2.utils import is_snap
 
 
