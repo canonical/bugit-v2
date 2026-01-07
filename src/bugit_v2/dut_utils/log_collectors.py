@@ -315,11 +315,14 @@ async def long_job_outputs(target_dir: Path, bug_report: BugReport):
 
 
 async def slow(target_dir: Path, bug_report: BugReport, secs: int):
-    proc = await asp.create_subprocess_exec("sleep", str(secs))
-    await proc.communicate()
+    await asp_check_call(["sleep", "10"])
 
 
-mock_collectors: Sequence[LogCollector] = ()
+mock_collectors: Sequence[LogCollector] = (
+    LogCollector("slow2", lambda p, b: slow(p, b, 30), "Slow2"),
+    LogCollector("slow1", lambda p, b: slow(p, b, 10), "Slow1"),
+    LogCollector("fast1", lambda p, b: slow(p, b, 2), "Fast1"),
+)
 
 
 real_collectors: Sequence[LogCollector] = (
