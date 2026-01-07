@@ -315,7 +315,6 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
         self.run_worker(
             get_standard_info,
             name=get_standard_info.__name__,
-            thread=True,
             exit_on_error=False,  # still allow editing
         )
 

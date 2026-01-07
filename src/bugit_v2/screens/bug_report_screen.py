@@ -506,7 +506,6 @@ class BugReportScreen(Screen[BugReport]):
         self.run_worker(
             get_standard_info,
             name=WorkerName.GET_STANDARD_INFO,
-            thread=True,
             exit_on_error=False,  # still allow editing
         )
 
