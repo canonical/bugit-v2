@@ -36,6 +36,11 @@ async def checkbox_exec(
     """
     checkbox_info = await get_checkbox_info()
     assert checkbox_info, "Unable to find checkbox on this DUT"
+
+    logger.info(f"Checkbox args: {checkbox_args}")
+    if additional_env:
+        logger.info(f"Using additional env: {additional_env}")
+
     if checkbox_info.type == "snap" or not is_snap():
         # pipx bugit or snap checkbox
         # no need to setup anything, just run the command
@@ -57,7 +62,7 @@ async def checkbox_exec(
 
                 for key in ("bin_dir", "data_dir", "units_dir", "jobs_dir"):
                     if key not in provider_config["PlainBox Provider"]:
-                        logger.warning("No such key", key, "in", src_file)
+                        logger.warning(f"No such key '{key}' in {src_file}")
                         continue
 
                     new_path = HOST_FS / (
@@ -66,7 +71,7 @@ async def checkbox_exec(
                     ).lstrip("/")
 
                     if not new_path.exists():
-                        logger.warning("No such path", new_path)
+                        logger.warning(f"No such path {new_path}")
                         continue
 
                     provider_config["PlainBox Provider"][key] = str(new_path)

@@ -787,6 +787,8 @@ class BugReportScreen(Screen[BugReport]):
             assert event.worker.result in CERT_STATUSES
             self._color_cert_status_box(event.worker.result)
         else:
+            logger.error(f"Cert status worker error {event.worker.error}")
+            logger.error(f"Cert status worker state {event.worker.state}")
             self.query_exactly_one("#cert_status_box", Label).update(
                 "Unable to determine cert status"
             )
