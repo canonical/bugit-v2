@@ -547,7 +547,7 @@ class BugReportScreen(Screen[BugReport]):
                 exit_on_error=False,
             )
 
-        self.query_exactly_one("#title", Input).focus()
+        self.query_exactly_one(f"#{BugReportElemId.TITLE}", Input).focus()
 
         if self.existing_report is not None:
             self._restore_existing_report()
@@ -559,7 +559,9 @@ class BugReportScreen(Screen[BugReport]):
         if self.checkbox_submission is NullSelection.NO_CHECKBOX_SUBMISSION:
             selection_list = cast(
                 SelectionList[LogName],
-                self.query_exactly_one("#logs_to_include", SelectionList),
+                self.query_exactly_one(
+                    f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
+                ),
             )
             selection_list.remove_option("checkbox-submission")
         # TODO: select the severity button automatically when using a submission
@@ -655,7 +657,7 @@ class BugReportScreen(Screen[BugReport]):
     @on(Button.Pressed, "#clear_log_selection")
     def clear_log_selection(self, _: Button.Pressed):
         self.query_exactly_one(
-            "#logs_to_include", SelectionList
+            f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
         ).deselect_all()
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
@@ -683,7 +685,9 @@ class BugReportScreen(Screen[BugReport]):
             event.worker.is_finished
         ), "Standard info callback invoked but the worker has not finished"
 
-        textarea = self.query_exactly_one("#description", DescriptionEditor)
+        textarea = self.query_exactly_one(
+            f"#{BugReportElemId.DESCRIPTION}", DescriptionEditor
+        )
         textarea.disabled = False  # unlock asap
 
         if event.worker.state == WorkerState.SUCCESS:
@@ -707,7 +711,9 @@ class BugReportScreen(Screen[BugReport]):
             )
             log_selection_list = cast(
                 SelectionList[LogName],
-                self.query_exactly_one("#logs_to_include", SelectionList),
+                self.query_exactly_one(
+                    f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
+                ),
             )
             # do not directly query the option by id, they don't exist in the DOM
             if (
@@ -724,7 +730,9 @@ class BugReportScreen(Screen[BugReport]):
         else:
             log_selection_list = cast(
                 SelectionList[LogName],
-                self.query_exactly_one("#logs_to_include", SelectionList),
+                self.query_exactly_one(
+                    f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
+                ),
             )
             if NVIDIA_BUG_REPORT_PATH.exists():
                 log_selection_list.enable_option("nvidia-bug-report")
