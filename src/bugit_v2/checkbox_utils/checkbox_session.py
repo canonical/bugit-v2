@@ -63,20 +63,14 @@ class Session:
         self.session_path = session_path
 
         if not self.session_path.is_dir():
-            raise FileNotFoundError(
-                f"Directory '{session_path}' does not exist"
-            )
+            raise FileNotFoundError(f"Directory '{session_path}' does not exist")
         if not Path(self.session_path / "session").is_file():
-            raise FileNotFoundError(
-                f"Session file not found in '{session_path}'."
-            )
+            raise FileNotFoundError(f"Session file not found in '{session_path}'.")
         self.session_json = self.get_session_json()
 
         if self.session_json["session"]["metadata"]["app_blob"]:
             app_blob = json.loads(
-                base64.b64decode(
-                    self.session_json["session"]["metadata"]["app_blob"]
-                )
+                base64.b64decode(self.session_json["session"]["metadata"]["app_blob"])
             )
             try:
                 self.testplan_id = app_blob["testplan_id"]
@@ -112,30 +106,22 @@ class Session:
         try:
             # A job can be retried but the io-logs filename is always the same,
             # so arbitrarily get data from last retry.
-            io_log_filename: str | None = self.session_json["session"][
-                "results"
-            ][job_id][-1].get("io_log_filename")
+            io_log_filename: str | None = self.session_json["session"]["results"][
+                job_id
+            ][-1].get("io_log_filename")
             comments: str = (
-                self.session_json["session"]["results"][job_id][-1].get(
-                    "comments", ""
-                )
+                self.session_json["session"]["results"][job_id][-1].get("comments", "")
                 or ""  # the key can exist while the value is None
             )
 
             if io_log_filename:
-                stdout_filename = io_log_filename.replace(
-                    "record.gz", "stdout"
-                )
-                stderr_filename = io_log_filename.replace(
-                    "record.gz", "stderr"
-                )
+                stdout_filename = io_log_filename.replace("record.gz", "stdout")
+                stderr_filename = io_log_filename.replace("record.gz", "stderr")
                 with open(self.session_path / stdout_filename) as f:
                     stdout = f.read().strip()
                 with open(self.session_path / stderr_filename) as f:
                     stderr = f.read().strip()
-                return JobOutput(
-                    stdout=stdout, stderr=stderr, comments=comments
-                )
+                return JobOutput(stdout=stdout, stderr=stderr, comments=comments)
             else:
                 print(f"Job `{job_id}` does not have associated log records.")
                 return JobOutput(stdout="", stderr="", comments=comments)

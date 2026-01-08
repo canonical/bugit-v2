@@ -42,16 +42,13 @@ class AppContext(abc.ABC):
     )
     job_id: str | Literal[NullSelection.NO_JOB] | None = None
     # Initial state of the bug report, only used for backup right now
-    bug_report_init_state: (
-        BugReport | Literal[NullSelection.NO_BACKUP] | None
-    ) = None
+    bug_report_init_state: BugReport | Literal[NullSelection.NO_BACKUP] | None = None
     # The finished bug report ready to be fed to the submitter
     bug_report_to_submit: BugReport | None = None
     # Checkbox submission passed in from the CLI
     # Must check if this is valid at the beginning of the app
     checkbox_submission: (
-        SimpleCheckboxSubmission
-        | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
+        SimpleCheckboxSubmission | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
     ) = field(default=NullSelection.NO_CHECKBOX_SUBMISSION, repr=False)
 
 
@@ -115,10 +112,7 @@ class RecoverFromAutosaveState(AppState):
     def go_forward(self, screen_result: object) -> AppState:
         if screen_result is None:
             # chose to start a new report
-            if (
-                self.context.checkbox_submission
-                is NullSelection.NO_CHECKBOX_SUBMISSION
-            ):
+            if self.context.checkbox_submission is NullSelection.NO_CHECKBOX_SUBMISSION:
                 return SessionSelectionState(self.context)
             else:
                 return JobSelectionState(self.context)
@@ -127,9 +121,7 @@ class RecoverFromAutosaveState(AppState):
         assert isinstance(screen_result, BugReportAutoSaveData)
         backup = recover_from_autosave(screen_result)
         self.context.bug_report_init_state = backup
-        self.context.session = (
-            backup.checkbox_session or NullSelection.NO_SESSION
-        )
+        self.context.session = backup.checkbox_session or NullSelection.NO_SESSION
         self.context.job_id = backup.job_id or NullSelection.NO_JOB
         self.context.checkbox_submission = (
             backup.checkbox_submission or NullSelection.NO_CHECKBOX_SUBMISSION
@@ -144,9 +136,7 @@ class RecoverFromAutosaveState(AppState):
                 self.context.args.checkbox_submission
                 is not NullSelection.NO_CHECKBOX_SUBMISSION
             ):
-                return RecoverFromAutoSaveScreen(
-                    "submission", self.context.args
-                )
+                return RecoverFromAutoSaveScreen("submission", self.context.args)
             else:
                 return RecoverFromAutoSaveScreen("session", self.context.args)
 
@@ -211,8 +201,7 @@ class JobSelectionState(AppState):
         # if we have a submission
         # then we definitely came from the recovery screen
         if (
-            self.context.checkbox_submission
-            is not NullSelection.NO_CHECKBOX_SUBMISSION
+            self.context.checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION
         ) and len(os.listdir(AUTOSAVE_DIR)) != 0:
             return RecoverFromAutosaveState(self.context)
         else:
@@ -223,9 +212,7 @@ class JobSelectionState(AppState):
     @override
     def go_forward(self, screen_result: object) -> AppState:
         # can either go to job selection or editor
-        assert (type(screen_result) is str) or (
-            screen_result is NullSelection.NO_JOB
-        )
+        assert (type(screen_result) is str) or (screen_result is NullSelection.NO_JOB)
         self.context.job_id = screen_result
         return ReportEditorState(self.context)
 
@@ -322,12 +309,10 @@ class ReportEditorState(AppState):
             self.context.args,
             (
                 None
-                if self.context.bug_report_init_state
-                is NullSelection.NO_BACKUP
+                if self.context.bug_report_init_state is NullSelection.NO_BACKUP
                 else self.context.bug_report_init_state
             ),
-            self.context.checkbox_submission
-            is NullSelection.NO_CHECKBOX_SUBMISSION,
+            self.context.checkbox_submission is NullSelection.NO_CHECKBOX_SUBMISSION,
         )
 
 

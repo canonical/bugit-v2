@@ -61,9 +61,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 assignee
             ]
         except Exception as e:
-            error_message = (
-                f"Assignee '{assignee}' doesn't exist. Original error: {e}"
-            )
+            error_message = f"Assignee '{assignee}' doesn't exist. Original error: {e}"
             raise ValueError(error_message)
 
     def check_series_existence(self, series: str) -> Any:
@@ -73,9 +71,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 name=series
             )
         except Exception as e:
-            error_message = (
-                f"Series '{series}' doesn't exist. Original error: {e}"
-            )
+            error_message = f"Series '{series}' doesn't exist. Original error: {e}"
             raise ValueError(error_message)
 
     @override
@@ -92,9 +88,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
             f"expected one of {VALID_SERVICE_ROOTS}, but got {SERVICE_ROOT}"
         )
         assert LP_APP_NAME, "BUGIT_APP_NAME was not specified"
-        assert (
-            LP_AUTH_FILE_PATH.exists()
-        ), "At this point auth should already be valid"
+        assert LP_AUTH_FILE_PATH.exists(), "At this point auth should already be valid"
 
         yield f"Logging into Launchpad: {SERVICE_ROOT}"
         try:
@@ -104,9 +98,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 credentials_file=LP_AUTH_FILE_PATH,
             )  # this blocks until ready
             # as weird as this looks it seems to force a lp refresh
-            print(
-                self.lp_client.me
-            )  # pyright: ignore[reportUnknownArgumentType]
+            print(self.lp_client.me)  # pyright: ignore[reportUnknownArgumentType]
         except Unauthorized as e:
             # delete the auth file, it expired
             LP_AUTH_FILE_PATH.unlink(True)
@@ -118,9 +110,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
                         "The authentication screen will reappear when you re-submit this report.",
                         "Original Error:",
                         repr(e),
-                        str(
-                            e.content
-                        ),  # pyright: ignore[reportUnknownArgumentType]
+                        str(e.content),  # pyright: ignore[reportUnknownArgumentType]
                     ]
                 )
             )
@@ -129,19 +119,13 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
         assignee = None
         series = None
         project = self.check_project_existence(bug_report.project)
-        yield AdvanceMessage(
-            f"Project '{bug_report.project}' exists at {project}"
-        )
+        yield AdvanceMessage(f"Project '{bug_report.project}' exists at {project}")
 
         if bug_report.assignee:
             assignee = self.check_assignee_existence(bug_report.assignee)
-            yield AdvanceMessage(
-                f"Assignee [u]{bug_report.assignee}[/u] exists"
-            )
+            yield AdvanceMessage(f"Assignee [u]{bug_report.assignee}[/u] exists")
         else:
-            yield AdvanceMessage(
-                "Assignee unspecified, marking the bug as unassigned"
-            )
+            yield AdvanceMessage("Assignee unspecified, marking the bug as unassigned")
 
         if bug_report.series:
             series = self.check_series_existence(bug_report.series)

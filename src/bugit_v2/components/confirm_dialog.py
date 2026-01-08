@@ -51,9 +51,7 @@ class ConfirmScreen[T: str](ModalScreen[T]):
 
     def on_mount(self) -> None:
         if self.focus_id_on_mount:
-            self.query_exactly_one(
-                f"#{self.focus_id_on_mount}", Button
-            ).focus()
+            self.query_exactly_one(f"#{self.focus_id_on_mount}", Button).focus()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         assert event.button.id

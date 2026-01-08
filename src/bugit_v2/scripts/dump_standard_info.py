@@ -51,11 +51,7 @@ def main(
         out = {}
         for key in info:
             out[
-                "_".join(
-                    word.strip().lower()
-                    for word in key.split()
-                    if word.strip()
-                )
+                "_".join(word.strip().lower() for word in key.split() if word.strip())
             ] = info[key]
 
         print(json.dumps(out))
@@ -67,8 +63,6 @@ def main(
 if __name__ == "__main__":
     app(
         prog_name=(
-            "bugit.dump-standard-info"
-            if is_snap()
-            else "bugit-dump-standard-info"
+            "bugit.dump-standard-info" if is_snap() else "bugit-dump-standard-info"
         )
     )

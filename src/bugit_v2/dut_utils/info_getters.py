@@ -33,17 +33,10 @@ async def get_thinkpad_ec_version(timeout: int | None = 30) -> str | None:
         line = dmi_out_lines[i]
         if line.strip() == marker:
             i += 1
-            while i < L and not dmi_out_lines[i].strip().startswith(
-                "Version ID:"
-            ):
+            while i < L and not dmi_out_lines[i].strip().startswith("Version ID:"):
                 i += 1
             if i < L:
-                return (
-                    dmi_out_lines[i]
-                    .strip()
-                    .removeprefix("Version ID:")
-                    .strip()
-                )
+                return dmi_out_lines[i].strip().removeprefix("Version ID:").strip()
         else:
             i += 1
 
@@ -58,8 +51,7 @@ async def get_cpu_info() -> str:
                 cpu_names[cpu_name] += 1
 
     cpu_name_strings = [
-        "{} ({}x)".format(cpu_name, count)
-        for cpu_name, count in cpu_names.items()
+        "{} ({}x)".format(cpu_name, count) for cpu_name, count in cpu_names.items()
     ]
 
     return "\n".join(cpu_name_strings)
@@ -96,9 +88,7 @@ async def get_amd_gpu_info(timeout: int | None = 30) -> str | None:
                 p = pci.split()
                 if len(p) > 3 and p[0] in path:
                     with open(path) as f:
-                        vbios += (
-                            f"{f.read().strip()}[{pci.split()[3].upper()}] "
-                        )
+                        vbios += f"{f.read().strip()}[{pci.split()[3].upper()}] "
     return vbios
 
 
@@ -138,9 +128,7 @@ async def get_standard_info(
             "system-product-name",
             "bios-version",
         ):
-            standard_info[
-                " ".join(word.capitalize() for word in dmi_key.split("-"))
-            ] = (
+            standard_info[" ".join(word.capitalize() for word in dmi_key.split("-"))] = (
                 await asp_check_output(
                     ["dmidecode", "-s", dmi_key],
                     timeout=command_timeout,
@@ -161,9 +149,7 @@ async def get_standard_info(
         )
 
     async def ec():
-        if (
-            ec_version := await get_thinkpad_ec_version(command_timeout)
-        ) is not None:
+        if (ec_version := await get_thinkpad_ec_version(command_timeout)) is not None:
             standard_info["Embedded Controller Version"] = ec_version
 
     await asyncio.gather(
@@ -193,13 +179,10 @@ async def get_standard_info(
                         nvidia_log.stdout,
                     )
                 ) is not None:
-                    standard_info["NVIDIA Driver"] = nvidia_driver_match.group(
-                        1
-                    )
+                    standard_info["NVIDIA Driver"] = nvidia_driver_match.group(1)
                 else:
                     standard_info["NVIDIA Driver"] = (
-                        nvidia_err
-                        + ", no driver version was listed in nvidia-smi -q"
+                        nvidia_err + ", no driver version was listed in nvidia-smi -q"
                     )
 
                 if (
@@ -211,13 +194,11 @@ async def get_standard_info(
                     standard_info["NVIDIA VBIOS"] = nvidia_vbios_match.group(1)
                 else:
                     standard_info["NVIDIA VBIOS"] = (
-                        nvidia_err
-                        + ", no VBIOS version was listed in nvidia-smi -q"
+                        nvidia_err + ", no VBIOS version was listed in nvidia-smi -q"
                     )
             else:
                 standard_info["NVIDIA Driver"] = (
-                    nvidia_err
-                    + f", nvidia-smi -q returned {nvidia_log.returncode}"
+                    nvidia_err + f", nvidia-smi -q returned {nvidia_log.returncode}"
                 )
         except FileNotFoundError:
             standard_info["NVIDIA Driver"] = (
@@ -226,9 +207,7 @@ async def get_standard_info(
 
     if "AMD" in standard_info["GPU"]:
         vbios = await get_amd_gpu_info(command_timeout)
-        standard_info["AMD VBIOS"] = (
-            vbios or "Cannot capture AMD VBIOS version"
-        )
+        standard_info["AMD VBIOS"] = vbios or "Cannot capture AMD VBIOS version"
 
     standard_info["Kernel Version"] = platform.uname().release
 

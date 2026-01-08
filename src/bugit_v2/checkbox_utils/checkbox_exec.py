@@ -105,9 +105,7 @@ async def checkbox_exec(
 async def get_checkbox_info() -> CheckboxInfo | None:
     try:
         if is_snap():
-            if (
-                deb_checkbox := HOST_FS / "usr" / "bin" / "checkbox-cli"
-            ).exists():
+            if (deb_checkbox := HOST_FS / "usr" / "bin" / "checkbox-cli").exists():
                 # host is using debian checkbox
                 return CheckboxInfo(
                     "deb",
@@ -133,12 +131,7 @@ async def get_checkbox_info() -> CheckboxInfo | None:
                             (
                                 await asp_check_output(
                                     [
-                                        str(
-                                            HOST_FS
-                                            / "snap"
-                                            / "bin"
-                                            / executable
-                                        ),
+                                        str(HOST_FS / "snap" / "bin" / executable),
                                         "--version",
                                     ],
                                 )

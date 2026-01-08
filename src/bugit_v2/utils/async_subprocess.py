@@ -24,9 +24,7 @@ async def asp_check_output(
             *cmd, stdout=asp.PIPE, stderr=asp.PIPE, env=env
         )
     else:
-        proc = await asp.create_subprocess_exec(
-            *cmd, stdout=asp.PIPE, stderr=asp.PIPE
-        )
+        proc = await asp.create_subprocess_exec(*cmd, stdout=asp.PIPE, stderr=asp.PIPE)
 
     if timeout:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)
@@ -62,9 +60,7 @@ async def asp_check_call(
             *cmd, stdout=stdout, stderr=stderr, env=env
         )
     else:
-        proc = await asp.create_subprocess_exec(
-            *cmd, stdout=stdout, stderr=stderr
-        )
+        proc = await asp.create_subprocess_exec(*cmd, stdout=stdout, stderr=stderr)
 
     if timeout:
         rc = await asyncio.wait_for(proc.wait(), timeout)
@@ -94,9 +90,7 @@ async def asp_run(
             *cmd, stdout=asp.PIPE, stderr=asp.PIPE, env=env
         )
     else:
-        proc = await asp.create_subprocess_exec(
-            *cmd, stdout=asp.PIPE, stderr=asp.PIPE
-        )
+        proc = await asp.create_subprocess_exec(*cmd, stdout=asp.PIPE, stderr=asp.PIPE)
 
     if timeout:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)

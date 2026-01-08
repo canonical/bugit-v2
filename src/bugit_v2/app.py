@@ -120,9 +120,7 @@ class BugitApp(App[None]):
 
         match args.submitter:
             case "jira":
-                submitter_class = (
-                    JiraSubmitter if is_prod() else MockJiraSubmitter
-                )
+                submitter_class = JiraSubmitter if is_prod() else MockJiraSubmitter
             case "lp":
                 submitter_class = (
                     LaunchpadSubmitter if is_prod() else MockLaunchpadSubmitter
@@ -133,8 +131,7 @@ class BugitApp(App[None]):
             submitter_class,
             session=(
                 None
-                if args.checkbox_submission
-                is NullSelection.NO_CHECKBOX_SUBMISSION
+                if args.checkbox_submission is NullSelection.NO_CHECKBOX_SUBMISSION
                 else NullSelection.NO_SESSION
             ),
             checkbox_submission=args.checkbox_submission,
@@ -199,9 +196,7 @@ class BugitApp(App[None]):
                 self.exit()
             case _:
                 screen_result = (  # pyright: ignore[reportAny]
-                    await self.push_screen_wait(
-                        self.state.get_screen_constructor()()
-                    )
+                    await self.push_screen_wait(self.state.get_screen_constructor()())
                 )
                 self.state = self.state.go_forward(
                     screen_result  # pyright: ignore[reportAny]

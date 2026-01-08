@@ -11,9 +11,7 @@ from bugit_v2.checkbox_utils.models import (
 def read_simple_submission(submission_path: Path) -> SimpleCheckboxSubmission:
     with tarfile.open(submission_path, "r:xz") as f:
         json_io_reader = f.extractfile("submission.json")
-        assert (
-            json_io_reader
-        ), f"submission.json does not exist in {submission_path}"
+        assert json_io_reader, f"submission.json does not exist in {submission_path}"
         return SimpleCheckboxSubmission(
             submission_path,
             BaseSimpleCheckboxSubmission.model_validate(

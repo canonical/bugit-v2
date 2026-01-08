@@ -14,8 +14,7 @@ class AppArgs:
     # read from this submission tarball
     # instead of asking the user to select session/job
     checkbox_submission: (
-        SimpleCheckboxSubmission
-        | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
+        SimpleCheckboxSubmission | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
     ) = NullSelection.NO_CHECKBOX_SUBMISSION
     # comment on an existing bug instead of making a new one
     bug_to_reopen: str | None = None

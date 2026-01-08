@@ -28,9 +28,7 @@ from bugit_v2.models.bug_report import (
     pretty_issue_file_times,
 )
 
-JIRA_SERVER_ADDRESS = os.getenv(
-    "JIRA_SERVER", "https://warthogs.atlassian.net"
-)
+JIRA_SERVER_ADDRESS = os.getenv("JIRA_SERVER", "https://warthogs.atlassian.net")
 
 
 @dataclass(slots=True, frozen=True)
@@ -75,17 +73,13 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
     @override
     def compose(self) -> ComposeResult:
         with VerticalGroup(id="top_level_container"):
-            yield Label(
-                f"[b][$primary]Jira Authentication for {JIRA_SERVER_ADDRESS}"
-            )
+            yield Label(f"[b][$primary]Jira Authentication for {JIRA_SERVER_ADDRESS}")
             yield Input(placeholder="your.email@jira.com", id="email")
             yield Input(
                 placeholder="A token can be created at the link below if you don't already have one",
                 id="token",
             )
-            yield Label(
-                "https://id.atlassian.com/manage-profile/security/api-tokens"
-            )
+            yield Label("https://id.atlassian.com/manage-profile/security/api-tokens")
             yield Checkbox(
                 "Cache valid credentials until next boot",
                 tooltip=(
@@ -95,9 +89,7 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
                 ),
                 value=False,
             )
-            yield Center(
-                Button("Continue", id="continue_button", disabled=True)
-            )
+            yield Center(Button("Continue", id="continue_button", disabled=True))
 
     def on_mount(self):
         self.query_exactly_one("#top_level_container").border_title = (
@@ -106,15 +98,11 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
 
         email_input = self.query_exactly_one("#email")
         email_input.border_title = "Email"
-        email_input.border_subtitle = (
-            "Use Ctrl+Shift+V to paste into the textbox"
-        )
+        email_input.border_subtitle = "Use Ctrl+Shift+V to paste into the textbox"
 
         token_input = self.query_exactly_one("#token")
         token_input.border_title = "Jira Access Token"
-        token_input.border_subtitle = (
-            "Use Ctrl+Shift+V to paste into the textbox"
-        )
+        token_input.border_subtitle = "Use Ctrl+Shift+V to paste into the textbox"
 
     @on(Input.Blurred)
     @on(Input.Changed)
@@ -177,9 +165,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         try:
             self.jira.project(id=project_name)
         except Exception:
-            raise JiraSubmitterError(
-                f"Project '{project_name}' doesn't exist!"
-            )
+            raise JiraSubmitterError(f"Project '{project_name}' doesn't exist!")
 
     def assignee_exists_and_unique(self, assignee: str) -> str:
         """Does @param assignee exist and is it unique?
@@ -198,14 +184,10 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         # this field exists, but not listed in the jira library
         return query_result[0].accountId  # pyright: ignore[reportAny]
 
-    def all_components_exist(
-        self, project: str, components: Sequence[str]
-    ) -> None:
+    def all_components_exist(self, project: str, components: Sequence[str]) -> None:
         assert self.jira, "Jira client is not initialized"
         # the @translate_args decorator confuses the type checker
-        query_result = cast(
-            list[Component], self.jira.project_components(project)
-        )
+        query_result = cast(list[Component], self.jira.project_components(project))
         for wanted_component in components:
             if not any(
                 actual_component.name  # str  # pyright: ignore[reportAny]
@@ -250,9 +232,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
             "assignee": bug_report.assignee,
             "project": bug_report.project,
             "summary": bug_report.title,
-            "description": bug_report.description
-            + "\n\n"
-            + issue_file_time_block,
+            "description": bug_report.description + "\n\n" + issue_file_time_block,
             "components": [{"name": tag} for tag in bug_report.platform_tags],
             "labels": [
                 *bug_report.additional_tags,
@@ -296,19 +276,13 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
                 f"Assignee [u]{bug_report.assignee}[/u] exists and is unique!"
             )
         else:
-            yield AdvanceMessage(
-                "Assignee unspecified, marking the bug as unassigned"
-            )
+            yield AdvanceMessage("Assignee unspecified, marking the bug as unassigned")
 
         if len(bug_report.platform_tags) > 0:
-            self.all_components_exist(
-                bug_report.project, bug_report.platform_tags
-            )
+            self.all_components_exist(bug_report.project, bug_report.platform_tags)
             yield AdvanceMessage("All platform tags exist")
         else:
-            yield AdvanceMessage(
-                "No platform tags were given, not assigning any tags"
-            )
+            yield AdvanceMessage("No platform tags were given, not assigning any tags")
 
         self.issue = self.jira.create_issue(bug_dict)
         yield AdvanceMessage(f"Created {self.issue.key}")
@@ -360,20 +334,14 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
                 f"Assignee has been updated to [u]{bug_report.assignee}[/u]"
             )
         else:
-            yield AdvanceMessage(
-                "Assignee unspecified, not changing the bug's assignee"
-            )
+            yield AdvanceMessage("Assignee unspecified, not changing the bug's assignee")
 
         if len(bug_report.platform_tags) > 0:
             self.all_components_exist(
                 self.issue.fields.project.key, bug_report.platform_tags
             )
             self.issue.update(
-                fields={
-                    "components": [
-                        {"name": pt} for pt in bug_report.platform_tags
-                    ]
-                }
+                fields={"components": [{"name": pt} for pt in bug_report.platform_tags]}
             )
             yield AdvanceMessage(
                 f"Replaced the {bug_id}'s platform tags with {bug_report.platform_tags}"

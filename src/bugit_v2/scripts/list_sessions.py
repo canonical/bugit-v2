@@ -67,18 +67,12 @@ def main(
                 )
                 print(f"  {repr(e)}", file=stderr)
                 continue
-            rich_print(
-                f"[yellow]Session directory[/]: [bold white]{session_path}"
-            )
-            rich_print(
-                f"[yellow]Test Plan[/]: [bold white]{session.testplan_id}"
-            )
+            rich_print(f"[yellow]Session directory[/]: [bold white]{session_path}")
+            rich_print(f"[yellow]Test Plan[/]: [bold white]{session.testplan_id}")
             if idx != len(valid_sessions) - 1:
                 # print a separator if not the last one
                 print()
 
 
 if __name__ == "__main__":
-    app(
-        prog_name="bugit.list-sessions" if is_snap() else "bugit-list-sessions"
-    )
+    app(prog_name="bugit.list-sessions" if is_snap() else "bugit-list-sessions")

@@ -85,15 +85,11 @@ AUTOSAVE_DIR = (
     / "bugit-v2-autosave"
 )
 VISUAL_CONFIG_DIR = (
-    Path(
-        os.getenv("SNAP_USER_DATA", str(Path().home().absolute() / ".config"))
-    )
+    Path(os.getenv("SNAP_USER_DATA", str(Path().home().absolute() / ".config")))
     / "bugit-v2-visual-config"
 )
 DUT_INFO_DIR = (
-    Path(
-        os.getenv("SNAP_USER_DATA", str(Path().home().absolute() / ".config"))
-    )
+    Path(os.getenv("SNAP_USER_DATA", str(Path().home().absolute() / ".config")))
     / "bugit-v2-dut-info"
 )
 HOST_FS = Path("/var/lib/snapd/hostfs")

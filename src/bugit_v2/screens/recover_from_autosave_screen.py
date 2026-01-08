@@ -54,9 +54,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
         for file in os.listdir(autosave_dir):
             with open(autosave_dir / file) as f:
                 try:
-                    autosave = BugReportAutoSaveData.model_validate_json(
-                        f.read()
-                    )
+                    autosave = BugReportAutoSaveData.model_validate_json(f.read())
                     match (
                         save_type,
                         autosave.checkbox_submission,
@@ -100,9 +98,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
         with Vertical(classes="w100 h100 center"):
             with VerticalGroup(classes="round_box lrp2"):
                 yield Label("[b][$primary]Resume from a Recovery File")
-                yield Label(
-                    "These were automatically saved by the bug report editor"
-                )
+                yield Label("These were automatically saved by the bug report editor")
                 if self.save_type == "submission":
                     yield Label(
                         "[$warning]Only the recovery files originated from this checkbox submission are shown"

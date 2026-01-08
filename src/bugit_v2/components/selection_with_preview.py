@@ -50,9 +50,7 @@ class SelectionWithPreview(Widget):
                     id="selection_list",
                 )
                 with HorizontalGroup(classes="right db"):
-                    yield Button(
-                        "Clear", compact=True, classes="editor_button"
-                    )
+                    yield Button("Clear", compact=True, classes="editor_button")
 
             with VerticalGroup(
                 classes="h100",
@@ -70,9 +68,7 @@ class SelectionWithPreview(Widget):
             display.update("[grey][i]nothing selected...")
         else:
             display.update(
-                "\n".join(
-                    "\n".join(self.data[key]) for key in self.selected_keys
-                )
+                "\n".join("\n".join(self.data[key]) for key in self.selected_keys)
             )
 
     @on(SelectionList.SelectedChanged)

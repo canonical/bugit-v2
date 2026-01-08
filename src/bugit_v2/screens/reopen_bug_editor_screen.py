@@ -80,8 +80,7 @@ class NonEmpty(Validator):
 class ReopenBugEditorScreen(Screen[PartialBugReport]):
     session: Final[Session | Literal[NullSelection.NO_SESSION]]
     checkbox_submission: Final[
-        SimpleCheckboxSubmission
-        | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
+        SimpleCheckboxSubmission | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
     ]
     job_id: Final[str | Literal[NullSelection.NO_JOB]]
     existing_report: Final[PartialBugReport | None]
@@ -130,8 +129,7 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
         self,
         session: Session | Literal[NullSelection.NO_SESSION],
         checkbox_submission: (
-            SimpleCheckboxSubmission
-            | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
+            SimpleCheckboxSubmission | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
         ),
         job_id: str | Literal[NullSelection.NO_JOB],
         app_args: AppArgs,
@@ -181,9 +179,7 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
         self.initial_report["Affected Test Cases"] = job_id
         job_output = session.get_job_output(job_id)
         if job_output is None:
-            self.initial_report["Job Output"] = (
-                "No output was found for this job"
-            )
+            self.initial_report["Job Output"] = "No output was found for this job"
             return
 
         # add an empty string at the end for a new line
@@ -221,9 +217,7 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
 
         with VerticalScroll(classes="center"):
             with HorizontalGroup():
-                yield DescriptionEditor(
-                    classes="ha", id="description", disabled=True
-                )
+                yield DescriptionEditor(classes="ha", id="description", disabled=True)
 
                 with VerticalGroup():
                     yield RadioSet(
@@ -231,8 +225,7 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
                             RadioButton(
                                 display_name,
                                 name=issue_file_time,
-                                value=issue_file_time
-                                == "immediate",  # default val
+                                value=issue_file_time == "immediate",  # default val
                             )
                             for issue_file_time, display_name in pretty_issue_file_times.items()
                         ),
@@ -269,9 +262,7 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
                             if c.name != "checkbox-session"
                         ]
                     else:
-                        collectors = [
-                            c for c in LOG_NAME_TO_COLLECTOR.values()
-                        ]
+                        collectors = [c for c in LOG_NAME_TO_COLLECTOR.values()]
 
                     yield SelectionList[LogName](
                         *(
@@ -422,7 +413,9 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
         btn = self.query_exactly_one("#submit_button", Button)
         btn.disabled = not all(self.validation_status.values())
         if btn.disabled:
-            btn.label = "Bug Report Incomplete (check if bug title or project name is empty)"
+            btn.label = (
+                "Bug Report Incomplete (check if bug title or project name is empty)"
+            )
         else:
             btn.label = "Submit Bug Report"
 
@@ -437,14 +430,11 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
 
         return PartialBugReport(
             checkbox_session=(
-                None
-                if self.session is NullSelection.NO_SESSION
-                else self.session
+                None if self.session is NullSelection.NO_SESSION else self.session
             ),
             checkbox_submission=(
                 None
-                if self.checkbox_submission
-                is NullSelection.NO_CHECKBOX_SUBMISSION
+                if self.checkbox_submission is NullSelection.NO_CHECKBOX_SUBMISSION
                 else self.checkbox_submission
             ),
             description=self.query_exactly_one(
@@ -466,9 +456,7 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
 
     def _prefill_with_app_args(self):
         if self.app_args.assignee:
-            self.query_exactly_one("#assignee", Input).value = (
-                self.app_args.assignee
-            )
+            self.query_exactly_one("#assignee", Input).value = self.app_args.assignee
         if len(self.app_args.platform_tags) > 0:
             self.query_exactly_one("#platform_tags", Input).value = " ".join(
                 self.app_args.platform_tags
@@ -500,16 +488,12 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
                     else:
                         elem.value = str(report_value)
                 case DescriptionEditor():
-                    elem.text = self.existing_report.get_with_type(
-                        elem_id, str
-                    )
+                    elem.text = self.existing_report.get_with_type(elem_id, str)
                     # don't wait for the info collector, immediately enable
                     # and allow editing
                     elem.disabled = False
                 case RadioSet():
-                    selected_name = self.existing_report.get_with_type(
-                        elem_id, str
-                    )
+                    selected_name = self.existing_report.get_with_type(elem_id, str)
                     for child in elem.children:
                         if (
                             isinstance(child, RadioButton)
