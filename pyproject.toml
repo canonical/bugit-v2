@@ -43,7 +43,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.black]
-line-length = 79
+line-length = 89
 include = '(\.pyi?|\.ipynb)$'
 
 [tool.isort]

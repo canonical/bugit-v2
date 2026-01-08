@@ -81,10 +81,7 @@ class SessionSelectionScreen(Screen[Path | Literal[NullSelection.NO_SESSION]]):
         session_path = event.button.name
         try:
             assert session_path
-            if (
-                session_path == "bugit_no_session"
-                and event.button.tooltip is not None
-            ):
+            if session_path == "bugit_no_session" and event.button.tooltip is not None:
                 self.dismiss(NullSelection.NO_SESSION)
             else:
                 assert Path(session_path).exists()

@@ -35,9 +35,7 @@ VALID_SERVICE_ROOTS = ("production", "qastaging")
 
 SERVICE_ROOT = cast(
     Literal["production", "qastaging"],
-    os.getenv(
-        "APPORT_LAUNCHPAD_INSTANCE", "production" if is_prod() else "qastaging"
-    ),
+    os.getenv("APPORT_LAUNCHPAD_INSTANCE", "production" if is_prod() else "qastaging"),
 )
 LP_APP_NAME = os.getenv("BUGIT_APP_NAME", "bugit-v2")
 
@@ -272,7 +270,9 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 assignee
             ]
         except Exception as e:
-            error_message = f"Assignee '{assignee}' doesn't exist. Original error: {repr(e)}"
+            error_message = (
+                f"Assignee '{assignee}' doesn't exist. Original error: {repr(e)}"
+            )
             raise ValueError(error_message)
 
     def check_series_existence(self, series: str) -> Any:
@@ -282,9 +282,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 name=series
             )
         except Exception as e:
-            error_message = (
-                f"Series '{series}' doesn't exist. Original error: {e}"
-            )
+            error_message = f"Series '{series}' doesn't exist. Original error: {e}"
             raise ValueError(error_message)
 
     @override
@@ -300,9 +298,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
             f"expected one of {VALID_SERVICE_ROOTS}, but got {SERVICE_ROOT}"
         )
         assert LP_APP_NAME, "BUGIT_APP_NAME was not specified"
-        assert (
-            LP_AUTH_FILE_PATH.exists()
-        ), "At this point auth should already be valid"
+        assert LP_AUTH_FILE_PATH.exists(), "At this point auth should already be valid"
 
         yield f"Logging into Launchpad: {SERVICE_ROOT}"
         try:
@@ -333,19 +329,13 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         assignee = None
         series = None
         project = self.check_project_existence(bug_report.project)
-        yield AdvanceMessage(
-            f"Project '{bug_report.project}' exists at {project}"
-        )
+        yield AdvanceMessage(f"Project '{bug_report.project}' exists at {project}")
 
         if bug_report.assignee:
             assignee = self.check_assignee_existence(bug_report.assignee)
-            yield AdvanceMessage(
-                f"Assignee [u]{bug_report.assignee}[/u] exists"
-            )
+            yield AdvanceMessage(f"Assignee [u]{bug_report.assignee}[/u] exists")
         else:
-            yield AdvanceMessage(
-                "Assignee unspecified, marking the bug as unassigned"
-            )
+            yield AdvanceMessage("Assignee unspecified, marking the bug as unassigned")
 
         if bug_report.series:
             series = self.check_series_existence(bug_report.series)
@@ -405,9 +395,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
 
     @override
     def upload_attachment(self, attachment_file: Path) -> str | None:
-        assert (
-            self.lp_bug_object
-        ), "No launchpad bug has been created or fetched"
+        assert self.lp_bug_object, "No launchpad bug has been created or fetched"
         with open(attachment_file, "rb") as f:
             # this might explode on low memory systems
             # but idk how to work around it
@@ -420,9 +408,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
     @property
     @override
     def bug_url(self) -> str:
-        assert (
-            self.lp_bug_object
-        ), "No launchpad bug has been created or fetched"
+        assert self.lp_bug_object, "No launchpad bug has been created or fetched"
         match SERVICE_ROOT:
             case "production":
                 return f"{LPNET_WEB_ROOT}bugs/{self.lp_bug_object.id}"

@@ -137,8 +137,7 @@ class BugReportScreen(Screen[BugReport]):
     report_id: Final[uuid.UUID]
     session: Final[Session | Literal[NullSelection.NO_SESSION]]
     checkbox_submission: Final[
-        SimpleCheckboxSubmission
-        | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
+        SimpleCheckboxSubmission | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
     ]
     job_id: Final[str | Literal[NullSelection.NO_JOB]]
     existing_report: Final[BugReport | None]
@@ -210,8 +209,7 @@ class BugReportScreen(Screen[BugReport]):
         self,
         session: Session | Literal[NullSelection.NO_SESSION],
         checkbox_submission: (
-            SimpleCheckboxSubmission
-            | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
+            SimpleCheckboxSubmission | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
         ),
         job_id: str | Literal[NullSelection.NO_JOB],
         app_args: AppArgs,
@@ -281,9 +279,7 @@ class BugReportScreen(Screen[BugReport]):
         if session is not NullSelection.NO_SESSION:
             job_output = session.get_job_output(job_id)
             if job_output is None:
-                self.initial_report["Job Output"] = (
-                    "No output was found for this job"
-                )
+                self.initial_report["Job Output"] = "No output was found for this job"
                 return
 
             # add an empty string at the end for a new line
@@ -312,9 +308,7 @@ class BugReportScreen(Screen[BugReport]):
         elif checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION:
             job_output = checkbox_submission.get_job_output(job_id)
             if not job_output:  # can be empty string
-                self.initial_report["Job Output"] = (
-                    "No output was found for this job"
-                )
+                self.initial_report["Job Output"] = "No output was found for this job"
                 return
             self.initial_report["Job Output"] = job_output
 
@@ -329,17 +323,10 @@ class BugReportScreen(Screen[BugReport]):
         ):
             if self.session != NullSelection.NO_SESSION:
                 yield Label(f"- Test Plan: {self.session.testplan_id}")
-            elif (
-                self.checkbox_submission
-                is not NullSelection.NO_CHECKBOX_SUBMISSION
-            ):
-                yield Label(
-                    f"- Test Plan: {self.checkbox_submission.base.testplan_id}"
-                )
+            elif self.checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION:
+                yield Label(f"- Test Plan: {self.checkbox_submission.base.testplan_id}")
             else:
-                yield Label(
-                    "- [$warning-darken-2]No session/submission selected"
-                )
+                yield Label("- [$warning-darken-2]No session/submission selected")
 
             if self.job_id is NullSelection.NO_JOB:
                 yield Label("- [$warning-darken-2]No job selected")
@@ -355,9 +342,7 @@ class BugReportScreen(Screen[BugReport]):
             )
 
             with HorizontalGroup():
-                yield DescriptionEditor(
-                    classes="ha", id="description", disabled=True
-                )
+                yield DescriptionEditor(classes="ha", id="description", disabled=True)
 
                 with VerticalGroup():
                     yield RadioSet(
@@ -365,8 +350,7 @@ class BugReportScreen(Screen[BugReport]):
                             RadioButton(
                                 display_name,
                                 name=issue_file_time,
-                                value=issue_file_time
-                                == "immediate",  # default val
+                                value=issue_file_time == "immediate",  # default val
                             )
                             for issue_file_time, display_name in pretty_issue_file_times.items()
                         ),
@@ -416,8 +400,7 @@ class BugReportScreen(Screen[BugReport]):
                                         else display_name
                                     ),
                                     name=severity,
-                                    value=severity
-                                    == "highest",  # default to critical
+                                    value=severity == "highest",  # default to critical
                                 )
                                 for severity, display_name in pretty_severities.items()
                             ),
@@ -443,9 +426,7 @@ class BugReportScreen(Screen[BugReport]):
                         ]
                     else:
                         collectors = [
-                            c
-                            for c in LOG_NAME_TO_COLLECTOR.values()
-                            if not c.hidden
+                            c for c in LOG_NAME_TO_COLLECTOR.values() if not c.hidden
                         ]
 
                     with VerticalGroup():
@@ -454,14 +435,11 @@ class BugReportScreen(Screen[BugReport]):
                                 Selection[LogName](
                                     collector.display_name,
                                     collector.name,
-                                    self._should_select_collector_by_default(
-                                        collector
-                                    ),
+                                    self._should_select_collector_by_default(collector),
                                     id=collector.name,
                                     # disable nvidia collector
                                     # unless get_standard_info finds an nvidia card
-                                    disabled=collector.name
-                                    == "nvidia-bug-report",
+                                    disabled=collector.name == "nvidia-bug-report",
                                 )
                                 for collector in sorted(
                                     collectors,
@@ -497,11 +475,7 @@ class BugReportScreen(Screen[BugReport]):
                     for status in BUG_STATUSES
                 ),
                 id="status",
-                classes=(
-                    "default_box"
-                    if self.app_args.submitter == "lp"
-                    else "hidden"
-                ),
+                classes=("default_box" if self.app_args.submitter == "lp" else "hidden"),
             )
 
             yield SelectionWithPreview(
@@ -541,10 +515,7 @@ class BugReportScreen(Screen[BugReport]):
             self.query_exactly_one("#cert_status_box", Label).display = False
 
         else:
-            if (
-                self.checkbox_submission
-                is not NullSelection.NO_CHECKBOX_SUBMISSION
-            ):
+            if self.checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION:
                 self.run_worker(
                     lambda cbs=self.checkbox_submission, jid=self.job_id: cbs.get_job_cert_status(
                         jid
@@ -601,9 +572,7 @@ class BugReportScreen(Screen[BugReport]):
         if ok:
             self.dismiss(self._build_bug_report())
 
-    def _debounce[**P, R](
-        self, f: Callable[P, R], delay: float
-    ) -> Callable[P, None]:
+    def _debounce[**P, R](self, f: Callable[P, R], delay: float) -> Callable[P, None]:
         @wraps(f)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> None:
             if self.autosave_timer is not None:
@@ -612,9 +581,7 @@ class BugReportScreen(Screen[BugReport]):
             self.query_exactly_one("#dirty_label", Label).update(
                 "[grey]Autosave scheduled..."
             )
-            self.autosave_timer = self.set_timer(
-                delay, lambda: f(*args, **kwargs)
-            )
+            self.autosave_timer = self.set_timer(delay, lambda: f(*args, **kwargs))
 
         return wrapper
 
@@ -666,9 +633,7 @@ class BugReportScreen(Screen[BugReport]):
                 label.update("[green]Progress Saved")
             except Exception as e:
                 self.log.error(repr(e))
-                label.update(
-                    f"[red]Autosave failed! {escape_markup(repr(e)[:20])}"
-                )
+                label.update(f"[red]Autosave failed! {escape_markup(repr(e)[:20])}")
 
         # run auto save 0.5 seconds after the user stops typing
         self._debounce(lambda: self.run_worker(f, thread=True), 0.5)()
@@ -697,7 +662,9 @@ class BugReportScreen(Screen[BugReport]):
         btn = self.query_exactly_one("#submit_button", Button)
         btn.disabled = not all(self.validation_status.values())
         if btn.disabled:
-            btn.label = "Bug Report Incomplete (check if bug title or project name is empty)"
+            btn.label = (
+                "Bug Report Incomplete (check if bug title or project name is empty)"
+            )
         else:
             btn.label = "Submit Bug Report"
 
@@ -738,10 +705,7 @@ class BugReportScreen(Screen[BugReport]):
             )
             # do not directly query the option by id, they don't exist in the DOM
             try:
-                if (
-                    "NVIDIA" in machine_info["GPU"]
-                    and NVIDIA_BUG_REPORT_PATH.exists()
-                ):
+                if "NVIDIA" in machine_info["GPU"] and NVIDIA_BUG_REPORT_PATH.exists():
                     # include nvidia logs by default IF we actually have it
                     log_selection_list.enable_option("nvidia-bug-report")
                     log_selection_list.select("nvidia-bug-report")
@@ -801,9 +765,7 @@ class BugReportScreen(Screen[BugReport]):
             return
 
         if event.worker.state == WorkerState.ERROR:
-            cert_status_box.update(
-                f"Failed to get cert status. {event.worker.error}"
-            )
+            cert_status_box.update(f"Failed to get cert status. {event.worker.error}")
             return
 
         all_cert_statuses = cast(
@@ -812,9 +774,7 @@ class BugReportScreen(Screen[BugReport]):
         )
         self._color_cert_status_box(all_cert_statuses[self.job_id].cert_status)
 
-    def _get_submission_cert_status_worker_callback(
-        self, event: Worker.StateChanged
-    ):
+    def _get_submission_cert_status_worker_callback(self, event: Worker.StateChanged):
         assert self.job_id is not NullSelection.NO_JOB
         assert (
             event.worker.is_finished
@@ -853,14 +813,11 @@ class BugReportScreen(Screen[BugReport]):
                 f"#{BugReportElemId.TITLE}", Input
             ).value.strip(),
             checkbox_session=(
-                None
-                if self.session is NullSelection.NO_SESSION
-                else self.session
+                None if self.session is NullSelection.NO_SESSION else self.session
             ),
             checkbox_submission=(
                 None
-                if self.checkbox_submission
-                is NullSelection.NO_CHECKBOX_SUBMISSION
+                if self.checkbox_submission is NullSelection.NO_CHECKBOX_SUBMISSION
                 else self.checkbox_submission
             ),
             job_id=self.job_id if type(self.job_id) is str else None,
@@ -902,17 +859,17 @@ class BugReportScreen(Screen[BugReport]):
 
     def _prefill_with_app_args(self):
         if self.app_args.assignee:
-            self.query_exactly_one(
-                f"#{BugReportElemId.ASSIGNEE}", Input
-            ).value = self.app_args.assignee
+            self.query_exactly_one(f"#{BugReportElemId.ASSIGNEE}", Input).value = (
+                self.app_args.assignee
+            )
         if self.app_args.project:
-            self.query_exactly_one(
-                f"#{BugReportElemId.PROJECT}", Input
-            ).value = self.app_args.project
+            self.query_exactly_one(f"#{BugReportElemId.PROJECT}", Input).value = (
+                self.app_args.project
+            )
         if len(self.app_args.platform_tags) > 0:
-            self.query_exactly_one(
-                f"#{BugReportElemId.PLATFORM_TAGS}", Input
-            ).value = " ".join(self.app_args.platform_tags)
+            self.query_exactly_one(f"#{BugReportElemId.PLATFORM_TAGS}", Input).value = (
+                " ".join(self.app_args.platform_tags)
+            )
         if len(self.app_args.tags) > 0:
             self.query_exactly_one(
                 f"#{BugReportElemId.ADDITIONAL_TAGS}", Input
@@ -940,16 +897,12 @@ class BugReportScreen(Screen[BugReport]):
                     else:
                         elem.value = str(report_value)
                 case DescriptionEditor():
-                    elem.text = self.existing_report.get_with_type(
-                        elem_id, str
-                    )
+                    elem.text = self.existing_report.get_with_type(elem_id, str)
                     # don't wait for the info collector, immediately enable
                     # and allow editing
                     elem.disabled = False
                 case RadioSet():
-                    selected_name = self.existing_report.get_with_type(
-                        elem_id, str
-                    )
+                    selected_name = self.existing_report.get_with_type(elem_id, str)
                     for child in elem.children:
                         if (
                             isinstance(child, RadioButton)
@@ -979,15 +932,12 @@ class BugReportScreen(Screen[BugReport]):
                 case _:
                     pass
 
-    def _should_select_collector_by_default(
-        self, collector: LogCollector
-    ) -> bool:
+    def _should_select_collector_by_default(self, collector: LogCollector) -> bool:
         return (
             self.checkbox_submission is NullSelection.NO_CHECKBOX_SUBMISSION
             and collector.collect_by_default
         ) or (
-            self.checkbox_submission
-            is not NullSelection.NO_CHECKBOX_SUBMISSION
+            self.checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION
             and collector.collect_by_default
             and collector.name == "checkbox-submission"
         )

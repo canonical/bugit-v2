@@ -68,10 +68,7 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
                 # button is clicked, do not remove
                 tooltip="Choose this to skip to editor with the session data",
             ),
-            *(
-                RadioButton(job_id, name=job_id)
-                for job_id in self.job_id_options
-            ),
+            *(RadioButton(job_id, name=job_id) for job_id in self.job_id_options),
             id="job_list_container",
         )
         with VerticalGroup(classes="db"):
@@ -104,8 +101,6 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
         if self.selected_job == "bugit_no_job":
             btn.label = "Skip to editor with session data"
         else:
-            btn.label = (
-                f"File a bug for [u]{self.selected_job.split('::')[-1]}"
-            )
+            btn.label = f"File a bug for [u]{self.selected_job.split('::')[-1]}"
         btn.disabled = False
         btn.variant = "success"

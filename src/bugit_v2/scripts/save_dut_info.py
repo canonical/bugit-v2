@@ -211,9 +211,7 @@ def main(
                 if v:  # include None and empty list
                     old_info_dict[k] = v
             with open(INFO_FILE, "w") as f:
-                f.write(
-                    DutInfo.model_validate(old_info_dict).model_dump_json()
-                )
+                f.write(DutInfo.model_validate(old_info_dict).model_dump_json())
         else:
             with open(INFO_FILE, "w") as f:
                 f.write(new_info.model_dump_json())

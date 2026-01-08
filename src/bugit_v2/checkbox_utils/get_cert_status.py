@@ -48,9 +48,7 @@ async def list_bootstrapped_cert_status(
             print("Bad group", lines, file=stderr)
             continue
 
-        out[lines[0]] = TestCaseWithCertStatus(
-            full_id=lines[0], cert_status=lines[1]
-        )
+        out[lines[0]] = TestCaseWithCertStatus(full_id=lines[0], cert_status=lines[1])
 
     return out
 
@@ -59,9 +57,7 @@ async def list_bootstrapped_cert_status(
 def get_session_envs(session_path: Path) -> dict[str, str]:
     out: dict[str, str] = {}
     env_gz = (
-        session_path
-        / "io-logs"
-        / "com.canonical.certification__environment.record.gz"
+        session_path / "io-logs" / "com.canonical.certification__environment.record.gz"
     )
 
     if not env_gz.exists():

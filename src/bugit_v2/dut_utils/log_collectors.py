@@ -69,9 +69,7 @@ async def pack_checkbox_session(
     return f"Added checkbox session to {target_dir}"
 
 
-async def nvidia_bug_report(
-    target_dir: Path, _: BugReport | PartialBugReport
-) -> str:
+async def nvidia_bug_report(target_dir: Path, _: BugReport | PartialBugReport) -> str:
     if is_snap():
         env = os.environ | {
             "PATH": ":".join(
@@ -173,9 +171,7 @@ async def snap_list(target_dir: Path, _: BugReport | PartialBugReport):
 
 
 async def snap_debug(target_dir: Path, _: BugReport | PartialBugReport):
-    script_path = (
-        importlib.resources.files("bugit_v2.dut_utils") / "snap_debug.sh"
-    )
+    script_path = importlib.resources.files("bugit_v2.dut_utils") / "snap_debug.sh"
     with open(target_dir / "snap_debug.log", "w") as f:
         await asp_check_call(
             [str(script_path)],
@@ -195,9 +191,7 @@ async def pack_checkbox_submission(
         submission_path.exists()
     ), f"{submission_path} was deleted after the bug report was created!"
 
-    shutil.copyfile(
-        submission_path, target_dir / os.path.basename(submission_path)
-    )
+    shutil.copyfile(submission_path, target_dir / os.path.basename(submission_path))
 
     return f"Added checkbox submission to {target_dir}"
 
@@ -210,9 +204,7 @@ async def long_job_outputs(target_dir: Path, bug_report: BugReport):
     assert (
         bug_report.checkbox_session is not None
     ), "Can't use this collector if there's no checkbox session"
-    assert (
-        bug_report.job_id is not None
-    ), "Can't use this collector if there's no job id"
+    assert bug_report.job_id is not None, "Can't use this collector if there's no job id"
     assert (
         bug_report.checkbox_session.session_path.exists()
     ), f"{bug_report.checkbox_session.session_path} was deleted after the bug report was created!"

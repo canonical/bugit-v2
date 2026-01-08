@@ -186,8 +186,7 @@ def recover_from_autosave(
         autosave_data.project,
         autosave_data.severity,
         autosave_data.issue_file_time,
-        autosave_data.checkbox_session
-        and Session(autosave_data.checkbox_session),
+        autosave_data.checkbox_session and Session(autosave_data.checkbox_session),
         autosave_data.checkbox_submission
         and read_simple_submission(autosave_data.checkbox_submission),
         autosave_data.job_id,

@@ -122,9 +122,7 @@ class SimpleHeader(Widget):
     def screen_sub_title(self) -> str:
         screen_sub_title = self.screen.sub_title
         sub_title = (
-            screen_sub_title
-            if screen_sub_title is not None
-            else self.app.sub_title
+            screen_sub_title if screen_sub_title is not None else self.app.sub_title
         )
         return sub_title
 

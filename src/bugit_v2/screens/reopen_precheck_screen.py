@@ -51,9 +51,7 @@ class ReopenPreCheckScreen[TAuth, TReturn](Screen[bool | Exception]):
             cached_credentials = self.submitter.get_cached_credentials()
 
             if cached_credentials is None:
-                auth_rv = await self.app.push_screen_wait(
-                    self.submitter.auth_modal()
-                )
+                auth_rv = await self.app.push_screen_wait(self.submitter.auth_modal())
                 assert auth_rv is not None
                 (
                     self.submitter.auth,
@@ -70,9 +68,7 @@ class ReopenPreCheckScreen[TAuth, TReturn](Screen[bool | Exception]):
                 )
             self.run_worker(
                 # early bind
-                lambda b=self.app_args.bug_to_reopen: self.submitter.bug_exists(
-                    b
-                ),
+                lambda b=self.app_args.bug_to_reopen: self.submitter.bug_exists(b),
                 name="bug_existence_check",
                 exit_on_error=False,
                 thread=True,

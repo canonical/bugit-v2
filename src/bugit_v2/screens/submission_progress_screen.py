@@ -28,9 +28,7 @@ from bugit_v2.models.bug_report import BugReport, LogName, PartialBugReport
 from bugit_v2.utils import is_prod, is_snap
 
 ReturnScreenChoice = Literal["job", "session", "quit", "report_editor"]
-RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
-    ReturnScreenChoice.__args__
-)
+RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = ReturnScreenChoice.__args__
 
 
 class WorkerName(enum.StrEnum):
@@ -157,9 +155,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             async def run_collect(log: LogName):
                 collector = LOG_NAME_TO_COLLECTOR[log]
                 try:
-                    rv = await collector.collect(
-                        self.attachment_dir, self.bug_report
-                    )
+                    rv = await collector.collect(self.attachment_dir, self.bug_report)
                     if rv and rv.strip():
                         # only show non-empty, non-null messages
                         self._log_with_time(
@@ -200,13 +196,8 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
             def check_if_worker_is_pending(name: LogName):
                 if self.attachment_workers[name].is_running:
-                    msg = (
-                        LOG_NAME_TO_COLLECTOR[name].display_name
-                        + " is still running"
-                    )
-                    if (
-                        t := LOG_NAME_TO_COLLECTOR[name].advertised_timeout
-                    ) is not None:
+                    msg = LOG_NAME_TO_COLLECTOR[name].display_name + " is still running"
+                    if (t := LOG_NAME_TO_COLLECTOR[name].advertised_timeout) is not None:
                         msg += f" (timeout: {t}s)"
                     msg += "..."
                     self._log_with_time(msg)
@@ -218,17 +209,13 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                 name=log_name,
                 exit_on_error=False,  # hold onto the err, don't crash
             )
-            self.attachment_worker_checker_timers[log_name] = (
-                self.set_interval(
-                    30, lambda n=log_name: check_if_worker_is_pending(n)
-                )
+            self.attachment_worker_checker_timers[log_name] = self.set_interval(
+                30, lambda n=log_name: check_if_worker_is_pending(n)
             )
 
             display_name = LOG_NAME_TO_COLLECTOR[log_name].display_name
             msg = f"Launched collector: {display_name}"
-            if (
-                t := LOG_NAME_TO_COLLECTOR[log_name].advertised_timeout
-            ) is not None:
+            if (t := LOG_NAME_TO_COLLECTOR[log_name].advertised_timeout) is not None:
                 msg += f" (timeout: {t}s)"
             self._log_with_time(msg)
 
@@ -252,9 +239,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                             f"[green]OK[/] [b]Uploaded {f}[/]: {rv.strip()}"
                         )
                     else:
-                        self._log_with_time(
-                            f"[green]OK[/] [b]Uploaded {f}[/b]"
-                        )
+                        self._log_with_time(f"[green]OK[/] [b]Uploaded {f}[/b]")
                 except Exception as e:
 
                     self._log_with_time(
@@ -292,9 +277,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                             f"[green]OK[/] [b]Uploaded {f}[/]: {rv.strip()}"
                         )
                     else:
-                        self._log_with_time(
-                            f"[green]OK[/] [b]Uploaded {f}[/b]"
-                        )
+                        self._log_with_time(f"[green]OK[/] [b]Uploaded {f}[/b]")
                 except Exception as e:
                     failed_attachments.append(f.name)
                     self._log_with_time(
@@ -336,14 +319,11 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             match step_result:
                 case str():
                     # general logs
-                    self._log_with_time(
-                        f"[b]{display_name}[/b]: {step_result}"
-                    )
+                    self._log_with_time(f"[b]{display_name}[/b]: {step_result}")
                 case AdvanceMessage():
                     # messages that will advance the progress bar
                     self._log_with_time(
-                        f"[green]OK[/] [b]{display_name}[/b]: "
-                        + step_result.message
+                        f"[green]OK[/] [b]{display_name}[/b]: " + step_result.message
                     )
                     progress_bar.advance()
 
@@ -425,8 +405,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         self.query_exactly_one("#give_up", Button).display = False
 
         all_upload_ok = all(
-            w.state == WorkerState.SUCCESS
-            for w in self.upload_workers.values()
+            w.state == WorkerState.SUCCESS for w in self.upload_workers.values()
         )
         if is_prod() and all_upload_ok:
             # only cleanup if everything was uploaded
@@ -441,8 +420,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         if not all_upload_ok and self.attachment_dir.exists():
             if is_snap():
                 attachment_dir = (
-                    "/tmp/snap-private-tmp/snap.bugit-v2/tmp"
-                    / self.attachment_dir
+                    "/tmp/snap-private-tmp/snap.bugit-v2/tmp" / self.attachment_dir
                 )
             else:
                 attachment_dir = self.attachment_dir
@@ -463,9 +441,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         if event.worker.state == WorkerState.CANCELLED:
-            self._log_with_time(
-                f"[yellow]{event.worker.name} was cancelled[/]"
-            )
+            self._log_with_time(f"[yellow]{event.worker.name} was cancelled[/]")
 
         if self.finished:
             # don't do the following callbacks if finished
@@ -510,8 +486,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                 yield Label("Submission Progress", classes="mr1")
                 yield ProgressBar(
                     total=self.submitter.steps
-                    + len(self.bug_report.logs_to_include)
-                    * 2,  # collect + upload
+                    + len(self.bug_report.logs_to_include) * 2,  # collect + upload
                     id="progress",
                     show_eta=False,
                 )
@@ -531,9 +506,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                 )
 
         with VerticalGroup(classes="db"):
-            with VerticalGroup(
-                classes="w100 ha center tbm1", id="menu_after_finish"
-            ):
+            with VerticalGroup(classes="w100 ha center tbm1", id="menu_after_finish"):
                 yield Center(Label(classes="wa", id="finish_message"))
                 with Center():
                     with HorizontalGroup(classes="wa center"):
@@ -543,13 +516,9 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                                 classes="mr1",
                                 id="session",
                             )
-                            yield Button(
-                                "Select another job", classes="mr1", id="job"
-                            )
+                            yield Button("Select another job", classes="mr1", id="job")
                         if self.bug_report.checkbox_submission:
-                            yield Button(
-                                "Select another job", classes="mr1", id="job"
-                            )
+                            yield Button("Select another job", classes="mr1", id="job")
                         yield Button("Quit", id="quit")
 
             yield Footer()
@@ -587,9 +556,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     ConfirmScreen[ReturnScreenChoice](
                         "Got the following error during submission",
                         sub_prompt=f"[red]{event.worker.error}",
-                        choices=(
-                            ("Return to Report Editor", "report_editor"),
-                        ),
+                        choices=(("Return to Report Editor", "report_editor"),),
                         focus_id_on_mount="report_editor",
                     ),
                     dismiss_wrapper,

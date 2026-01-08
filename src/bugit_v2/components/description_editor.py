@@ -117,9 +117,7 @@ class DescriptionEditor(Widget):
         btn = self.query_exactly_one("#show_line_numbers_toggle", Button)
         text_area.show_line_numbers = not text_area.show_line_numbers
         btn.label = (
-            "Hide Line Numbers"
-            if text_area.show_line_numbers
-            else "Show Line Numbers"
+            "Hide Line Numbers" if text_area.show_line_numbers else "Show Line Numbers"
         )
 
     @on(Button.Pressed, "#save_as_text_file")
@@ -130,9 +128,7 @@ class DescriptionEditor(Widget):
 
         try:
             timestamp = (
-                datetime.datetime.now()
-                .isoformat(timespec="seconds")
-                .replace(":", ".")
+                datetime.datetime.now().isoformat(timespec="seconds").replace(":", ".")
             )  # this produces a checkbox-style timestamp
             file_path = Path(os.curdir) / f"bug-description-{timestamp}.txt"
             with open(file_path, "w") as file:
