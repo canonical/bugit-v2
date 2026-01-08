@@ -5,7 +5,10 @@
 - Subcommand `visual-config` to save user color theme preference
 - Subcommand `dut-info` to set DUT info reusable by the main bugit program
 - Ability to give up log collection if there's any running log collector
+  - Use the `Give Up` button during submission to cancel all running collectors and immediately start uploading whatever was collected
 - Ability to detect certification status of the current test case
+- Asynchronous execution of all subprocesses
+
 
 ## Fixed
 
@@ -13,11 +16,15 @@
 - Missing snap-debug.sh file in pipx version
 - list-sessions crashing when there's an invalid session
 - "Return to Editor" button not immediately returning to the editor
+- Unable to open bugs when stdout/stderr of the job output is way too long.
+  - Logs are now put into files if they are longer than 10k characters
+- Issue where empty log files were rejected by jira
 
 ## Changed
 
 - Autosave timer has been changed to 0.5s to save more frequently
 - Upgraded textual to v7
+- Word wrapping in submission progress screen's log window
 
 # 0.2.6
 
