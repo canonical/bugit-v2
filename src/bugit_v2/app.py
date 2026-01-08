@@ -12,6 +12,7 @@ from textual.binding import Binding
 from textual.containers import Center
 from textual.content import Content
 from textual.driver import Driver
+from textual.logging import TextualHandler
 from textual.reactive import var
 from textual.types import CSSPathType
 from textual.widgets import Label
@@ -54,8 +55,13 @@ if is_snap() and is_prod():
         level=logging.INFO,
         handlers=[journald_handler],
     )
-    logger = logging.getLogger(__name__)
-    logger.info("bugit journal logger init!")
+else:
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[TextualHandler()],
+    )
+
+logger = logging.getLogger(__name__)
 
 
 cli_app = typer.Typer(
@@ -127,7 +133,6 @@ class BugitApp(App[None]):
         ansi_color: bool = False,
     ):
         super().__init__(driver_class, css_path, watch_css, ansi_color)
-        self.log.info("init")
         self.args = args
 
         match args.submitter:
@@ -194,6 +199,7 @@ class BugitApp(App[None]):
     @override
     def _handle_exception(self, error: Exception) -> None:
         if is_prod() or is_snap():
+            logger.fatal(error)
             raise SystemExit(error)
         else:
             # don't use pretty exception in prod, it shows local vars

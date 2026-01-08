@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Mapping
 from typing import Final, Literal, cast, final
 
@@ -37,6 +38,8 @@ from bugit_v2.models.bug_report import (
     pretty_issue_file_times,
 )
 from bugit_v2.utils.constants import NullSelection
+
+logger = logging.getLogger(__name__)
 
 
 class ValidSpaceSeparatedTags(Validator):
@@ -475,7 +478,7 @@ class ReopenBugEditorScreen(Screen[PartialBugReport]):
             elem = self.query_exactly_one(f"#{elem_id}")
 
             if not hasattr(self.existing_report, elem_id):
-                self.log.warning(f"No such attribute in BugReport: {elem_id}")
+                logger.warning(f"No such attribute in BugReport: {elem_id}")
                 continue
 
             match elem:

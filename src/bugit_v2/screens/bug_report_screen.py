@@ -1,5 +1,6 @@
 import enum
 import json
+import logging
 import uuid
 from collections.abc import Mapping
 from dataclasses import asdict
@@ -72,6 +73,8 @@ from bugit_v2.utils.constants import (
     VENDOR_MAP,
     NullSelection,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class WorkerName(enum.StrEnum):
@@ -553,7 +556,7 @@ class BugReportScreen(Screen[BugReport]):
             try:
                 selection_list.remove_option("checkbox-submission")
             except OptionDoesNotExist:
-                self.log.warning("checkbox-submission collector doesn't exist")
+                logger.warning("checkbox-submission collector doesn't exist")
         # TODO: select the severity button automatically when using a submission
 
     @work
@@ -632,7 +635,7 @@ class BugReportScreen(Screen[BugReport]):
                     json.dump(d, f)
                 label.update("[green]Progress Saved")
             except Exception as e:
-                self.log.error(repr(e))
+                logger.error(repr(e))
                 label.update(f"[red]Autosave failed! {escape_markup(repr(e)[:20])}")
 
         # run auto save 0.5 seconds after the user stops typing
@@ -713,7 +716,7 @@ class BugReportScreen(Screen[BugReport]):
                     # disable the nvidia log collector if there's no nvidia card
                     log_selection_list.remove_option("nvidia-bug-report")
             except OptionDoesNotExist:
-                self.log.warning("nvidia-bug-report collector doesn't exist")
+                logger.warning("nvidia-bug-report collector doesn't exist")
 
         else:
             log_selection_list = cast(
@@ -729,7 +732,7 @@ class BugReportScreen(Screen[BugReport]):
                 else:
                     log_selection_list.remove_option("nvidia-bug-report")
             except OptionDoesNotExist:
-                self.log.warning("nvidia-bug-report collector doesn't exist")
+                logger.warning("nvidia-bug-report collector doesn't exist")
 
             # still put these in
             self.initial_report["Additional Information"] = "\n".join(
@@ -884,7 +887,7 @@ class BugReportScreen(Screen[BugReport]):
             elem = self.query_exactly_one(f"#{elem_id}")
 
             if not hasattr(self.existing_report, elem_id):
-                self.log.warning(f"No such attribute in BugReport: {elem_id}")
+                logger.warning(f"No such attribute in BugReport: {elem_id}")
                 continue
 
             match elem:
@@ -928,7 +931,7 @@ class BugReportScreen(Screen[BugReport]):
                             elem.select(elem.get_option(v))
                             # cast(SelectionList[str], elem).select(str(v))
                         except OptionDoesNotExist:
-                            self.log.warning("Ignoring option", v)
+                            logger.warning("Ignoring option", v)
                 case _:
                     pass
 

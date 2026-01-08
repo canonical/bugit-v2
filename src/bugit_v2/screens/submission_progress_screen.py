@@ -1,4 +1,5 @@
 import enum
+import logging
 import shutil
 import time
 from pathlib import Path
@@ -26,6 +27,8 @@ from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import BugReport, LogName, PartialBugReport
 from bugit_v2.utils import is_prod, is_snap
+
+logger = logging.getLogger(__name__)
 
 ReturnScreenChoice = Literal["job", "session", "quit", "report_editor"]
 RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = ReturnScreenChoice.__args__
@@ -364,36 +367,36 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
               can likely just run the collector again
         """
         if self.bug_creation_worker is None:
-            self.log.info("No bug creation worker")
+            logger.debug("No bug creation worker")
             return False
         if self.bug_creation_worker.state != WorkerState.SUCCESS:
-            self.log.info("Bug creation worker not done")
+            logger.debug("Bug creation worker not done")
             return False
         if not all(w.is_finished for w in self.attachment_workers.values()):
-            self.log.info("Some attachment collectors are still running")
+            logger.debug("Some attachment collectors are still running")
             return False
         if not all(w.is_finished for w in self.upload_workers.values()):
-            self.log.info("Some attachment upload-ers are still running")
+            logger.debug("Some attachment upload-ers are still running")
             return False
 
         return True
 
     def _ready_to_upload_attachments(self) -> bool:
         if self.bug_creation_worker is None:
-            self.log.error("No bug creation worker, logic error")
+            logger.error("No bug creation worker, logic error")
             return False
         if self.bug_creation_worker.state != WorkerState.SUCCESS:
-            self.log.warning(
+            logger.warning(
                 f"Bug creation worker hasn't finished: {self.bug_creation_worker.state}"
             )
             return False
 
         if any(w.is_running for w in self.upload_workers.values()):
-            self.log.warning("An upload worker is already running")
+            logger.warning("An upload worker is already running")
             return False
 
         if not all(w.is_finished for w in self.attachment_workers.values()):
-            self.log.warning("Some attachment workers are not done")
+            logger.warning("Some attachment workers are not done")
             return False
 
         return True
@@ -525,7 +528,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
     def _log_with_time(self, msg: str):
         if self.log_widget is None:
-            self.log.warning("Uninitialized log widget")
+            logger.warning("Uninitialized log widget")
             return
         # 999 seconds is about 2 hours
         # should be enough digits
@@ -551,7 +554,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                     self.dismiss("report_editor")
                     return None
 
-                self.log.warning("pushing confirm screen")
+                logger.warning("pushing confirm screen")
                 self.app.push_screen(
                     ConfirmScreen[ReturnScreenChoice](
                         "Got the following error during submission",
