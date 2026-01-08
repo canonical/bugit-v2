@@ -13,17 +13,15 @@ version: "0.2.7"
 confinement: devmode # required for ubuntu core to collect logs
 license: GPL-3.0+
 
-# cross build no longer works with core 24
-# https://forum.snapcraft.io/t/launchpad-and-core24-platforms/46056
 platforms:
   amd64:
     build-on: [amd64]
     build-for: [amd64]
   arm64:
-    build-on: [arm64]
+    build-on: [amd64]
     build-for: [arm64]
   armhf:
-    build-on: [armhf]
+    build-on: [amd64]
     build-for: [armhf]
 
 environment:
