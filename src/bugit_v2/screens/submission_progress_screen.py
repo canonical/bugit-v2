@@ -58,6 +58,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
     attachment_dir: Path
     log_widget: RichLog | None = None  # late init in on_mount
+    upload_attempted = False
 
     submitter: Final[BugReportSubmitter[TAuth, TReturn]]
 
@@ -378,6 +379,9 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             - errors are ok, just report them in the log window since the user
               can likely just run the collector again
         """
+        if not self.upload_attempted:
+            logger.debug("Attachment upload hasn't been attempted")
+            return False
         if self.bug_creation_worker is None:
             logger.debug("No bug creation worker")
             return False
@@ -589,7 +593,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             )
 
         match event.worker.state:
-            case WorkerState.SUCCESS:
+            case WorkerState.SUCCESS | WorkerState.CANCELLED:
                 if self._ready_to_upload_attachments():
                     self._launch_upload_workers()
             case WorkerState.ERROR:
@@ -609,6 +613,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             self.start_parallel_attachment_upload()
         else:
             self.start_sequential_attachment_upload()
+        self.upload_attempted = True
 
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
         progress_bar.total = (
