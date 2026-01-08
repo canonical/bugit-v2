@@ -75,6 +75,21 @@ class WorkerName(enum.StrEnum):
     GET_STANDARD_INFO = enum.auto()
 
 
+class BugReportElemId(enum.StrEnum):
+    TITLE = "title"
+    DESCRIPTION = "description"
+    ISSUE_FILE_TIME = "issue_file_time"
+    PLATFORM_TAGS = "platform_tags"
+    ASSIGNEE = "assignee"
+    SEVERITY = "severity"
+    PROJECT = "project"
+    ADDITIONAL_TAGS = "additional_tags"
+    LOGS_TO_INCLUDE = "logs_to_include"
+    LP_STATUS = "status"
+    IMPACTED_FEATURES = "impacted_features"
+    IMPACTED_VENDORS = "impacted_vendors"
+
+
 class ValidSpaceSeparatedTags(Validator):
     @override
     def validate(self, value: str) -> ValidationResult:
@@ -126,7 +141,7 @@ class BugReportScreen(Screen[BugReport]):
     # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
     # id should match the property name in the BugReport object
     # TODO: rename this, it does more than just holding titles now
-    elem_id_to_border_title: Final[Mapping[str, tuple[str, str]]]
+    elem_id_to_border_title: Final[Mapping[BugReportElemId, tuple[str, str]]]
     # Is the device where bugit is running on the one we want to open bugs for?
     dut_is_report_target: Final[bool]
 
@@ -179,7 +194,11 @@ class BugReportScreen(Screen[BugReport]):
     # inputs that have validators
     # the keys should appear in elem_id_to_border_title
     validation_status = var(
-        {"title": False, "platform_tags": True, "project": False}
+        {
+            BugReportElemId.TITLE: False,
+            BugReportElemId.PLATFORM_TAGS: True,
+            BugReportElemId.PROJECT: False,
+        }
     )
 
     def __init__(
@@ -213,27 +232,30 @@ class BugReportScreen(Screen[BugReport]):
             self.report_id = uuid.uuid4()
 
         self.elem_id_to_border_title = {
-            "title": (
+            BugReportElemId.TITLE: (
                 "[b]Bug Title",
                 f"This is the title in {'Jira' if app_args.submitter == 'jira' else 'Launchpad'}",
             ),
-            "description": (
+            BugReportElemId.DESCRIPTION: (
                 "[b]Bug Description",
                 "Include all the details :)",
             ),
-            "issue_file_time": ("[b]When was this issue filed?", ""),
-            "platform_tags": ("[b]Platform Tags", ""),
-            "assignee": ("[b]Assignee", ""),
-            "severity": ("[b]How bad is it?", ""),
-            "project": ("[b]Project Name", ""),
-            "additional_tags": ("[b]Additional Tags", ""),
-            "logs_to_include": (
+            BugReportElemId.ISSUE_FILE_TIME: (
+                "[b]When was this issue filed?",
+                "",
+            ),
+            BugReportElemId.PLATFORM_TAGS: ("[b]Platform Tags", ""),
+            BugReportElemId.ASSIGNEE: ("[b]Assignee", ""),
+            BugReportElemId.SEVERITY: ("[b]How bad is it?", ""),
+            BugReportElemId.PROJECT: ("[b]Project Name", ""),
+            BugReportElemId.ADDITIONAL_TAGS: ("[b]Additional Tags", ""),
+            BugReportElemId.LOGS_TO_INCLUDE: (
                 "[b]Select some logs to include",
                 "Green = Selected",
             ),
-            "status": ("[b]Bug status on Launchpad", ""),
-            "impacted_features": ("[b]Impacted Features", ""),
-            "impacted_vendors": ("[b]Impacted Vendors", ""),
+            BugReportElemId.LP_STATUS: ("[b]Bug status on Launchpad", ""),
+            BugReportElemId.IMPACTED_FEATURES: ("[b]Impacted Features", ""),
+            BugReportElemId.IMPACTED_VENDORS: ("[b]Impacted Vendors", ""),
         }
 
         self.initial_report = {
@@ -580,14 +602,15 @@ class BugReportScreen(Screen[BugReport]):
     def show_invalid_reasons(self, event: Input.Changed) -> None:
         # dev time check, shouldn't happen in prod
         # this will immediately panic when typing inside a textbox if it's None
-        assert event.input.id
+        # also makes the type checker happy
+        elem_id = BugReportElemId(event.input.id)
 
         if event.validation_result is None:
             return
 
         if event.validation_result.is_valid:
             event.input.border_subtitle = self.elem_id_to_border_title.get(
-                event.input.id, ("", "")
+                elem_id, ("", "")
             )[1]
 
         else:
@@ -597,7 +620,7 @@ class BugReportScreen(Screen[BugReport]):
 
         self.validation_status = {
             **self.validation_status,
-            event.input.id: event.validation_result.is_valid,
+            elem_id: event.validation_result.is_valid,
         }
 
     @on(Input.Changed)
@@ -782,13 +805,13 @@ class BugReportScreen(Screen[BugReport]):
 
     def _build_bug_report(self) -> BugReport:
         selected_severity_button = self.query_exactly_one(
-            "#severity", RadioSet
+            f"#{BugReportElemId.SEVERITY}", RadioSet
         ).pressed_button
         selected_issue_file_time_button = self.query_exactly_one(
-            "#issue_file_time", RadioSet
+            f"#{BugReportElemId.ISSUE_FILE_TIME}", RadioSet
         ).pressed_button
         selected_status_button = self.query_exactly_one(
-            "#status", RadioSet
+            f"#{BugReportElemId.LP_STATUS}", RadioSet
         ).pressed_button
 
         # shouldn't fail at runtime, major logic error if they do
@@ -801,7 +824,9 @@ class BugReportScreen(Screen[BugReport]):
 
         return BugReport(
             report_id=self.report_id,
-            title=self.query_exactly_one("#title", Input).value.strip(),
+            title=self.query_exactly_one(
+                f"#{BugReportElemId.TITLE}", Input
+            ).value.strip(),
             checkbox_session=(
                 None
                 if self.session is NullSelection.NO_SESSION
@@ -815,48 +840,58 @@ class BugReportScreen(Screen[BugReport]):
             ),
             job_id=self.job_id if type(self.job_id) is str else None,
             description=self.query_exactly_one(
-                "#description", DescriptionEditor
+                f"#{BugReportElemId.DESCRIPTION}", DescriptionEditor
             ).text.strip(),
-            assignee=self.query_exactly_one("#assignee", Input).value.strip(),
-            project=self.query_exactly_one("#project", Input).value.strip(),
+            assignee=self.query_exactly_one(
+                f"#{BugReportElemId.ASSIGNEE}", Input
+            ).value.strip(),
+            project=self.query_exactly_one(
+                f"#{BugReportElemId.PROJECT}", Input
+            ).value.strip(),
             severity=selected_severity_button.name,
             status=selected_status_button.name,
             issue_file_time=selected_issue_file_time_button.name,
-            additional_tags=self.query_exactly_one("#additional_tags", Input)
+            additional_tags=self.query_exactly_one(
+                f"#{BugReportElemId.ADDITIONAL_TAGS}", Input
+            )
             .value.strip()
             .split(),
-            platform_tags=self.query_exactly_one("#platform_tags", Input)
+            platform_tags=self.query_exactly_one(
+                f"#{BugReportElemId.PLATFORM_TAGS}", Input
+            )
             .value.strip()
             .split(),
             impacted_features=self.query_exactly_one(
-                "#impacted_features", SelectionWithPreview
+                f"#{BugReportElemId.IMPACTED_FEATURES}", SelectionWithPreview
             ).selected_values,
             impacted_vendors=self.query_exactly_one(
-                "#impacted_vendors", SelectionWithPreview
+                f"#{BugReportElemId.IMPACTED_VENDORS}", SelectionWithPreview
             ).selected_values,
             logs_to_include=cast(
                 SelectionList[LogName],
-                self.query_exactly_one("#logs_to_include", SelectionList),
+                self.query_exactly_one(
+                    f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
+                ),
             ).selected,
         )
 
     def _prefill_with_app_args(self):
         if self.app_args.assignee:
-            self.query_exactly_one("#assignee", Input).value = (
-                self.app_args.assignee
-            )
+            self.query_exactly_one(
+                f"#{BugReportElemId.ASSIGNEE}", Input
+            ).value = self.app_args.assignee
         if self.app_args.project:
-            self.query_exactly_one("#project", Input).value = (
-                self.app_args.project
-            )
+            self.query_exactly_one(
+                f"#{BugReportElemId.PROJECT}", Input
+            ).value = self.app_args.project
         if len(self.app_args.platform_tags) > 0:
-            self.query_exactly_one("#platform_tags", Input).value = " ".join(
-                self.app_args.platform_tags
-            )
+            self.query_exactly_one(
+                f"#{BugReportElemId.PLATFORM_TAGS}", Input
+            ).value = " ".join(self.app_args.platform_tags)
         if len(self.app_args.tags) > 0:
-            self.query_exactly_one("#additional_tags", Input).value = " ".join(
-                self.app_args.tags
-            )
+            self.query_exactly_one(
+                f"#{BugReportElemId.ADDITIONAL_TAGS}", Input
+            ).value = " ".join(self.app_args.tags)
 
     def _restore_existing_report(self):
         if not self.existing_report:
