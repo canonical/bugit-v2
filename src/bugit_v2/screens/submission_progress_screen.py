@@ -234,7 +234,11 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
 
             def upload_one(f: Path):
                 try:
-                    assert f.stat().st_size > 0, f"{f} is an empty file. Skipping."
+                    if f.stat().st_size == 0:
+                        self._log_with_time(
+                            f"[orange]WARN[/] {f} is an empty file. Skipping"
+                        )
+                        return
 
                     rv = self.submitter.upload_attachment(f)
 
@@ -273,7 +277,11 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             failed_attachments: list[str] = []
             for f in self.attachment_dir.iterdir():
                 try:
-                    assert f.stat().st_size > 0, f"{f} is an empty file. Skipping"
+                    if f.stat().st_size == 0:
+                        self._log_with_time(
+                            f"[orange_red1]WARN[/] {f} is an empty file. Skipping"
+                        )
+                        continue
 
                     self._log_with_time(f"Uploading: {f}")
                     rv = self.submitter.upload_attachment(f)
