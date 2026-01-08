@@ -563,7 +563,10 @@ class BugReportScreen(Screen[BugReport]):
                     f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
                 ),
             )
-            selection_list.remove_option("checkbox-submission")
+            try:
+                selection_list.remove_option("checkbox-submission")
+            except OptionDoesNotExist:
+                self.log.warning("checkbox-submission collector doesn't exist")
         # TODO: select the severity button automatically when using a submission
 
     @work
@@ -716,16 +719,19 @@ class BugReportScreen(Screen[BugReport]):
                 ),
             )
             # do not directly query the option by id, they don't exist in the DOM
-            if (
-                "NVIDIA" in machine_info["GPU"]
-                and NVIDIA_BUG_REPORT_PATH.exists()
-            ):
-                # include nvidia logs by default IF we actually have it
-                log_selection_list.enable_option("nvidia-bug-report")
-                log_selection_list.select("nvidia-bug-report")
-            else:
-                # disable the nvidia log collector if there's no nvidia card
-                log_selection_list.remove_option("nvidia-bug-report")
+            try:
+                if (
+                    "NVIDIA" in machine_info["GPU"]
+                    and NVIDIA_BUG_REPORT_PATH.exists()
+                ):
+                    # include nvidia logs by default IF we actually have it
+                    log_selection_list.enable_option("nvidia-bug-report")
+                    log_selection_list.select("nvidia-bug-report")
+                else:
+                    # disable the nvidia log collector if there's no nvidia card
+                    log_selection_list.remove_option("nvidia-bug-report")
+            except OptionDoesNotExist:
+                self.log.warning("nvidia-bug-report collector doesn't exist")
 
         else:
             log_selection_list = cast(
@@ -734,10 +740,14 @@ class BugReportScreen(Screen[BugReport]):
                     f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
                 ),
             )
-            if NVIDIA_BUG_REPORT_PATH.exists():
-                log_selection_list.enable_option("nvidia-bug-report")
-            else:
-                log_selection_list.remove_option("nvidia-bug-report")
+
+            try:
+                if NVIDIA_BUG_REPORT_PATH.exists():
+                    log_selection_list.enable_option("nvidia-bug-report")
+                else:
+                    log_selection_list.remove_option("nvidia-bug-report")
+            except OptionDoesNotExist:
+                self.log.warning("nvidia-bug-report collector doesn't exist")
 
             # still put these in
             self.initial_report["Additional Information"] = "\n".join(
