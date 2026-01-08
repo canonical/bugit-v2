@@ -236,7 +236,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
                 try:
                     if f.stat().st_size == 0:
                         self._log_with_time(
-                            f"[orange]WARN[/] {f} is an empty file. Skipping"
+                            f"[orange_red1]WARN[/] {f} is an empty file. Skipping"
                         )
                         return
 
