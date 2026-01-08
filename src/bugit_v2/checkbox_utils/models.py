@@ -60,3 +60,10 @@ class SimpleCheckboxSubmission:
         for result in self.base.results:
             if result.full_id == full_job_id:
                 return result.io_log
+
+    def get_job_cert_status(
+        self, full_job_id: str
+    ) -> CertificationStatus | None:
+        for result in self.base.results:
+            if result.full_id == full_job_id:
+                return result.certification_status

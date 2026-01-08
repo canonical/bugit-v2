@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 from typing import final, override
@@ -334,6 +335,9 @@ def launchpad_mode(
     cbs = checkbox_submission_check(checkbox_submission)
     saved_dut_info = get_saved_dut_info() or DutInfo()  # all none
 
+    print("Waiting for checkbox...")
+    asyncio.run(get_checkbox_info())  # populate cache
+
     BugitApp(
         AppArgs(
             submitter="lp",
@@ -449,6 +453,9 @@ def jira_mode(
 
     cbs = checkbox_submission_check(checkbox_submission)
     saved_dut_info = get_saved_dut_info() or DutInfo()  # all none
+
+    print("Waiting for checkbox...")
+    asyncio.run(get_checkbox_info())  # populate cache
 
     BugitApp(
         # reopen is disabled for now

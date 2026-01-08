@@ -40,7 +40,11 @@ from bugit_v2.checkbox_utils.get_cert_status import (
     TestCaseWithCertStatus,
     get_certification_status,
 )
-from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
+from bugit_v2.checkbox_utils.models import (
+    CERT_STATUSES,
+    CertificationStatus,
+    SimpleCheckboxSubmission,
+)
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.description_editor import DescriptionEditor
 from bugit_v2.components.header import SimpleHeader
@@ -73,6 +77,22 @@ from bugit_v2.utils.constants import (
 class WorkerName(enum.StrEnum):
     GET_CERT_STATUS = enum.auto()
     GET_STANDARD_INFO = enum.auto()
+    SUBMISSION_CERT_STATUS = enum.auto()
+
+
+class BugReportElemId(enum.StrEnum):
+    TITLE = "title"
+    DESCRIPTION = "description"
+    ISSUE_FILE_TIME = "issue_file_time"
+    PLATFORM_TAGS = "platform_tags"
+    ASSIGNEE = "assignee"
+    SEVERITY = "severity"
+    PROJECT = "project"
+    ADDITIONAL_TAGS = "additional_tags"
+    LOGS_TO_INCLUDE = "logs_to_include"
+    LP_STATUS = "status"
+    IMPACTED_FEATURES = "impacted_features"
+    IMPACTED_VENDORS = "impacted_vendors"
 
 
 class ValidSpaceSeparatedTags(Validator):
@@ -126,7 +146,7 @@ class BugReportScreen(Screen[BugReport]):
     # ELEM_ID_TO_BORDER_TITLE[id] = (title, subtitle)
     # id should match the property name in the BugReport object
     # TODO: rename this, it does more than just holding titles now
-    elem_id_to_border_title: Final[Mapping[str, tuple[str, str]]]
+    elem_id_to_border_title: Final[Mapping[BugReportElemId, tuple[str, str]]]
     # Is the device where bugit is running on the one we want to open bugs for?
     dut_is_report_target: Final[bool]
 
@@ -171,6 +191,7 @@ class BugReportScreen(Screen[BugReport]):
         width: 50%;
         height: 100%;
         content-align: center middle;
+        padding: 1;
     }
     """
     CSS_PATH = "styles.tcss"
@@ -178,7 +199,11 @@ class BugReportScreen(Screen[BugReport]):
     # inputs that have validators
     # the keys should appear in elem_id_to_border_title
     validation_status = var(
-        {"title": False, "platform_tags": True, "project": False}
+        {
+            BugReportElemId.TITLE: False,
+            BugReportElemId.PLATFORM_TAGS: True,
+            BugReportElemId.PROJECT: False,
+        }
     )
 
     def __init__(
@@ -212,27 +237,30 @@ class BugReportScreen(Screen[BugReport]):
             self.report_id = uuid.uuid4()
 
         self.elem_id_to_border_title = {
-            "title": (
+            BugReportElemId.TITLE: (
                 "[b]Bug Title",
                 f"This is the title in {'Jira' if app_args.submitter == 'jira' else 'Launchpad'}",
             ),
-            "description": (
+            BugReportElemId.DESCRIPTION: (
                 "[b]Bug Description",
                 "Include all the details :)",
             ),
-            "issue_file_time": ("[b]When was this issue filed?", ""),
-            "platform_tags": ("[b]Platform Tags", ""),
-            "assignee": ("[b]Assignee", ""),
-            "severity": ("[b]How bad is it?", ""),
-            "project": ("[b]Project Name", ""),
-            "additional_tags": ("[b]Additional Tags", ""),
-            "logs_to_include": (
+            BugReportElemId.ISSUE_FILE_TIME: (
+                "[b]When was this issue filed?",
+                "",
+            ),
+            BugReportElemId.PLATFORM_TAGS: ("[b]Platform Tags", ""),
+            BugReportElemId.ASSIGNEE: ("[b]Assignee", ""),
+            BugReportElemId.SEVERITY: ("[b]How bad is it?", ""),
+            BugReportElemId.PROJECT: ("[b]Project Name", ""),
+            BugReportElemId.ADDITIONAL_TAGS: ("[b]Additional Tags", ""),
+            BugReportElemId.LOGS_TO_INCLUDE: (
                 "[b]Select some logs to include",
                 "Green = Selected",
             ),
-            "status": ("[b]Bug status on Launchpad", ""),
-            "impacted_features": ("[b]Impacted Features", ""),
-            "impacted_vendors": ("[b]Impacted Vendors", ""),
+            BugReportElemId.LP_STATUS: ("[b]Bug status on Launchpad", ""),
+            BugReportElemId.IMPACTED_FEATURES: ("[b]Impacted Features", ""),
+            BugReportElemId.IMPACTED_VENDORS: ("[b]Impacted Vendors", ""),
         }
 
         self.initial_report = {
@@ -512,19 +540,30 @@ class BugReportScreen(Screen[BugReport]):
         if self.job_id is NullSelection.NO_JOB:
             self.query_exactly_one("#cert_status_box", Label).display = False
 
-        if (
-            self.session is not NullSelection.NO_SESSION
-            and self.job_id is not NullSelection.NO_JOB
-        ):
-            self.run_worker(
-                get_certification_status(
-                    self.session.testplan_id, self.session.session_path
-                ),
-                name=WorkerName.GET_CERT_STATUS,
-                exit_on_error=False,
-            )
+        else:
+            if (
+                self.checkbox_submission
+                is not NullSelection.NO_CHECKBOX_SUBMISSION
+            ):
+                self.run_worker(
+                    lambda cbs=self.checkbox_submission, jid=self.job_id: cbs.get_job_cert_status(
+                        jid
+                    ),
+                    name=WorkerName.SUBMISSION_CERT_STATUS,
+                    thread=True,
+                    exit_on_error=False,
+                )
 
-        self.query_exactly_one("#title", Input).focus()
+            elif self.session is not NullSelection.NO_SESSION:
+                self.run_worker(
+                    get_certification_status(
+                        self.session.testplan_id, self.session.session_path
+                    ),
+                    name=WorkerName.GET_CERT_STATUS,
+                    exit_on_error=False,
+                )
+
+        self.query_exactly_one(f"#{BugReportElemId.TITLE}", Input).focus()
 
         if self.existing_report is not None:
             self._restore_existing_report()
@@ -536,9 +575,14 @@ class BugReportScreen(Screen[BugReport]):
         if self.checkbox_submission is NullSelection.NO_CHECKBOX_SUBMISSION:
             selection_list = cast(
                 SelectionList[LogName],
-                self.query_exactly_one("#logs_to_include", SelectionList),
+                self.query_exactly_one(
+                    f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
+                ),
             )
-            selection_list.remove_option("checkbox-submission")
+            try:
+                selection_list.remove_option("checkbox-submission")
+            except OptionDoesNotExist:
+                self.log.warning("checkbox-submission collector doesn't exist")
         # TODO: select the severity button automatically when using a submission
 
     @work
@@ -579,14 +623,15 @@ class BugReportScreen(Screen[BugReport]):
     def show_invalid_reasons(self, event: Input.Changed) -> None:
         # dev time check, shouldn't happen in prod
         # this will immediately panic when typing inside a textbox if it's None
-        assert event.input.id
+        # also makes the type checker happy
+        elem_id = BugReportElemId(event.input.id)
 
         if event.validation_result is None:
             return
 
         if event.validation_result.is_valid:
             event.input.border_subtitle = self.elem_id_to_border_title.get(
-                event.input.id, ("", "")
+                elem_id, ("", "")
             )[1]
 
         else:
@@ -596,7 +641,7 @@ class BugReportScreen(Screen[BugReport]):
 
         self.validation_status = {
             **self.validation_status,
-            event.input.id: event.validation_result.is_valid,
+            elem_id: event.validation_result.is_valid,
         }
 
     @on(Input.Changed)
@@ -631,7 +676,7 @@ class BugReportScreen(Screen[BugReport]):
     @on(Button.Pressed, "#clear_log_selection")
     def clear_log_selection(self, _: Button.Pressed):
         self.query_exactly_one(
-            "#logs_to_include", SelectionList
+            f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
         ).deselect_all()
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
@@ -643,6 +688,8 @@ class BugReportScreen(Screen[BugReport]):
                 self._get_cert_status_worker_callback(event)
             case WorkerName.GET_STANDARD_INFO:
                 self._standard_info_worker_callback(event)
+            case WorkerName.SUBMISSION_CERT_STATUS:
+                self._get_submission_cert_status_worker_callback(event)
             case _:
                 pass
 
@@ -659,7 +706,9 @@ class BugReportScreen(Screen[BugReport]):
             event.worker.is_finished
         ), "Standard info callback invoked but the worker has not finished"
 
-        textarea = self.query_exactly_one("#description", DescriptionEditor)
+        textarea = self.query_exactly_one(
+            f"#{BugReportElemId.DESCRIPTION}", DescriptionEditor
+        )
         textarea.disabled = False  # unlock asap
 
         if event.worker.state == WorkerState.SUCCESS:
@@ -683,29 +732,40 @@ class BugReportScreen(Screen[BugReport]):
             )
             log_selection_list = cast(
                 SelectionList[LogName],
-                self.query_exactly_one("#logs_to_include", SelectionList),
+                self.query_exactly_one(
+                    f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
+                ),
             )
             # do not directly query the option by id, they don't exist in the DOM
-            if (
-                "NVIDIA" in machine_info["GPU"]
-                and NVIDIA_BUG_REPORT_PATH.exists()
-            ):
-                # include nvidia logs by default IF we actually have it
-                log_selection_list.enable_option("nvidia-bug-report")
-                log_selection_list.select("nvidia-bug-report")
-            else:
-                # disable the nvidia log collector if there's no nvidia card
-                log_selection_list.remove_option("nvidia-bug-report")
+            try:
+                if (
+                    "NVIDIA" in machine_info["GPU"]
+                    and NVIDIA_BUG_REPORT_PATH.exists()
+                ):
+                    # include nvidia logs by default IF we actually have it
+                    log_selection_list.enable_option("nvidia-bug-report")
+                    log_selection_list.select("nvidia-bug-report")
+                else:
+                    # disable the nvidia log collector if there's no nvidia card
+                    log_selection_list.remove_option("nvidia-bug-report")
+            except OptionDoesNotExist:
+                self.log.warning("nvidia-bug-report collector doesn't exist")
 
         else:
             log_selection_list = cast(
                 SelectionList[LogName],
-                self.query_exactly_one("#logs_to_include", SelectionList),
+                self.query_exactly_one(
+                    f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
+                ),
             )
-            if NVIDIA_BUG_REPORT_PATH.exists():
-                log_selection_list.enable_option("nvidia-bug-report")
-            else:
-                log_selection_list.remove_option("nvidia-bug-report")
+
+            try:
+                if NVIDIA_BUG_REPORT_PATH.exists():
+                    log_selection_list.enable_option("nvidia-bug-report")
+                else:
+                    log_selection_list.remove_option("nvidia-bug-report")
+            except OptionDoesNotExist:
+                self.log.warning("nvidia-bug-report collector doesn't exist")
 
             # still put these in
             self.initial_report["Additional Information"] = "\n".join(
@@ -750,44 +810,33 @@ class BugReportScreen(Screen[BugReport]):
             dict[str, TestCaseWithCertStatus],
             event.worker.result,
         )
-        curr_status = all_cert_statuses[self.job_id]
+        self._color_cert_status_box(all_cert_statuses[self.job_id].cert_status)
 
-        if curr_status.cert_status == "blocker":
-            cert_status_box.update(
-                "\n".join(
-                    [
-                        "[$error]Blocker[/]",
-                        "Suggested severity: Highest/Critical",
-                    ]
-                )
-            )
-            cert_status_box.styles.border = (
-                "round",
-                self.app.theme_variables["error"],
-            )
-        elif curr_status.cert_status == "non-blocker":
-            cert_status_box.update(
-                "\n".join(
-                    [
-                        "[$warning]Non-Blocker[/]",
-                        "Suggested severity: High",
-                    ]
-                )
-            )
-            cert_status_box.styles.border = (
-                "round",
-                self.app.theme_variables["warning"],
+    def _get_submission_cert_status_worker_callback(
+        self, event: Worker.StateChanged
+    ):
+        assert self.job_id is not NullSelection.NO_JOB
+        assert (
+            event.worker.is_finished
+        ), "Submission cert status callback invoked but the worker has not finished"
+
+        if event.worker.state == WorkerState.SUCCESS:
+            assert event.worker.result in CERT_STATUSES
+            self._color_cert_status_box(event.worker.result)
+        else:
+            self.query_exactly_one("#cert_status_box", Label).update(
+                "Unable to determine cert status"
             )
 
     def _build_bug_report(self) -> BugReport:
         selected_severity_button = self.query_exactly_one(
-            "#severity", RadioSet
+            f"#{BugReportElemId.SEVERITY}", RadioSet
         ).pressed_button
         selected_issue_file_time_button = self.query_exactly_one(
-            "#issue_file_time", RadioSet
+            f"#{BugReportElemId.ISSUE_FILE_TIME}", RadioSet
         ).pressed_button
         selected_status_button = self.query_exactly_one(
-            "#status", RadioSet
+            f"#{BugReportElemId.LP_STATUS}", RadioSet
         ).pressed_button
 
         # shouldn't fail at runtime, major logic error if they do
@@ -800,7 +849,9 @@ class BugReportScreen(Screen[BugReport]):
 
         return BugReport(
             report_id=self.report_id,
-            title=self.query_exactly_one("#title", Input).value.strip(),
+            title=self.query_exactly_one(
+                f"#{BugReportElemId.TITLE}", Input
+            ).value.strip(),
             checkbox_session=(
                 None
                 if self.session is NullSelection.NO_SESSION
@@ -814,48 +865,58 @@ class BugReportScreen(Screen[BugReport]):
             ),
             job_id=self.job_id if type(self.job_id) is str else None,
             description=self.query_exactly_one(
-                "#description", DescriptionEditor
+                f"#{BugReportElemId.DESCRIPTION}", DescriptionEditor
             ).text.strip(),
-            assignee=self.query_exactly_one("#assignee", Input).value.strip(),
-            project=self.query_exactly_one("#project", Input).value.strip(),
+            assignee=self.query_exactly_one(
+                f"#{BugReportElemId.ASSIGNEE}", Input
+            ).value.strip(),
+            project=self.query_exactly_one(
+                f"#{BugReportElemId.PROJECT}", Input
+            ).value.strip(),
             severity=selected_severity_button.name,
             status=selected_status_button.name,
             issue_file_time=selected_issue_file_time_button.name,
-            additional_tags=self.query_exactly_one("#additional_tags", Input)
+            additional_tags=self.query_exactly_one(
+                f"#{BugReportElemId.ADDITIONAL_TAGS}", Input
+            )
             .value.strip()
             .split(),
-            platform_tags=self.query_exactly_one("#platform_tags", Input)
+            platform_tags=self.query_exactly_one(
+                f"#{BugReportElemId.PLATFORM_TAGS}", Input
+            )
             .value.strip()
             .split(),
             impacted_features=self.query_exactly_one(
-                "#impacted_features", SelectionWithPreview
+                f"#{BugReportElemId.IMPACTED_FEATURES}", SelectionWithPreview
             ).selected_values,
             impacted_vendors=self.query_exactly_one(
-                "#impacted_vendors", SelectionWithPreview
+                f"#{BugReportElemId.IMPACTED_VENDORS}", SelectionWithPreview
             ).selected_values,
             logs_to_include=cast(
                 SelectionList[LogName],
-                self.query_exactly_one("#logs_to_include", SelectionList),
+                self.query_exactly_one(
+                    f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
+                ),
             ).selected,
         )
 
     def _prefill_with_app_args(self):
         if self.app_args.assignee:
-            self.query_exactly_one("#assignee", Input).value = (
-                self.app_args.assignee
-            )
+            self.query_exactly_one(
+                f"#{BugReportElemId.ASSIGNEE}", Input
+            ).value = self.app_args.assignee
         if self.app_args.project:
-            self.query_exactly_one("#project", Input).value = (
-                self.app_args.project
-            )
+            self.query_exactly_one(
+                f"#{BugReportElemId.PROJECT}", Input
+            ).value = self.app_args.project
         if len(self.app_args.platform_tags) > 0:
-            self.query_exactly_one("#platform_tags", Input).value = " ".join(
-                self.app_args.platform_tags
-            )
+            self.query_exactly_one(
+                f"#{BugReportElemId.PLATFORM_TAGS}", Input
+            ).value = " ".join(self.app_args.platform_tags)
         if len(self.app_args.tags) > 0:
-            self.query_exactly_one("#additional_tags", Input).value = " ".join(
-                self.app_args.tags
-            )
+            self.query_exactly_one(
+                f"#{BugReportElemId.ADDITIONAL_TAGS}", Input
+            ).value = " ".join(self.app_args.tags)
 
     def _restore_existing_report(self):
         if not self.existing_report:
@@ -930,3 +991,32 @@ class BugReportScreen(Screen[BugReport]):
             and collector.collect_by_default
             and collector.name == "checkbox-submission"
         )
+
+    def _color_cert_status_box(self, cert_status: CertificationStatus):
+        cert_status_box = self.query_exactly_one("#cert_status_box", Label)
+        if cert_status == "blocker":
+            cert_status_box.update(
+                "\n".join(
+                    [
+                        "[$error]Blocker[/]",
+                        "Suggested severity: Highest/Critical",
+                    ]
+                )
+            )
+            cert_status_box.styles.border = (
+                "round",
+                self.app.theme_variables["error"],
+            )
+        elif cert_status == "non-blocker":
+            cert_status_box.update(
+                "\n".join(
+                    [
+                        "[$warning]Non-Blocker[/]",
+                        "Suggested severity: High",
+                    ]
+                )
+            )
+            cert_status_box.styles.border = (
+                "round",
+                self.app.theme_variables["warning"],
+            )
