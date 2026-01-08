@@ -402,6 +402,9 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             logger.error("No bug creation worker, logic error")
             return False
         if self.bug_creation_worker.state != WorkerState.SUCCESS:
+            # explicitly check for success here
+            # because any failure in the bug creation worker
+            # will prompt the user to go back to the editor
             logger.debug(
                 f"Bug creation worker hasn't finished: {self.bug_creation_worker.state}"
             )
