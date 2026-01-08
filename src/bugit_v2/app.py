@@ -49,15 +49,15 @@ from bugit_v2.utils.validations import (
     sudo_devmode_check,
 )
 
-if is_snap() and is_prod():
+if is_snap():
     journald_handler = journal.JournaldLogHandler(identifier="bugit.bugit-v2")
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.INFO if is_prod() else logging.DEBUG,
         handlers=[journald_handler],
     )
 else:
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.INFO if is_prod() else logging.DEBUG,
         handlers=[TextualHandler()],
     )
 
