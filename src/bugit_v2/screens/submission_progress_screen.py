@@ -386,17 +386,17 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
             logger.error("No bug creation worker, logic error")
             return False
         if self.bug_creation_worker.state != WorkerState.SUCCESS:
-            logger.warning(
+            logger.debug(
                 f"Bug creation worker hasn't finished: {self.bug_creation_worker.state}"
             )
             return False
 
         if any(w.is_running for w in self.upload_workers.values()):
-            logger.warning("An upload worker is already running")
+            logger.debug("An upload worker is already running")
             return False
 
         if not all(w.is_finished for w in self.attachment_workers.values()):
-            logger.warning("Some attachment workers are not done")
+            logger.debug("Some attachment workers are not done")
             return False
 
         return True

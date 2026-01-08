@@ -1,9 +1,9 @@
 import configparser as cp
+import logging
 import os
 import shutil
 from pathlib import Path
 from subprocess import CalledProcessError, CompletedProcess
-from sys import stderr
 from tempfile import TemporaryDirectory
 from typing import Literal, NamedTuple
 
@@ -12,6 +12,8 @@ from async_lru import alru_cache
 from bugit_v2.utils import is_snap
 from bugit_v2.utils.async_subprocess import asp_check_output, asp_run
 from bugit_v2.utils.constants import HOST_FS
+
+logger = logging.getLogger(__name__)
 
 
 class CheckboxInfo(NamedTuple):
@@ -37,14 +39,14 @@ async def checkbox_exec(
     if checkbox_info.type == "snap" or not is_snap():
         # pipx bugit or snap checkbox
         # no need to setup anything, just run the command
-        print("normal path")
+        logger.info(f"Directly invoking checkbox at {checkbox_info.bin_path}")
         return await asp_run(
             [str(checkbox_info.bin_path), *checkbox_args],
             env=(additional_env or {}) | os.environ,
             timeout=timeout,
         )
     else:
-        print("special path")
+        logger.info("Special case, snap bugit calling deb checkbox")
         with TemporaryDirectory() as temp_dir:
             for src_file in Path(
                 "/var/lib/snapd/hostfs/usr/share/plainbox-providers-1/"
@@ -55,7 +57,7 @@ async def checkbox_exec(
 
                 for key in ("bin_dir", "data_dir", "units_dir", "jobs_dir"):
                     if key not in provider_config["PlainBox Provider"]:
-                        print("No such key", key, "in", src_file)
+                        logger.warning("No such key", key, "in", src_file)
                         continue
 
                     new_path = HOST_FS / (
@@ -64,7 +66,7 @@ async def checkbox_exec(
                     ).lstrip("/")
 
                     if not new_path.exists():
-                        print("No such path", new_path, file=stderr)
+                        logger.warning("No such path", new_path)
                         continue
 
                     provider_config["PlainBox Provider"][key] = str(new_path)
