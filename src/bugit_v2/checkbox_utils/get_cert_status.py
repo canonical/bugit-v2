@@ -110,7 +110,7 @@ async def get_certification_status(
         # list-bootstrapped always generates a new 'session'
         for extra_dir in sessions_after.difference(sessions_before):
             if extra_dir.startswith("checkbox-listing-ephemeral"):
-                logger.info("Removing checkbox-listing temp dir", extra_dir)
+                logger.info(f"Removing checkbox-listing temp dir {extra_dir}")
                 shutil.rmtree(SESSION_ROOT_DIR / extra_dir, ignore_errors=True)
                 break
     except Exception:
