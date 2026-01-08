@@ -40,7 +40,10 @@ from bugit_v2.checkbox_utils.get_cert_status import (
     TestCaseWithCertStatus,
     get_certification_status,
 )
-from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
+from bugit_v2.checkbox_utils.models import (
+    CertificationStatus,
+    SimpleCheckboxSubmission,
+)
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.description_editor import DescriptionEditor
 from bugit_v2.components.header import SimpleHeader
@@ -532,24 +535,32 @@ class BugReportScreen(Screen[BugReport]):
             exit_on_error=False,  # still allow editing
         )
 
-        if (
-            self.job_id is NullSelection.NO_JOB
-            or self.checkbox_submission
-            is not NullSelection.NO_CHECKBOX_SUBMISSION
-        ):
-            self.query_exactly_one("#cert_status_box", Label).display = False
+        cert_status_box = self.query_exactly_one("#cert_status_box", Label)
 
-        if (
-            self.session is not NullSelection.NO_SESSION
-            and self.job_id is not NullSelection.NO_JOB
-        ):
-            self.run_worker(
-                get_certification_status(
-                    self.session.testplan_id, self.session.session_path
-                ),
-                name=WorkerName.GET_CERT_STATUS,
-                exit_on_error=False,
-            )
+        if self.job_id is NullSelection.NO_JOB:
+            cert_status_box.display = False
+
+        else:
+            if (
+                self.checkbox_submission
+                is not NullSelection.NO_CHECKBOX_SUBMISSION
+            ):
+                cert_status = self.checkbox_submission.get_job_cert_status(
+                    self.job_id
+                )
+                if cert_status is None:
+                    cert_status_box.update("Unable to determine cert status")
+                else:
+                    self._color_cert_status_box(cert_status)
+
+            elif self.session is not NullSelection.NO_SESSION:
+                self.run_worker(
+                    get_certification_status(
+                        self.session.testplan_id, self.session.session_path
+                    ),
+                    name=WorkerName.GET_CERT_STATUS,
+                    exit_on_error=False,
+                )
 
         self.query_exactly_one(f"#{BugReportElemId.TITLE}", Input).focus()
 
@@ -796,34 +807,7 @@ class BugReportScreen(Screen[BugReport]):
             dict[str, TestCaseWithCertStatus],
             event.worker.result,
         )
-        curr_status = all_cert_statuses[self.job_id]
-
-        if curr_status.cert_status == "blocker":
-            cert_status_box.update(
-                "\n".join(
-                    [
-                        "[$error]Blocker[/]",
-                        "Suggested severity: Highest/Critical",
-                    ]
-                )
-            )
-            cert_status_box.styles.border = (
-                "round",
-                self.app.theme_variables["error"],
-            )
-        elif curr_status.cert_status == "non-blocker":
-            cert_status_box.update(
-                "\n".join(
-                    [
-                        "[$warning]Non-Blocker[/]",
-                        "Suggested severity: High",
-                    ]
-                )
-            )
-            cert_status_box.styles.border = (
-                "round",
-                self.app.theme_variables["warning"],
-            )
+        self._color_cert_status_box(all_cert_statuses[self.job_id].cert_status)
 
     def _build_bug_report(self) -> BugReport:
         selected_severity_button = self.query_exactly_one(
@@ -988,3 +972,32 @@ class BugReportScreen(Screen[BugReport]):
             and collector.collect_by_default
             and collector.name == "checkbox-submission"
         )
+
+    def _color_cert_status_box(self, cert_status: CertificationStatus):
+        cert_status_box = self.query_exactly_one("#cert_status_box", Label)
+        if cert_status == "blocker":
+            cert_status_box.update(
+                "\n".join(
+                    [
+                        "[$error]Blocker[/]",
+                        "Suggested severity: Highest/Critical",
+                    ]
+                )
+            )
+            cert_status_box.styles.border = (
+                "round",
+                self.app.theme_variables["error"],
+            )
+        elif cert_status == "non-blocker":
+            cert_status_box.update(
+                "\n".join(
+                    [
+                        "[$warning]Non-Blocker[/]",
+                        "Suggested severity: High",
+                    ]
+                )
+            )
+            cert_status_box.styles.border = (
+                "round",
+                self.app.theme_variables["warning"],
+            )
