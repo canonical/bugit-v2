@@ -1,9 +1,11 @@
 import asyncio
 import json
+import logging
 from pathlib import Path
 from typing import final, override
 
 import typer
+from cysystemd import journal
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -45,6 +47,16 @@ from bugit_v2.utils.validations import (
     is_cid,
     sudo_devmode_check,
 )
+
+if is_snap() and is_prod():
+    journald_handler = journal.JournaldLogHandler(identifier="bugit.bugit-v2")
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[journald_handler],
+    )
+    logger = logging.getLogger(__name__)
+    logger.info("bugit journal logger init!")
+
 
 cli_app = typer.Typer(
     help="Bugit is a tool for creating bug reports on Launchpad and Jira",
@@ -115,7 +127,7 @@ class BugitApp(App[None]):
         ansi_color: bool = False,
     ):
         super().__init__(driver_class, css_path, watch_css, ansi_color)
-
+        self.log.info("init")
         self.args = args
 
         match args.submitter:
