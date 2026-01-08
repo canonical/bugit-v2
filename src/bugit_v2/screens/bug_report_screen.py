@@ -171,6 +171,7 @@ class BugReportScreen(Screen[BugReport]):
         width: 50%;
         height: 100%;
         content-align: center middle;
+        padding: 1;
     }
     """
     CSS_PATH = "styles.tcss"
