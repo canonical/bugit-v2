@@ -18,7 +18,7 @@
 - "Return to Editor" button not immediately returning to the editor
 - Unable to open bugs when stdout/stderr of the job output is way too long.
   - Logs are now put into files if they are longer than 10k characters
-- Issue where empty log files was rejected by jira
+- Issue where empty log files were rejected by jira
 
 ## Changed
 
