@@ -41,6 +41,7 @@ from bugit_v2.checkbox_utils.get_cert_status import (
     get_certification_status,
 )
 from bugit_v2.checkbox_utils.models import (
+    CERT_STATUSES,
     CertificationStatus,
     SimpleCheckboxSubmission,
 )
@@ -76,6 +77,7 @@ from bugit_v2.utils.constants import (
 class WorkerName(enum.StrEnum):
     GET_CERT_STATUS = enum.auto()
     GET_STANDARD_INFO = enum.auto()
+    SUBMISSION_CERT_STATUS = enum.auto()
 
 
 class BugReportElemId(enum.StrEnum):
@@ -535,23 +537,22 @@ class BugReportScreen(Screen[BugReport]):
             exit_on_error=False,  # still allow editing
         )
 
-        cert_status_box = self.query_exactly_one("#cert_status_box", Label)
-
         if self.job_id is NullSelection.NO_JOB:
-            cert_status_box.display = False
+            self.query_exactly_one("#cert_status_box", Label).display = False
 
         else:
             if (
                 self.checkbox_submission
                 is not NullSelection.NO_CHECKBOX_SUBMISSION
             ):
-                cert_status = self.checkbox_submission.get_job_cert_status(
-                    self.job_id
+                self.run_worker(
+                    lambda cbs=self.checkbox_submission, jid=self.job_id: cbs.get_job_cert_status(
+                        jid
+                    ),
+                    name=WorkerName.SUBMISSION_CERT_STATUS,
+                    thread=True,
+                    exit_on_error=False,
                 )
-                if cert_status is None:
-                    cert_status_box.update("Unable to determine cert status")
-                else:
-                    self._color_cert_status_box(cert_status)
 
             elif self.session is not NullSelection.NO_SESSION:
                 self.run_worker(
@@ -687,6 +688,8 @@ class BugReportScreen(Screen[BugReport]):
                 self._get_cert_status_worker_callback(event)
             case WorkerName.GET_STANDARD_INFO:
                 self._standard_info_worker_callback(event)
+            case WorkerName.SUBMISSION_CERT_STATUS:
+                self._get_submission_cert_status_worker_callback(event)
             case _:
                 pass
 
@@ -808,6 +811,22 @@ class BugReportScreen(Screen[BugReport]):
             event.worker.result,
         )
         self._color_cert_status_box(all_cert_statuses[self.job_id].cert_status)
+
+    def _get_submission_cert_status_worker_callback(
+        self, event: Worker.StateChanged
+    ):
+        assert self.job_id is not NullSelection.NO_JOB
+        assert (
+            event.worker.is_finished
+        ), "Submission cert status callback invoked but the worker has not finished"
+
+        if event.worker.state == WorkerState.SUCCESS:
+            assert event.worker.result in CERT_STATUSES
+            self._color_cert_status_box(event.worker.result)
+        else:
+            self.query_exactly_one("#cert_status_box", Label).update(
+                "Unable to determine cert status"
+            )
 
     def _build_bug_report(self) -> BugReport:
         selected_severity_button = self.query_exactly_one(
