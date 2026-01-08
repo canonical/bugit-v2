@@ -532,7 +532,11 @@ class BugReportScreen(Screen[BugReport]):
             exit_on_error=False,  # still allow editing
         )
 
-        if self.job_id is NullSelection.NO_JOB:
+        if (
+            self.job_id is NullSelection.NO_JOB
+            or self.checkbox_submission
+            is not NullSelection.NO_CHECKBOX_SUBMISSION
+        ):
             self.query_exactly_one("#cert_status_box", Label).display = False
 
         if (
