@@ -1,15 +1,15 @@
 import base64
 import gzip
 import json
+import logging
 import os
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Final, TypedDict, cast, final
-
-from typing_extensions import override
+from typing import Any, Final, TypedDict, cast, final, override
 
 from bugit_v2.checkbox_utils.models import JobOutcome
 
+logger = logging.getLogger(__name__)
 SESSION_ROOT_DIR: Final = Path("/var/tmp/checkbox-ng/sessions")
 
 
@@ -79,7 +79,7 @@ class Session:
                     f"{self} is missing field(s): {', '.join(e.args)}.",
                 )
         else:
-            print(f"{self} does not contain valid information.")
+            logger.error(f"{self} does not contain valid information.")
         self.failed_jobs = self.get_run_jobs()
 
     @override
@@ -123,14 +123,14 @@ class Session:
                     stderr = f.read().strip()
                 return JobOutput(stdout=stdout, stderr=stderr, comments=comments)
             else:
-                print(f"Job `{job_id}` does not have associated log records.")
+                logger.warning(f"Job `{job_id}` does not have associated log records.")
                 return JobOutput(stdout="", stderr="", comments=comments)
 
         except KeyError:
-            print(f"Current session does not have job `{job_id}`.")
+            logger.warning(f"Current session does not have job `{job_id}`.")
             return None
         except FileNotFoundError as e:
-            print(f"Corrupted session with missing file {e}")
+            logger.error(f"Corrupted session with missing file {e}")
             return None
 
     def has_failed_jobs(self) -> bool:

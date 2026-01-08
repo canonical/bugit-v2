@@ -1,16 +1,18 @@
 import gzip
 import json
+import logging
 import os
 import shutil
 from base64 import b64decode
 from functools import lru_cache
 from pathlib import Path
-from sys import stderr
 from typing import NamedTuple
 
 from bugit_v2.checkbox_utils.checkbox_exec import checkbox_exec
 from bugit_v2.checkbox_utils.checkbox_session import SESSION_ROOT_DIR
 from bugit_v2.checkbox_utils.models import CERT_STATUSES, CertificationStatus
+
+logger = logging.getLogger(__name__)
 
 
 class TestCaseWithCertStatus(NamedTuple):
@@ -45,7 +47,7 @@ async def list_bootstrapped_cert_status(
         lines = raw_case.splitlines()
 
         if len(lines) != 2 or lines[1] not in CERT_STATUSES:
-            print("Bad group", lines, file=stderr)
+            logger.error("Bad cert status group", lines)
             continue
 
         out[lines[0]] = TestCaseWithCertStatus(full_id=lines[0], cert_status=lines[1])
@@ -92,10 +94,12 @@ def get_session_envs(session_path: Path) -> dict[str, str]:
 async def get_certification_status(
     test_plan: str, session_path: Path | None = None
 ) -> dict[str, TestCaseWithCertStatus]:
+    logger.info(f"Getting all cert status values for {test_plan}")
+
     cb_env: dict[str, str] | None = None
 
     if session_path is not None:
-        print(f"Using envs from {session_path}")
+        logger.info(f"Using envs from {session_path}")
         cb_env = get_session_envs(session_path)
 
     sessions_before = set(os.listdir(SESSION_ROOT_DIR))
@@ -106,7 +110,7 @@ async def get_certification_status(
         # list-bootstrapped always generates a new 'session'
         for extra_dir in sessions_after.difference(sessions_before):
             if extra_dir.startswith("checkbox-listing-ephemeral"):
-                print("removing", extra_dir)
+                logger.info(f"Removing checkbox-listing temp dir {extra_dir}")
                 shutil.rmtree(SESSION_ROOT_DIR / extra_dir, ignore_errors=True)
                 break
     except Exception:

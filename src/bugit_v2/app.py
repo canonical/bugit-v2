@@ -1,15 +1,18 @@
 import asyncio
 import json
+import logging
 from pathlib import Path
 from typing import final, override
 
 import typer
+from cysystemd import journal
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Center
 from textual.content import Content
 from textual.driver import Driver
+from textual.logging import TextualHandler
 from textual.reactive import var
 from textual.types import CSSPathType
 from textual.widgets import Label
@@ -45,6 +48,19 @@ from bugit_v2.utils.validations import (
     is_cid,
     sudo_devmode_check,
 )
+
+logging.basicConfig(
+    level=logging.INFO if is_prod() else logging.DEBUG,
+    handlers=[
+        (
+            journal.JournaldLogHandler(identifier="bugit.bugit-v2")
+            if is_snap()
+            else TextualHandler()
+        )
+    ],
+)
+logger = logging.getLogger(__name__)
+
 
 cli_app = typer.Typer(
     help="Bugit is a tool for creating bug reports on Launchpad and Jira",
@@ -115,7 +131,6 @@ class BugitApp(App[None]):
         ansi_color: bool = False,
     ):
         super().__init__(driver_class, css_path, watch_css, ansi_color)
-
         self.args = args
 
         match args.submitter:
@@ -182,6 +197,7 @@ class BugitApp(App[None]):
     @override
     def _handle_exception(self, error: Exception) -> None:
         if is_prod() or is_snap():
+            logger.fatal(error)
             raise SystemExit(error)
         else:
             # don't use pretty exception in prod, it shows local vars

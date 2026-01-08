@@ -3,6 +3,7 @@ Implements the concrete Jira submitter that submits a bug report to Jira.
 """
 
 import json
+import logging
 import os
 from collections.abc import Generator, Mapping, Sequence
 from dataclasses import asdict, dataclass
@@ -28,6 +29,7 @@ from bugit_v2.models.bug_report import (
     pretty_issue_file_times,
 )
 
+logger = logging.getLogger(__name__)
 JIRA_SERVER_ADDRESS = os.getenv("JIRA_SERVER", "https://warthogs.atlassian.net")
 
 
@@ -216,7 +218,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
             self.jira.issue(bug_id)
             return True
         except JIRAError as e:
-            print(e)
+            logger.error(e)
             return False
 
     @override

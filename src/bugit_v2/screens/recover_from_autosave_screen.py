@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 from pathlib import Path
 from typing import Literal, final, override
@@ -26,6 +27,8 @@ from bugit_v2.utils import pretty_date
 from bugit_v2.utils.constants import AUTOSAVE_DIR
 
 type SaveType = Literal["session", "submission"]
+
+logger = logging.getLogger(__name__)
 
 
 @final
@@ -76,7 +79,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
                         case _:
                             pass
                 except pydantic.ValidationError as e:
-                    self.log.error(e)
+                    logger.error(e)
 
         self.valid_autosave_data = {
             k: v
