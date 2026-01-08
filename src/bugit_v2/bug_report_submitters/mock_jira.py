@@ -34,6 +34,7 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
     auth: JiraBasicAuth | None = None
     allow_cache_credentials = False
     mock_issue: str | None = None
+    allow_parallel_upload = True
 
     # map the severity value inside the app to the ones on Jira
     severity_name_map: Mapping[Severity, str] = {
