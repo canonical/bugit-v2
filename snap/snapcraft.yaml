@@ -18,10 +18,10 @@ platforms:
     build-on: [amd64]
     build-for: [amd64]
   arm64:
-    build-on: [amd64]
+    build-on: [arm64]
     build-for: [arm64]
   armhf:
-    build-on: [amd64]
+    build-on: [armhf]
     build-for: [armhf]
 
 environment:
@@ -89,6 +89,8 @@ parts:
     source: .
     build-snaps:
       - astral-uv
+    build-packages:
+      - libsystemd-dev
     stage-packages:
       - dmidecode # provides 'dmidecode'
       - pciutils # provides 'lspci'
