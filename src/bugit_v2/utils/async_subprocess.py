@@ -1,9 +1,14 @@
 import asyncio
 import asyncio.subprocess as asp
+import logging
 import subprocess as sp
 from collections.abc import MutableMapping, Sequence
 from subprocess import CalledProcessError
-from typing import IO, Any, Literal
+from typing import IO, AnyStr, Literal, cast
+
+import psutil
+
+logger = logging.getLogger(__name__)
 
 
 async def asp_check_output(
@@ -27,7 +32,21 @@ async def asp_check_output(
         proc = await asp.create_subprocess_exec(*cmd, stdout=asp.PIPE, stderr=asp.PIPE)
 
     if timeout:
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)
+        except asyncio.TimeoutError as e:
+            if proc.returncode is None:
+                logger.error(
+                    f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)"
+                )
+                parent = psutil.Process(proc.pid)
+
+                for child in cast(list[psutil.Process], parent.children(recursive=True)):
+                    child.kill()
+
+                parent.kill()
+
+            raise e
     else:
         stdout, stderr = await proc.communicate()
 
@@ -42,8 +61,8 @@ async def asp_check_call(
     cmd: list[str],
     timeout: int | None = None,
     env: dict[str, str] | None = None,
-    stdout: IO[Any] | int = asp.DEVNULL,
-    stderr: IO[Any] | int = asp.DEVNULL,
+    stdout: IO[AnyStr] | int = asp.DEVNULL,
+    stderr: IO[AnyStr] | int = asp.DEVNULL,
 ) -> Literal[0]:
     """Async version of sp.check_call
 
@@ -63,7 +82,21 @@ async def asp_check_call(
         proc = await asp.create_subprocess_exec(*cmd, stdout=stdout, stderr=stderr)
 
     if timeout:
-        rc = await asyncio.wait_for(proc.wait(), timeout)
+        try:
+            rc = await asyncio.wait_for(proc.wait(), timeout)
+        except asyncio.TimeoutError as e:
+            if proc.returncode is None:
+                logger.error(
+                    f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)"
+                )
+                parent = psutil.Process(proc.pid)
+
+                for child in cast(list[psutil.Process], parent.children(recursive=True)):
+                    child.kill()
+
+                parent.kill()
+
+            raise e
     else:
         rc = await proc.wait()
 
@@ -93,7 +126,21 @@ async def asp_run(
         proc = await asp.create_subprocess_exec(*cmd, stdout=asp.PIPE, stderr=asp.PIPE)
 
     if timeout:
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)
+        except asyncio.TimeoutError as e:
+            if proc.returncode is None:
+                logger.error(
+                    f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)"
+                )
+                parent = psutil.Process(proc.pid)
+
+                for child in cast(list[psutil.Process], parent.children(recursive=True)):
+                    child.kill()
+
+                parent.kill()
+
+            raise e
     else:
         stdout, stderr = await proc.communicate()
 
