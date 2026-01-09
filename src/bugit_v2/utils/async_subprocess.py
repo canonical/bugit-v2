@@ -38,8 +38,8 @@ async def asp_check_output(
             if proc.returncode is None:
                 parent = psutil.Process(proc.pid)
                 for child in cast(list[psutil.Process], parent.children(recursive=True)):
-                    child.terminate()
-                parent.terminate()
+                    child.kill()
+                parent.kill()
                 logger.error(
                     f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)"
                 )
@@ -85,8 +85,8 @@ async def asp_check_call(
             if proc.returncode is None:
                 parent = psutil.Process(proc.pid)
                 for child in cast(list[psutil.Process], parent.children(recursive=True)):
-                    child.terminate()
-                parent.terminate()
+                    child.kill()
+                parent.kill()
                 logger.error(
                     f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)"
                 )
