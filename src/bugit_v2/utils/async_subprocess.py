@@ -36,13 +36,16 @@ async def asp_check_output(
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)
         except asyncio.TimeoutError as e:
             if proc.returncode is None:
-                parent = psutil.Process(proc.pid)
-                for child in cast(list[psutil.Process], parent.children(recursive=True)):
-                    child.kill()
-                parent.kill()
                 logger.error(
                     f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)"
                 )
+                parent = psutil.Process(proc.pid)
+
+                for child in cast(list[psutil.Process], parent.children(recursive=True)):
+                    child.kill()
+
+                parent.kill()
+
             raise e
     else:
         stdout, stderr = await proc.communicate()
