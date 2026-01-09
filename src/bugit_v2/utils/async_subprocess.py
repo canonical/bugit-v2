@@ -4,7 +4,7 @@ import logging
 import subprocess as sp
 from collections.abc import MutableMapping, Sequence
 from subprocess import CalledProcessError
-from typing import IO, Any, Literal, cast
+from typing import IO, AnyStr, Literal, cast
 
 import psutil
 
@@ -58,8 +58,8 @@ async def asp_check_call(
     cmd: list[str],
     timeout: int | None = None,
     env: dict[str, str] | None = None,
-    stdout: IO[Any] | int = asp.DEVNULL,
-    stderr: IO[Any] | int = asp.DEVNULL,
+    stdout: IO[AnyStr] | int = asp.DEVNULL,
+    stderr: IO[AnyStr] | int = asp.DEVNULL,
 ) -> Literal[0]:
     """Async version of sp.check_call
 
