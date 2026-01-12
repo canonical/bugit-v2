@@ -257,6 +257,14 @@ class ReportEditorState(AppState):
 
     @override
     def go_back(self) -> "AppState | None":
+        bug_report_source = "editor"
+
+        if (
+            self.context.bug_report_init_state is not NullSelection.NO_BACKUP
+            and self.context.bug_report_init_state is not None
+        ):
+            bug_report_source = self.context.bug_report_init_state.source
+
         self.context.bug_report_init_state = None
 
         match (
@@ -274,15 +282,23 @@ class ReportEditorState(AppState):
             case (
                 Session(),
                 str() | NullSelection.NO_JOB | None,
-                NullSelection.NO_CHECKBOX_SUBMISSION,
+                NullSelection.NO_CHECKBOX_SUBMISSION as cbs,
             ) | (
                 NullSelection.NO_SESSION,
                 str() | NullSelection.NO_JOB | None,
-                SimpleCheckboxSubmission(),
+                SimpleCheckboxSubmission() as cbs,
             ):
                 # submission and job => back to job selection
                 # selected session and job => go back to job selection
-                return JobSelectionState(self.context)
+                if bug_report_source == "editor":
+                    return JobSelectionState(self.context)
+                else:
+                    self.context.job_id = None
+                    if cbs is NullSelection.NO_CHECKBOX_SUBMISSION:
+                        self.context.session = None
+                    else:
+                        self.context.session = NullSelection.NO_SESSION
+                    return RecoverFromAutosaveState(self.context)
             case _:
                 raise RuntimeError(
                     "Impossible context when returning from editor {}".format(
