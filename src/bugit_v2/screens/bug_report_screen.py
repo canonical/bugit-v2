@@ -860,6 +860,7 @@ class BugReportScreen(Screen[BugReport]):
                     f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
                 ),
             ).selected,
+            source=self.existing_report and self.existing_report.source or "editor",
         )
 
     def _prefill_with_app_args(self):
