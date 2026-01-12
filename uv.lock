@@ -201,7 +201,7 @@ wheels = [
 
 [[package]]
 name = "bugit-v2"
-version = "0.2.7"
+version = "0.2.8"
 source = { editable = "." }
 dependencies = [
     { name = "async-lru" },
