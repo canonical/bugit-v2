@@ -6,7 +6,7 @@ authors = [{ name = "Zhongning Li", email = "zhongning.li@canonical.com" }]
 requires-python = ">=3.12,<4.0.0"
 readme = "README.md"
 dependencies = [
-    "textual (>=7.0.0,<7.1.0)",
+    "textual (>=7.2.0,<7.3.0)",
     "pyyaml (>=6.0.2,<7.0.0)",
     "jira (>=3.10.5,<4.0.0)",
     "launchpadlib (>=2.1.0,<3.0.0)",
