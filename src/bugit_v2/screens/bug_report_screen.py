@@ -24,6 +24,7 @@ from textual.validation import ValidationResult, Validator
 from textual.widgets import (
     Button,
     Collapsible,
+    ContentSwitcher,
     Footer,
     Input,
     Label,
@@ -163,22 +164,9 @@ class BugReportScreen(Screen[BugReport]):
         height: 100%;
     }
 
-    #impacted_features {
-        height: 25;
-    }
-
-    #impacted_vendors {
-        height: 17;
-    }
-
     #submit_button {
         width: 100%;
         padding: 0;
-    }
-
-    #description {
-        height: auto;
-        width: 60%;
     }
 
     #bug_report_metadata_header {
@@ -321,189 +309,207 @@ class BugReportScreen(Screen[BugReport]):
 
     @override
     def compose(self) -> ComposeResult:
-        yield SimpleHeader(Label(id="dirty_label"))
-        with Collapsible(
-            title=f"[bold]{'Jira' if self.app_args.submitter == 'jira' else 'Launchpad'} Bug Report for...[/bold]",
-            collapsed=False,
-            classes="nb",
-            id="bug_report_metadata_header",
-        ):
-            if self.session != NullSelection.NO_SESSION:
-                yield Label(f"- Test Plan: {self.session.testplan_id}")
-            elif self.checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION:
-                yield Label(f"- Test Plan: {self.checkbox_submission.base.testplan_id}")
-            else:
-                yield Label("- [$warning-darken-2]No session/submission selected")
-
-            if self.job_id is NullSelection.NO_JOB:
-                yield Label("- [$warning-darken-2]No job selected")
-            else:
-                yield Label(f"- Job ID: {self.job_id}")
-
-        with VerticalScroll(classes="center"):
-            yield Input(
-                placeholder="Short title for this bug",
-                id="title",
-                classes="default_box",
-                validators=[NonEmpty()],
-            )
-
-            with HorizontalGroup():
-                yield DescriptionEditor(classes="ha", id="description", disabled=True)
-
-                with VerticalGroup():
-                    yield RadioSet(
-                        *(
-                            RadioButton(
-                                display_name,
-                                name=issue_file_time,
-                                value=issue_file_time == "immediate",  # default val
-                            )
-                            for issue_file_time, display_name in pretty_issue_file_times.items()
-                        ),
-                        id="issue_file_time",
-                        classes="default_box",
+        with VerticalGroup(classes="nb dt"):
+            yield SimpleHeader(Label(id="dirty_label"))
+            with Collapsible(
+                title=f"[bold]{'Jira' if self.app_args.submitter == 'jira' else 'Launchpad'} Bug Report for...[/bold]",
+                collapsed=False,
+                classes="nb",
+                id="bug_report_metadata_header",
+            ):
+                if self.session != NullSelection.NO_SESSION:
+                    yield Label(f"- Test Plan: {self.session.testplan_id}")
+                elif (
+                    self.checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION
+                ):
+                    yield Label(
+                        f"- Test Plan: {self.checkbox_submission.base.testplan_id}"
                     )
-                    yield Input(
-                        id="project",
-                        placeholder="SOMERVILLE, STELLA, ...",
-                        classes="default_box",
-                        validators=[NoSpaces(), NonEmpty()],
-                    )
-                    yield Input(
-                        id="platform_tags",
-                        placeholder='Tags like "numbat-hello", space separated',
-                        classes="default_box",
-                        validators=[ValidSpaceSeparatedTags()],
-                    )
-                    yield Input(
-                        id="additional_tags",
-                        placeholder=f"Optional, extra {'Jira' if self.app_args.submitter == 'jira' else 'LP'} tags specific to the project",
-                        classes="default_box",
-                        validators=[ValidSpaceSeparatedTags()],
-                    )
-                    yield Input(
-                        id="assignee",
-                        placeholder=(
-                            "Assignee's Jira Email"
-                            if self.app_args.submitter == "jira"
-                            else "Assignee's Launchpad ID"
-                        ),
-                        classes="default_box",
-                    )
+                else:
+                    yield Label("- [$warning-darken-2]No session/submission selected")
 
-                    with HorizontalGroup():
-                        highest_display_name = (
-                            "Highest (Jira)"
-                            if self.app_args.submitter == "jira"
-                            else "Critical (LP)"
+                if self.job_id is NullSelection.NO_JOB:
+                    yield Label("- [$warning-darken-2]No job selected")
+                else:
+                    yield Label(f"- Job ID: {self.job_id}")
+
+        with HorizontalGroup(classes="w100"):
+            with VerticalGroup(classes="w30"):
+                with VerticalScroll(id="tab-buttons", classes="w100 hidden_scrollbar "):
+                    for elem_id in BugReportElemId:
+                        if (
+                            elem_id is BugReportElemId.LP_STATUS
+                            and self.app_args.submitter != "lp"
+                        ):
+                            continue
+                        yield Button(
+                            self.elem_id_to_border_title[elem_id][0],
+                            id=elem_id + "_tab",
+                            classes="tab_switcher_btn w100 p0 m0",
+                            flat=True
                         )
-                        yield RadioSet(
-                            *(
-                                RadioButton(
-                                    (
-                                        highest_display_name
-                                        if severity == "highest"
-                                        else display_name
-                                    ),
-                                    name=severity,
-                                    value=severity == "highest",  # default to critical
-                                )
-                                for severity, display_name in pretty_severities.items()
+                yield Button(
+                    "Waiting for basic machine info to be collected...",
+                    id="submit_button",
+                    classes="db w100",
+                    variant="success",
+                    disabled=True,
+                )
+
+            with ContentSwitcher(initial=BugReportElemId.TITLE, classes="h100"):
+                yield Input(
+                    placeholder="Short title for this bug",
+                    id=BugReportElemId.TITLE,
+                    classes="default_box",
+                    validators=[NonEmpty()],
+                )
+                yield DescriptionEditor(id=BugReportElemId.DESCRIPTION, disabled=True)
+                yield RadioSet(
+                    *(
+                        RadioButton(
+                            display_name,
+                            name=issue_file_time,
+                            value=issue_file_time == "immediate",  # default val
+                        )
+                        for issue_file_time, display_name in pretty_issue_file_times.items()
+                    ),
+                    id="issue_file_time",
+                    classes="default_box",
+                )
+                yield Input(
+                    id="project",
+                    placeholder="SOMERVILLE, STELLA, ...",
+                    classes="default_box",
+                    validators=[NoSpaces(), NonEmpty()],
+                )
+                yield Input(
+                    id="platform_tags",
+                    placeholder='Tags like "numbat-hello", space separated',
+                    classes="default_box",
+                    validators=[ValidSpaceSeparatedTags()],
+                )
+                yield Input(
+                    id="additional_tags",
+                    placeholder=f"Optional, extra {'Jira' if self.app_args.submitter == 'jira' else 'LP'} tags specific to the project",
+                    classes="default_box",
+                    validators=[ValidSpaceSeparatedTags()],
+                )
+                yield Input(
+                    id="assignee",
+                    placeholder=(
+                        "Assignee's Jira Email"
+                        if self.app_args.submitter == "jira"
+                        else "Assignee's Launchpad ID"
+                    ),
+                    classes="default_box",
+                )
+
+                highest_display_name = (
+                    "Highest (Jira)"
+                    if self.app_args.submitter == "jira"
+                    else "Critical (LP)"
+                )
+                yield RadioSet(
+                    *(
+                        RadioButton(
+                            (
+                                highest_display_name
+                                if severity == "highest"
+                                else display_name
                             ),
-                            id="severity",
-                            classes="default_box",
+                            name=severity,
+                            value=severity == "highest",  # default to critical
                         )
+                        for severity, display_name in pretty_severities.items()
+                    ),
+                    id="severity",
+                    classes="default_box",
+                )
 
-                        cert_status_label = Label(
-                            "Querying checkbox for the certification status (10s timeout)...",
-                            id="cert_status_box",
-                            classes="default_box",
-                            disabled=True,
+                cert_status_label = Label(
+                    "Querying checkbox for the certification status (10s timeout)...",
+                    id="cert_status_box",
+                    classes="default_box",
+                    disabled=True,
+                )
+                cert_status_label.border_title = "Certification Status"
+                yield cert_status_label
+
+                if self.session is NullSelection.NO_SESSION:
+                    # don't even include the session collector if there's no session
+                    collectors = [
+                        c
+                        for c in LOG_NAME_TO_COLLECTOR.values()
+                        if c.name != "checkbox-session" and not c.hidden
+                    ]
+                else:
+                    collectors = [
+                        c for c in LOG_NAME_TO_COLLECTOR.values() if not c.hidden
+                    ]
+
+                yield SelectionList[LogName](
+                    *(
+                        Selection[LogName](
+                            collector.display_name,
+                            collector.name,
+                            self._should_select_collector_by_default(collector),
+                            id=collector.name,
+                            # disable nvidia collector
+                            # unless get_standard_info finds an nvidia card
+                            disabled=collector.name == "nvidia-bug-report",
                         )
-                        cert_status_label.border_title = "Certification Status"
-                        yield cert_status_label
-
-                    if self.session is NullSelection.NO_SESSION:
-                        # don't even include the session collector if there's no session
-                        collectors = [
-                            c
-                            for c in LOG_NAME_TO_COLLECTOR.values()
-                            if c.name != "checkbox-session" and not c.hidden
-                        ]
-                    else:
-                        collectors = [
-                            c for c in LOG_NAME_TO_COLLECTOR.values() if not c.hidden
-                        ]
-
-                    with VerticalGroup():
-                        yield SelectionList[LogName](
-                            *(
-                                Selection[LogName](
-                                    collector.display_name,
-                                    collector.name,
-                                    self._should_select_collector_by_default(collector),
-                                    id=collector.name,
-                                    # disable nvidia collector
-                                    # unless get_standard_info finds an nvidia card
-                                    disabled=collector.name == "nvidia-bug-report",
-                                )
-                                for collector in sorted(
-                                    collectors,
-                                    key=lambda a: (
-                                        # prioritize collect_by_default ones
-                                        0
-                                        if a.collect_by_default
-                                        else 1
-                                    ),
-                                )
+                        for collector in sorted(
+                            collectors,
+                            key=lambda a: (
+                                # prioritize collect_by_default ones
+                                0
+                                if a.collect_by_default
+                                else 1
                             ),
-                            classes="default_box",
-                            id="logs_to_include",
                         )
-                        yield Right(
-                            Button(
-                                "Clear",
-                                compact=True,
-                                tooltip="Clear log selection",
-                                classes="editor_button mr1",
-                                id="clear_log_selection",
-                            )
-                        )
-
-            # always make it query-able, but visually hide it when not using lp
-            yield RadioSet(
-                *(
-                    RadioButton(
-                        status,
-                        name=status,
-                        value=status == "New",  # default to New
+                    ),
+                    classes="default_box",
+                    id="logs_to_include",
+                )
+                yield Right(
+                    Button(
+                        "Clear",
+                        compact=True,
+                        tooltip="Clear log selection",
+                        classes="editor_button mr1",
+                        id="clear_log_selection",
                     )
-                    for status in BUG_STATUSES
-                ),
-                id="status",
-                classes=("default_box" if self.app_args.submitter == "lp" else "hidden"),
-            )
+                )
 
-            yield SelectionWithPreview(
-                FEATURE_MAP,
-                Label("[i][$primary]These features will be tagged"),
-                id="impacted_features",
-                classes="default_box",
-            )
-            yield SelectionWithPreview(
-                VENDOR_MAP,
-                Label("[i][$primary]These vendors will be tagged"),
-                id="impacted_vendors",
-                classes="default_box",
-            )
+                # always make it query-able, but visually hide it when not using lp
+                yield RadioSet(
+                    *(
+                        RadioButton(
+                            status,
+                            name=status,
+                            value=status == "New",  # default to New
+                        )
+                        for status in BUG_STATUSES
+                    ),
+                    id="status",
+                    classes=(
+                        "default_box" if self.app_args.submitter == "lp" else "hidden"
+                    ),
+                )
 
-            yield Button(
-                "Waiting for basic machine info to be collected...",
-                id="submit_button",
-                variant="success",
-                disabled=True,
-            )
+                yield SelectionWithPreview(
+                    FEATURE_MAP,
+                    Label("[i][$primary]These features will be tagged"),
+                    id="impacted_features",
+                    classes="default_box",
+                )
+                yield SelectionWithPreview(
+                    VENDOR_MAP,
+                    Label("[i][$primary]These vendors will be tagged"),
+                    id="impacted_vendors",
+                    classes="default_box",
+                )
+
         yield Footer()
 
     def on_mount(self):
@@ -592,6 +598,13 @@ class BugReportScreen(Screen[BugReport]):
 
         return wrapper
 
+    @on(Button.Pressed, ".tab_switcher_btn")
+    def switch_tab(self, event: Button.Pressed) -> None:
+        assert event.button.id
+        content_id = event.button.id.removesuffix("_tab")
+        self.query_exactly_one(ContentSwitcher).current = content_id
+        self.query_exactly_one(f"#{content_id}").focus()
+
     @on(Input.Blurred)
     @on(Input.Changed)
     def show_invalid_reasons(self, event: Input.Changed) -> None:
@@ -623,6 +636,8 @@ class BugReportScreen(Screen[BugReport]):
     @on(SelectionList.SelectedChanged)
     @on(RadioSet.Changed)
     def trigger_autosave(self):
+        return
+
         def f():
             # these steps are only executed when the real autosave happens
             # otherwise it's cancelled

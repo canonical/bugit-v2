@@ -6,6 +6,7 @@ from typing import final, override
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import HorizontalGroup, VerticalGroup
+from textual.events import Focus
 from textual.widget import Widget
 from textual.widgets import Button, TextArea
 
@@ -25,7 +26,13 @@ class DescriptionEditor(Widget):
     .mr1 {
         margin-right: 1;
     }
+
+    TextArea {
+        scrollbar-visibility: hidden;
+        scrollbar-size: 0 0;
+    }
     """
+    can_focus = True
 
     def __init__(
         self,
@@ -47,10 +54,10 @@ class DescriptionEditor(Widget):
 
     @override
     def compose(self) -> ComposeResult:
-        with VerticalGroup():
+        with VerticalGroup(classes="w100"):
             yield TextArea(
                 "Waiting for basic machine info to be collected (30 second timeout)...",
-                classes="default_box",
+                classes="default_box w100",
                 show_line_numbers=True,
                 soft_wrap=True,
             )
@@ -146,3 +153,6 @@ class DescriptionEditor(Widget):
                 self.set_timer(3, f)
         except Exception as e:
             self.notify(f"Failed to save. Reason {repr(e)}")
+
+    def on_focus(self, event: Focus):
+        self.query_exactly_one(TextArea).focus()
