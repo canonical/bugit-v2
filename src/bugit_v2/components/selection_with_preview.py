@@ -17,6 +17,7 @@ class SelectionWithPreview(Widget):
     data: Mapping[str, Sequence[str]]
     preview_label: Label
     selected_keys = var[list[str]]([])
+    can_focus = True
 
     def __init__(
         self,
