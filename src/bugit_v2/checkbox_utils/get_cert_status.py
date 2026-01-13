@@ -106,8 +106,10 @@ async def get_certification_status(
         cb_env = get_session_envs(session_path)
 
     remove_listing_ephemeral_dirs()
-    out = await list_bootstrapped_cert_status(test_plan, cb_env)
-    remove_listing_ephemeral_dirs()
+    try:
+        out = await list_bootstrapped_cert_status(test_plan, cb_env)
+    finally:
+        remove_listing_ephemeral_dirs()
 
     return out
 
