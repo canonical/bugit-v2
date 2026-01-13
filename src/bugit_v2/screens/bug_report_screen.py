@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from functools import wraps
 from typing import Callable, Final, Literal, cast, final
-
+from textwrap import dedent
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import (
@@ -28,6 +28,7 @@ from textual.widgets import (
     Footer,
     Input,
     Label,
+    Markdown,
     RadioButton,
     RadioSet,
     SelectionList,
@@ -361,6 +362,11 @@ class BugReportScreen(Screen[BugReport]):
                         id="impacted_vendor_feature_tab",
                         classes="tab_switcher_btn p0 m0",
                     )
+                    yield Button(
+                        "Summary",
+                        id="summary_tab",
+                        classes="tab_switcher_btn p0 m0",
+                    )
                 yield Button(
                     "Waiting for basic machine info to be collected...",
                     id="submit_button",
@@ -532,6 +538,9 @@ class BugReportScreen(Screen[BugReport]):
                         classes="default_box h50",
                     )
 
+                with VerticalScroll(id="summary_tab", classes="h100"):
+                    yield Markdown(id="summary_markdown")
+
         yield Footer()
 
     def on_mount(self):
@@ -626,6 +635,10 @@ class BugReportScreen(Screen[BugReport]):
         content_id = event.button.id
         self.query_exactly_one(ContentSwitcher).current = content_id
         self.query_one(f"#{content_id}", VerticalScroll).children[0].focus()
+
+    @on(Button.Pressed, "#summary_tab")
+    def render_summary(self, _: Button.Pressed) -> None:
+        self.query_exactly_one(Markdown).update(self._markdown_bug_report())
 
     @on(Input.Blurred)
     @on(Input.Changed)
@@ -909,6 +922,35 @@ class BugReportScreen(Screen[BugReport]):
             ),
             source=self.existing_report and self.existing_report.source or "editor",
         )
+
+    def _markdown_bug_report(self) -> str:
+        report = self._build_bug_report()
+        return f"""\
+# {report.title.strip()}
+
+
+## Description
+
+```plaintext
+{report.description}
+```
+
+## Severity
+
+{report.severity}
+
+## Logs to include
+
+{"\n".join(map(lambda s: f"- {s}", report.logs_to_include))}
+
+## Impacted Vendors
+
+{"\n".join(map(lambda s: f"- {s}", report.impacted_vendors))}
+
+## Impacted Vendors
+
+{"\n".join(map(lambda s: f"- {s}", report.impacted_features))}
+        """.strip()
 
     def _prefill_with_app_args(self):
         if self.app_args.assignee:
