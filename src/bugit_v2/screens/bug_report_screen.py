@@ -350,19 +350,16 @@ class BugReportScreen(Screen[BugReport]):
                         "Description",
                         id="description_tab",
                         classes="tab_switcher_btn p0 m0",
-                        # flat=True,
                     )
                     yield Button(
                         "Select Logs",
                         id="log_collection_tab",
                         classes="tab_switcher_btn p0 m0",
-                        # flat=True,
                     )
                     yield Button(
                         "Impacted Vendors & Features",
                         id="impacted_vendor_feature_tab",
                         classes="tab_switcher_btn p0 m0",
-                        # flat=True,
                     )
                 yield Button(
                     "Waiting for basic machine info to be collected...",
