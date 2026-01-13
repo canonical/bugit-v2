@@ -925,7 +925,7 @@ class BugReportScreen(Screen[BugReport]):
 
     def _markdown_bug_report(self) -> str:
         report = self._build_bug_report()
-        return f"""\
+        out = f"""\
 # {report.title.strip()}
 
 
@@ -950,7 +950,13 @@ class BugReportScreen(Screen[BugReport]):
 ## Impacted Vendors
 
 {"\n".join(map(lambda s: f"- {s}", report.impacted_features))}
+
         """.strip()
+
+        if self.app_args.submitter == "lp":
+            out += f"\n## Launchpad Status\n\n{report.status}"
+
+        return out
 
     def _prefill_with_app_args(self):
         if self.app_args.assignee:
