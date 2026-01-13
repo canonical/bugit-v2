@@ -657,7 +657,6 @@ class BugReportScreen(Screen[BugReport]):
     @on(SelectionList.SelectedChanged)
     @on(RadioSet.Changed)
     def trigger_autosave(self):
-        return
 
         def f():
             # these steps are only executed when the real autosave happens
