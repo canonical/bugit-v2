@@ -466,12 +466,12 @@ class BugReportScreen(Screen[BugReport]):
                         ),
                     )
 
-                with VerticalGroup(id="description_tab", classes="h100"):
+                with VerticalScroll(id="description_tab", classes="h100"):
                     yield DescriptionEditor(
                         id=BugReportElemId.DESCRIPTION, disabled=True
                     )
 
-                with VerticalGroup(id="log_collection_tab", classes="h100"):
+                with VerticalScroll(id="log_collection_tab", classes="h100"):
                     if self.session is NullSelection.NO_SESSION:
                         # don't even include the session collector if there's no session
                         collectors = [
@@ -518,7 +518,7 @@ class BugReportScreen(Screen[BugReport]):
                         )
                     )
 
-                with VerticalGroup(id="impacted_vendor_feature_tab", classes="h100"):
+                with VerticalScroll(id="impacted_vendor_feature_tab", classes="h100"):
                     yield SelectionWithPreview(
                         FEATURE_MAP,
                         Label("[i][$primary]These features will be tagged"),
@@ -625,6 +625,7 @@ class BugReportScreen(Screen[BugReport]):
         assert event.button.id
         content_id = event.button.id
         self.query_exactly_one(ContentSwitcher).current = content_id
+        self.query_one(f"#{content_id}", VerticalScroll).children[0].focus()
 
     @on(Input.Blurred)
     @on(Input.Changed)
