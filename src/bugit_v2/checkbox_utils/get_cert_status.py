@@ -105,8 +105,14 @@ async def get_certification_status(
         logger.info(f"Using envs from {session_path}")
         cb_env = get_session_envs(session_path)
 
+    remove_listing_ephemeral_dirs()
     out = await list_bootstrapped_cert_status(test_plan, cb_env)
+    remove_listing_ephemeral_dirs()
 
+    return out
+
+
+def remove_listing_ephemeral_dirs() -> None:
     try:
         # list-bootstrapped always generates a new 'session'
         for extra_dir in os.listdir(SESSION_ROOT_DIR):
@@ -115,5 +121,3 @@ async def get_certification_status(
                 shutil.rmtree(SESSION_ROOT_DIR / extra_dir, ignore_errors=True)
     except Exception:
         pass
-
-    return out
