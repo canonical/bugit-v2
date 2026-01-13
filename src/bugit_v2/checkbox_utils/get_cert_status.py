@@ -105,17 +105,14 @@ async def get_certification_status(
         logger.info(f"Using envs from {session_path}")
         cb_env = get_session_envs(session_path)
 
-    sessions_before = set(os.listdir(SESSION_ROOT_DIR))
     out = await list_bootstrapped_cert_status(test_plan, cb_env)
-    sessions_after = set(os.listdir(SESSION_ROOT_DIR))
 
     try:
         # list-bootstrapped always generates a new 'session'
-        for extra_dir in sessions_after.difference(sessions_before):
+        for extra_dir in os.listdir(SESSION_ROOT_DIR):
             if extra_dir.startswith("checkbox-listing-ephemeral"):
                 logger.info(f"Removing checkbox-listing temp dir {extra_dir}")
                 shutil.rmtree(SESSION_ROOT_DIR / extra_dir, ignore_errors=True)
-                break
     except Exception:
         pass
 
