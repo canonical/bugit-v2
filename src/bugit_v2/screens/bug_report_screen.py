@@ -165,7 +165,7 @@ class BugReportScreen(Screen[BugReport]):
     }
 
     #submit_button {
-        width: 100%;
+        width: 30;
         padding: 0;
     }
 
@@ -183,6 +183,10 @@ class BugReportScreen(Screen[BugReport]):
         height: 100%;
         content-align: center middle;
         padding: 1;
+    }
+
+    .tab_switcher_btn {
+        width: 30
     }
     """
     CSS_PATH = "styles.tcss"
@@ -334,181 +338,202 @@ class BugReportScreen(Screen[BugReport]):
                     yield Label(f"- Job ID: {self.job_id}")
 
         with HorizontalGroup(classes="w100"):
-            with VerticalGroup(classes="w30"):
-                with VerticalScroll(id="tab-buttons", classes="w100 hidden_scrollbar "):
-                    for elem_id in BugReportElemId:
-                        if (
-                            elem_id is BugReportElemId.LP_STATUS
-                            and self.app_args.submitter != "lp"
-                        ):
-                            continue
-                        yield Button(
-                            self.elem_id_to_border_title[elem_id][0],
-                            id=elem_id + "_tab",
-                            classes="tab_switcher_btn w100 p0 m0",
-                            flat=True
-                        )
+            with VerticalGroup(classes="dl tab_switcher_btn"):
+                with VerticalScroll(id="tab-buttons", classes="hidden_scrollbar"):
+                    yield Button(
+                        "Basic Information",
+                        id="basic_info_tab",
+                        classes="tab_switcher_btn p0 m0",
+                        # flat=True,
+                    )
+                    yield Button(
+                        "Description",
+                        id="description_tab",
+                        classes="tab_switcher_btn p0 m0",
+                        # flat=True,
+                    )
+                    yield Button(
+                        "Select Logs",
+                        id="log_collection_tab",
+                        classes="tab_switcher_btn p0 m0",
+                        # flat=True,
+                    )
+                    yield Button(
+                        "Impacted Vendors & Features",
+                        id="impacted_vendor_feature_tab",
+                        classes="tab_switcher_btn p0 m0",
+                        # flat=True,
+                    )
                 yield Button(
                     "Waiting for basic machine info to be collected...",
                     id="submit_button",
-                    classes="db w100",
+                    classes="db",
                     variant="success",
                     disabled=True,
                 )
 
-            with ContentSwitcher(initial=BugReportElemId.TITLE, classes="h100"):
-                yield Input(
-                    placeholder="Short title for this bug",
-                    id=BugReportElemId.TITLE,
-                    classes="default_box",
-                    validators=[NonEmpty()],
-                )
-                yield DescriptionEditor(id=BugReportElemId.DESCRIPTION, disabled=True)
-                yield RadioSet(
-                    *(
-                        RadioButton(
-                            display_name,
-                            name=issue_file_time,
-                            value=issue_file_time == "immediate",  # default val
-                        )
-                        for issue_file_time, display_name in pretty_issue_file_times.items()
-                    ),
-                    id="issue_file_time",
-                    classes="default_box",
-                )
-                yield Input(
-                    id="project",
-                    placeholder="SOMERVILLE, STELLA, ...",
-                    classes="default_box",
-                    validators=[NoSpaces(), NonEmpty()],
-                )
-                yield Input(
-                    id="platform_tags",
-                    placeholder='Tags like "numbat-hello", space separated',
-                    classes="default_box",
-                    validators=[ValidSpaceSeparatedTags()],
-                )
-                yield Input(
-                    id="additional_tags",
-                    placeholder=f"Optional, extra {'Jira' if self.app_args.submitter == 'jira' else 'LP'} tags specific to the project",
-                    classes="default_box",
-                    validators=[ValidSpaceSeparatedTags()],
-                )
-                yield Input(
-                    id="assignee",
-                    placeholder=(
-                        "Assignee's Jira Email"
-                        if self.app_args.submitter == "jira"
-                        else "Assignee's Launchpad ID"
-                    ),
-                    classes="default_box",
-                )
-
-                highest_display_name = (
-                    "Highest (Jira)"
-                    if self.app_args.submitter == "jira"
-                    else "Critical (LP)"
-                )
-                yield RadioSet(
-                    *(
-                        RadioButton(
-                            (
-                                highest_display_name
-                                if severity == "highest"
-                                else display_name
-                            ),
-                            name=severity,
-                            value=severity == "highest",  # default to critical
-                        )
-                        for severity, display_name in pretty_severities.items()
-                    ),
-                    id="severity",
-                    classes="default_box",
-                )
-
-                cert_status_label = Label(
-                    "Querying checkbox for the certification status (10s timeout)...",
-                    id="cert_status_box",
-                    classes="default_box",
-                    disabled=True,
-                )
-                cert_status_label.border_title = "Certification Status"
-                yield cert_status_label
-
-                if self.session is NullSelection.NO_SESSION:
-                    # don't even include the session collector if there's no session
-                    collectors = [
-                        c
-                        for c in LOG_NAME_TO_COLLECTOR.values()
-                        if c.name != "checkbox-session" and not c.hidden
-                    ]
-                else:
-                    collectors = [
-                        c for c in LOG_NAME_TO_COLLECTOR.values() if not c.hidden
-                    ]
-
-                yield SelectionList[LogName](
-                    *(
-                        Selection[LogName](
-                            collector.display_name,
-                            collector.name,
-                            self._should_select_collector_by_default(collector),
-                            id=collector.name,
-                            # disable nvidia collector
-                            # unless get_standard_info finds an nvidia card
-                            disabled=collector.name == "nvidia-bug-report",
-                        )
-                        for collector in sorted(
-                            collectors,
-                            key=lambda a: (
-                                # prioritize collect_by_default ones
-                                0
-                                if a.collect_by_default
-                                else 1
-                            ),
-                        )
-                    ),
-                    classes="default_box",
-                    id="logs_to_include",
-                )
-                yield Right(
-                    Button(
-                        "Clear",
-                        compact=True,
-                        tooltip="Clear log selection",
-                        classes="editor_button mr1",
-                        id="clear_log_selection",
+            with ContentSwitcher(initial="basic_info_tab", classes="h100"):
+                with VerticalScroll(id="basic_info_tab", classes="h100"):
+                    yield Input(
+                        placeholder="Short title for this bug",
+                        id=BugReportElemId.TITLE,
+                        classes="default_box",
+                        validators=[NonEmpty()],
                     )
-                )
+                    yield RadioSet(
+                        *(
+                            RadioButton(
+                                display_name,
+                                name=issue_file_time,
+                                value=issue_file_time == "immediate",  # default val
+                            )
+                            for issue_file_time, display_name in pretty_issue_file_times.items()
+                        ),
+                        id="issue_file_time",
+                        classes="default_box",
+                    )
+                    yield Input(
+                        id="project",
+                        placeholder="SOMERVILLE, STELLA, ...",
+                        classes="default_box",
+                        validators=[NoSpaces(), NonEmpty()],
+                    )
+                    yield Input(
+                        id="platform_tags",
+                        placeholder='Tags like "numbat-hello", space separated',
+                        classes="default_box",
+                        validators=[ValidSpaceSeparatedTags()],
+                    )
+                    yield Input(
+                        id="additional_tags",
+                        placeholder=f"Optional, extra {'Jira' if self.app_args.submitter == 'jira' else 'LP'} tags specific to the project",
+                        classes="default_box",
+                        validators=[ValidSpaceSeparatedTags()],
+                    )
+                    yield Input(
+                        id="assignee",
+                        placeholder=(
+                            "Assignee's Jira Email"
+                            if self.app_args.submitter == "jira"
+                            else "Assignee's Launchpad ID"
+                        ),
+                        classes="default_box",
+                    )
 
-                # always make it query-able, but visually hide it when not using lp
-                yield RadioSet(
-                    *(
-                        RadioButton(
-                            status,
-                            name=status,
-                            value=status == "New",  # default to New
+                    with HorizontalGroup():
+                        highest_display_name = (
+                            "Highest (Jira)"
+                            if self.app_args.submitter == "jira"
+                            else "Critical (LP)"
                         )
-                        for status in BUG_STATUSES
-                    ),
-                    id="status",
-                    classes=(
-                        "default_box" if self.app_args.submitter == "lp" else "hidden"
-                    ),
-                )
+                        yield RadioSet(
+                            *(
+                                RadioButton(
+                                    (
+                                        highest_display_name
+                                        if severity == "highest"
+                                        else display_name
+                                    ),
+                                    name=severity,
+                                    value=severity == "highest",  # default to critical
+                                )
+                                for severity, display_name in pretty_severities.items()
+                            ),
+                            id="severity",
+                            classes="default_box",
+                        )
 
-                yield SelectionWithPreview(
-                    FEATURE_MAP,
-                    Label("[i][$primary]These features will be tagged"),
-                    id="impacted_features",
-                    classes="default_box",
-                )
-                yield SelectionWithPreview(
-                    VENDOR_MAP,
-                    Label("[i][$primary]These vendors will be tagged"),
-                    id="impacted_vendors",
-                    classes="default_box",
-                )
+                        cert_status_label = Label(
+                            "Querying checkbox for the certification status (10s timeout)...",
+                            id="cert_status_box",
+                            classes="default_box",
+                            disabled=True,
+                        )
+                        cert_status_label.border_title = "Certification Status"
+                        yield cert_status_label
+                    # always make it query-able, but visually hide it when not using lp
+                    yield RadioSet(
+                        *(
+                            RadioButton(
+                                status,
+                                name=status,
+                                value=status == "New",  # default to New
+                            )
+                            for status in BUG_STATUSES
+                        ),
+                        id="status",
+                        classes=(
+                            "default_box"
+                            if self.app_args.submitter == "lp"
+                            else "hidden"
+                        ),
+                    )
+
+                with VerticalGroup(id="description_tab", classes="h100"):
+                    yield DescriptionEditor(
+                        id=BugReportElemId.DESCRIPTION, disabled=True
+                    )
+
+                with VerticalGroup(id="log_collection_tab", classes="h100"):
+                    if self.session is NullSelection.NO_SESSION:
+                        # don't even include the session collector if there's no session
+                        collectors = [
+                            c
+                            for c in LOG_NAME_TO_COLLECTOR.values()
+                            if c.name != "checkbox-session" and not c.hidden
+                        ]
+                    else:
+                        collectors = [
+                            c for c in LOG_NAME_TO_COLLECTOR.values() if not c.hidden
+                        ]
+
+                    yield SelectionList[LogName](
+                        *(
+                            Selection[LogName](
+                                collector.display_name,
+                                collector.name,
+                                self._should_select_collector_by_default(collector),
+                                id=collector.name,
+                                # disable nvidia collector
+                                # unless get_standard_info finds an nvidia card
+                                disabled=collector.name == "nvidia-bug-report",
+                            )
+                            for collector in sorted(
+                                collectors,
+                                key=lambda a: (
+                                    # prioritize collect_by_default ones
+                                    0
+                                    if a.collect_by_default
+                                    else 1
+                                ),
+                            )
+                        ),
+                        classes="default_box",
+                        id="logs_to_include",
+                    )
+                    yield Right(
+                        Button(
+                            "Clear",
+                            compact=True,
+                            tooltip="Clear log selection",
+                            classes="editor_button mr1",
+                            id="clear_log_selection",
+                        )
+                    )
+
+                with VerticalGroup(id="impacted_vendor_feature_tab", classes="h100"):
+                    yield SelectionWithPreview(
+                        FEATURE_MAP,
+                        Label("[i][$primary]These features will be tagged"),
+                        id="impacted_features",
+                        classes="default_box h50",
+                    )
+                    yield SelectionWithPreview(
+                        VENDOR_MAP,
+                        Label("[i][$primary]These vendors will be tagged"),
+                        id="impacted_vendors",
+                        classes="default_box h50",
+                    )
 
         yield Footer()
 
@@ -601,9 +626,8 @@ class BugReportScreen(Screen[BugReport]):
     @on(Button.Pressed, ".tab_switcher_btn")
     def switch_tab(self, event: Button.Pressed) -> None:
         assert event.button.id
-        content_id = event.button.id.removesuffix("_tab")
+        content_id = event.button.id
         self.query_exactly_one(ContentSwitcher).current = content_id
-        self.query_exactly_one(f"#{content_id}").focus()
 
     @on(Input.Blurred)
     @on(Input.Changed)
