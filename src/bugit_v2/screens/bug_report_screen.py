@@ -926,7 +926,13 @@ class BugReportScreen(Screen[BugReport]):
     def _markdown_bug_report(self) -> str:
         report = self._build_bug_report()
         out = f"""\
-# {report.title.strip()}
+## {report.title.strip() or "*No title* **(you can't submit without a title)**"}
+
+- {report.severity.capitalize()}
+- Project: {report.project or "*No project* **(you can't submit without a project)**"}
+- Assigning to: {report.assignee or '*No one*'}
+- Platform tags: {report.platform_tags or '*No platform tags chosen*'}
+- Additional tags: {report.additional_tags or '*No additional tags chosen*'}
 
 
 ## Description
