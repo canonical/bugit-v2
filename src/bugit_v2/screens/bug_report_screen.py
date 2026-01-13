@@ -953,7 +953,7 @@ class BugReportScreen(Screen[BugReport]):
 
 {"\n".join(map(lambda s: f"- {s}", report.impacted_vendors))}
 
-## Impacted Vendors
+## Impacted Features
 
 {"\n".join(map(lambda s: f"- {s}", report.impacted_features))}
 
