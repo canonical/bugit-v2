@@ -639,7 +639,7 @@ class BugReportScreen(Screen[BugReport]):
                 label.update(f"[red]Autosave failed! {escape_markup(repr(e)[:20])}")
 
         # run auto save 0.5 seconds after the user stops typing
-        self._debounce(lambda: self.run_worker(f, thread=True), 0.5)()
+        self._debounce(lambda: self.run_worker(f, thread=True), 1)()
 
     @on(Button.Pressed, "#clear_log_selection")
     def clear_log_selection(self, _: Button.Pressed):
