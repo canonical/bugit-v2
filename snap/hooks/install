@@ -13,3 +13,5 @@ fi
 
 set -e
 echo "%sudo ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/bugit-v2
+# this with the layout key in snapcraft.yaml overrides the snap's /etc/os-release
+cp /var/lib/snapd/hostfs/etc/os-release $SNAP/etc/os-release

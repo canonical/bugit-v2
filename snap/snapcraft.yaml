@@ -48,6 +48,10 @@ environment:
 layout:
   /etc/sos.conf:
     bind-file: $SNAP/etc/sos.conf
+  # this combined with the 'cp' in the install hook 
+  # overrides platform.freedesktop_os_release()
+  /usr/lib/os-release:
+    bind-file: $SNAP/etc/os-release
   /var/lib/usbutils/usb.ids:
     bind-file: $SNAP/var/lib/usbutils/usb.ids
   /usr/share/alsa:
