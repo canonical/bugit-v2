@@ -7,7 +7,6 @@ from all other collectors.
 """
 
 import asyncio
-import re
 import importlib.resources
 import os
 import shutil
@@ -229,17 +228,8 @@ async def long_job_outputs(target_dir: Path, bug_report: BugReport):
 
 
 async def oem_getlogs(target_dir: Path, _: BugReport):
-    out = await asp_check_output(["oem-getlogs"])
-    log_file_match = re.search(r"oemlogs.*\.apport\.gz", out)
-    if log_file_match is not None:
-        file_path = Path(log_file_match.group(0))
-        assert file_path.exists(), f"{file_path} doesn't exist!"
-        shutil.move(file_path, target_dir)
-    else:
-        raise FileNotFoundError(
-            "oem-getlogs finished, but didn't find a filename matching"
-            + "'oemlogs.*\\.apport\\.gz' in its output"
-        )
+    assert target_dir.exists()
+    await asp_check_output(["oem-getlogs"], cwd=target_dir)
 
 
 async def slow(target_dir: Path, bug_report: BugReport, secs: int):
