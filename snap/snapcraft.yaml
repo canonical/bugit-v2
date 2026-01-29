@@ -78,6 +78,9 @@ apps:
     # redirect stderr to suppress errors
     command: bin/python3 $SNAP/src/bugit_v2/scripts/save_dut_info.py
 
+  oem-getlogs:
+    command: usr/bin/oem-getlogs
+
 parts:
   launcher:
     plugin: dump
