@@ -228,7 +228,7 @@ async def long_job_outputs(target_dir: Path, bug_report: BugReport):
 
 
 async def oem_getlogs(target_dir: Path, _: BugReport):
-    assert target_dir.exists()
+    assert target_dir.exists(), f"Target directory {target_dir} does not exist"
     await asp_check_output(["oem-getlogs"], cwd=target_dir)
 
 

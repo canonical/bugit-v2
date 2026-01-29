@@ -23,6 +23,7 @@ async def asp_check_output(
     :param cmd: command array like the sync version
     :param timeout: timeout in seconds. Wait forever if None
     :param env: env override
+    :param cwd: override current working directory
     :raises CalledProcessError: when the process doesn't return 0
     :return: stdout as a string if successful
     """
@@ -76,6 +77,7 @@ async def asp_check_call(
     :param env: env override
     :param stdout: where to put stdout, defaults to asp.DEVNULL
     :param stderr: where to put stderr, defaults to asp.DEVNULL
+    :param cwd: override current working directory
     :raises CalledProcessError: when return code is not 0
     :return: 0
     """
@@ -124,6 +126,7 @@ async def asp_run(
     :param cmd: command array like the sync version
     :param timeout: timeout in seconds. Wait forever if None
     :param env: env override
+    :param cwd: override current working directory
     :return: stdout as a string if successful
     """
     if env:
