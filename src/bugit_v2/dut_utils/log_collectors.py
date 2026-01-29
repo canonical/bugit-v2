@@ -7,6 +7,7 @@ from all other collectors.
 """
 
 import asyncio
+import re
 import importlib.resources
 import os
 import shutil
@@ -227,6 +228,20 @@ async def long_job_outputs(target_dir: Path, bug_report: BugReport):
         return f"Added job {','.join(added_keys)} to {target_dir}"
 
 
+async def oem_getlogs(target_dir: Path, _: BugReport):
+    out = await asp_check_output(["oem-getlogs"])
+    log_file_match = re.search(r"oemlogs.*\.apport\.gz", out)
+    if log_file_match is not None:
+        file_path = Path(log_file_match.group(0))
+        assert file_path.exists(), f"{file_path} doesn't exist!"
+        shutil.move(file_path, target_dir)
+    else:
+        raise FileNotFoundError(
+            "oem-getlogs finished, but didn't find a filename matching"
+            + "'oemlogs.*\\.apport\\.gz' in its output"
+        )
+
+
 async def slow(target_dir: Path, bug_report: BugReport, secs: int):
     await asp_check_call(["sleep", "10"])
 
@@ -306,6 +321,14 @@ real_collectors: Sequence[LogCollector] = (
         # only run this by default on ubuntu core
         host_is_ubuntu_core(),
         "curl -fsSL https://raw.githubusercontent.com/canonical/snapd/refs/heads/master/debug-tools/snap-debug-info.sh | bash",
+        advertised_timeout=COMMAND_TIMEOUT,
+    ),
+    LogCollector(
+        "oem-getlogs",
+        oem_getlogs,
+        "oem-getlogs (experimental)",
+        False,
+        "sudo -E oem-getlogs",
         advertised_timeout=COMMAND_TIMEOUT,
     ),
     LogCollector(
