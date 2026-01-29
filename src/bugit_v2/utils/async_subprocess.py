@@ -1,6 +1,7 @@
 import asyncio
 import asyncio.subprocess as asp
 import logging
+from pathlib import Path
 import subprocess as sp
 from collections.abc import MutableMapping, Sequence
 from subprocess import CalledProcessError
@@ -15,6 +16,7 @@ async def asp_check_output(
     cmd: Sequence[str],
     timeout: int | None = None,
     env: MutableMapping[str, str] | None = None,
+    cwd: str | Path | None = None,
 ) -> str:
     """Async version of subprocess.check_output
 
@@ -26,10 +28,12 @@ async def asp_check_output(
     """
     if env:
         proc = await asp.create_subprocess_exec(
-            *cmd, stdout=asp.PIPE, stderr=asp.PIPE, env=env
+            *cmd, stdout=asp.PIPE, stderr=asp.PIPE, env=env, cwd=cwd
         )
     else:
-        proc = await asp.create_subprocess_exec(*cmd, stdout=asp.PIPE, stderr=asp.PIPE)
+        proc = await asp.create_subprocess_exec(
+            *cmd, stdout=asp.PIPE, stderr=asp.PIPE, cwd=cwd
+        )
 
     if timeout:
         try:
@@ -63,6 +67,7 @@ async def asp_check_call(
     env: dict[str, str] | None = None,
     stdout: IO[AnyStr] | int = asp.DEVNULL,
     stderr: IO[AnyStr] | int = asp.DEVNULL,
+    cwd: str | Path | None = None,
 ) -> Literal[0]:
     """Async version of sp.check_call
 
@@ -76,10 +81,12 @@ async def asp_check_call(
     """
     if env:
         proc = await asp.create_subprocess_exec(
-            *cmd, stdout=stdout, stderr=stderr, env=env
+            *cmd, stdout=stdout, stderr=stderr, env=env, cwd=cwd
         )
     else:
-        proc = await asp.create_subprocess_exec(*cmd, stdout=stdout, stderr=stderr)
+        proc = await asp.create_subprocess_exec(
+            *cmd, stdout=stdout, stderr=stderr, cwd=cwd
+        )
 
     if timeout:
         try:
@@ -110,6 +117,7 @@ async def asp_run(
     cmd: Sequence[str],
     timeout: int | None = None,
     env: MutableMapping[str, str] | None = None,
+    cwd: str | Path | None = None,
 ) -> sp.CompletedProcess[str]:
     """Async version of subprocess.check_output
 
@@ -120,10 +128,12 @@ async def asp_run(
     """
     if env:
         proc = await asp.create_subprocess_exec(
-            *cmd, stdout=asp.PIPE, stderr=asp.PIPE, env=env
+            *cmd, stdout=asp.PIPE, stderr=asp.PIPE, env=env, cwd=cwd
         )
     else:
-        proc = await asp.create_subprocess_exec(*cmd, stdout=asp.PIPE, stderr=asp.PIPE)
+        proc = await asp.create_subprocess_exec(
+            *cmd, stdout=asp.PIPE, stderr=asp.PIPE, cwd=cwd
+        )
 
     if timeout:
         try:
