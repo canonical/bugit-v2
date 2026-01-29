@@ -50,6 +50,7 @@ layout:
     bind-file: $SNAP/etc/sos.conf
   # this combined with the 'cp' in the install hook
   # overrides platform.freedesktop_os_release()
+  # also keep it in SNAP_COMMON to prevent it from being deleted during refresh
   /usr/lib/os-release:
     bind-file: $SNAP_COMMON/etc/os-release
   /var/lib/usbutils/usb.ids:

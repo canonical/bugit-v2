@@ -3,6 +3,8 @@
 # This hook allows bugit to run in sudo mode without asking for a password
 # NOTE: this hook will cause the installation to fail if --devmode is not
 #       specified
+# NOTE: this hook is also run ONLY ONCE during install and will not be
+#       run again in refreshes/re-installs without --purge 
 
 
 if ! touch /etc/sudoers.d/bugit-v2; then
