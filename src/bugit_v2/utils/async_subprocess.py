@@ -36,19 +36,21 @@ async def asp_check_output(
             *cmd, stdout=asp.PIPE, stderr=asp.PIPE, cwd=cwd
         )
 
-    if timeout:
-        try:
+    try:
+        if timeout:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)
-        except asyncio.TimeoutError as e:
-            if proc.returncode is None:
-                logger.error(
-                    f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)"
-                )
-                recursive_kill(proc.pid)
-
-            raise e
-    else:
-        stdout, stderr = await proc.communicate()
+        else:
+            stdout, stderr = await proc.communicate()
+    except asyncio.TimeoutError as e:
+        if proc.returncode is None:
+            logger.error(f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)")
+            recursive_kill(proc.pid)
+        raise e
+    except asyncio.CancelledError as e:
+        if proc.returncode is None:
+            logger.warning(f"Force killing process {proc.pid}, cmd='{cmd}' (cancelled)")
+            recursive_kill(proc.pid)
+        raise e
 
     assert proc.returncode is not None
     if proc.returncode != 0:
@@ -85,19 +87,21 @@ async def asp_check_call(
             *cmd, stdout=stdout, stderr=stderr, cwd=cwd
         )
 
-    if timeout:
-        try:
+    try:
+        if timeout:
             rc = await asyncio.wait_for(proc.wait(), timeout)
-        except asyncio.TimeoutError as e:
-            if proc.returncode is None:
-                logger.error(
-                    f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)"
-                )
-                recursive_kill(proc.pid)
-
-            raise e
-    else:
-        rc = await proc.wait()
+        else:
+            rc = await proc.wait()
+    except asyncio.TimeoutError as e:
+        if proc.returncode is None:
+            logger.error(f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)")
+            recursive_kill(proc.pid)
+        raise e
+    except asyncio.CancelledError as e:
+        if proc.returncode is None:
+            logger.warning(f"Force killing process {proc.pid}, cmd='{cmd}' (cancelled)")
+            recursive_kill(proc.pid)
+        raise e
 
     if rc != 0:
         raise CalledProcessError(rc, cmd)
@@ -111,7 +115,7 @@ async def asp_run(
     env: MutableMapping[str, str] | None = None,
     cwd: str | Path | None = None,
 ) -> sp.CompletedProcess[str]:
-    """Async version of subprocess.check_output
+    """Async version of subprocess.run
 
     :param cmd: command array like the sync version
     :param timeout: timeout in seconds. Wait forever if None
@@ -128,19 +132,21 @@ async def asp_run(
             *cmd, stdout=asp.PIPE, stderr=asp.PIPE, cwd=cwd
         )
 
-    if timeout:
-        try:
+    try:
+        if timeout:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout)
-        except asyncio.TimeoutError as e:
-            if proc.returncode is None:
-                logger.error(
-                    f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)"
-                )
-                recursive_kill(proc.pid)
-
-            raise e
-    else:
-        stdout, stderr = await proc.communicate()
+        else:
+            stdout, stderr = await proc.communicate()
+    except asyncio.TimeoutError as e:
+        if proc.returncode is None:
+            logger.error(f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)")
+            recursive_kill(proc.pid)
+        raise e
+    except asyncio.CancelledError as e:
+        if proc.returncode is None:
+            logger.warning(f"Force killing process {proc.pid}, cmd='{cmd}' (cancelled)")
+            recursive_kill(proc.pid)
+        raise e
 
     assert proc.returncode is not None
 
@@ -158,4 +164,6 @@ def recursive_kill(pid: int):
 
         parent.kill()
     except psutil.NoSuchProcess:
-        pass
+        logger.warning(f"No such process: {pid}")
+    except PermissionError as e:
+        logger.warning(f"Permission error when killing {pid}: {e}")
