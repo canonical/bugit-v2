@@ -44,12 +44,7 @@ async def asp_check_output(
                 logger.error(
                     f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)"
                 )
-                parent = psutil.Process(proc.pid)
-
-                for child in parent.children(recursive=True):
-                    child.kill()
-
-                parent.kill()
+                recursive_kill(proc.pid)
 
             raise e
     else:
@@ -98,12 +93,7 @@ async def asp_check_call(
                 logger.error(
                     f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)"
                 )
-                parent = psutil.Process(proc.pid)
-
-                for child in parent.children(recursive=True):
-                    child.kill()
-
-                parent.kill()
+                recursive_kill(proc.pid)
 
             raise e
     else:
@@ -146,12 +136,7 @@ async def asp_run(
                 logger.error(
                     f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)"
                 )
-                parent = psutil.Process(proc.pid)
-
-                for child in parent.children(recursive=True):
-                    child.kill()
-
-                parent.kill()
+                recursive_kill(proc.pid)
 
             raise e
     else:
@@ -162,3 +147,15 @@ async def asp_run(
     return sp.CompletedProcess[str](
         cmd, proc.returncode, stdout.decode(), stderr.decode()
     )
+
+
+def recursive_kill(pid: int):
+    try:
+        parent = psutil.Process(pid)
+
+        for child in parent.children(recursive=True):
+            child.kill()
+
+        parent.kill()
+    except psutil.NoSuchProcess:
+        pass
