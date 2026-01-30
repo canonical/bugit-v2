@@ -17,7 +17,7 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
     SERVICE_ROOT,
     LaunchpadAuthModal,
 )
-from bugit_v2.models.bug_report import BugReport, PartialBugReport
+from bugit_v2.models.bug_report import BugReport
 
 # 'staging' doesn't seem to work
 # only 'qastaging' and 'production' works
@@ -173,12 +173,6 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
                 bug_url = f"{QASTAGING_WEB_ROOT}bugs/{bug.id}"
 
         yield AdvanceMessage(f"Bug URL is: {bug_url}")
-
-    @override
-    def reopen(
-        self, bug_report: PartialBugReport, bug_id: str
-    ) -> Generator[str | AdvanceMessage, None, None]:
-        return super().reopen(bug_report, bug_id)
 
     @property
     @override

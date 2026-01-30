@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from bugit_v2.models.bug_report import BugReport, LogName, PartialBugReport
+from bugit_v2.models.bug_report import BugReport, LogName
 from bugit_v2.utils import host_is_ubuntu_core, is_snap
 from bugit_v2.utils.async_subprocess import asp_check_call, asp_check_output
 from bugit_v2.utils.constants import MAX_JOB_OUTPUT_LEN
@@ -56,9 +56,7 @@ class LogCollector:
     hidden: bool = False
 
 
-async def pack_checkbox_session(
-    target_dir: Path, bug_report: BugReport | PartialBugReport
-) -> str:
+async def pack_checkbox_session(target_dir: Path, bug_report: BugReport) -> str:
     assert (
         bug_report.checkbox_session is not None
     ), "Can't use this collector if there's no checkbox session"
@@ -69,7 +67,7 @@ async def pack_checkbox_session(
     return f"Added checkbox session to {target_dir}"
 
 
-async def nvidia_bug_report(target_dir: Path, _: BugReport | PartialBugReport) -> str:
+async def nvidia_bug_report(target_dir: Path, _: BugReport) -> str:
     if is_snap():
         env = os.environ | {
             "PATH": ":".join(
@@ -105,9 +103,7 @@ async def nvidia_bug_report(target_dir: Path, _: BugReport | PartialBugReport) -
     )
 
 
-async def journal_logs(
-    target_dir: Path, _: BugReport | PartialBugReport, num_days: int = 7
-) -> None:
+async def journal_logs(target_dir: Path, _: BugReport, num_days: int = 7) -> None:
     filepath = target_dir / f"journalctl_{num_days}_days.log"
     with open(filepath, "w") as f:
         try:
@@ -139,7 +135,7 @@ async def journal_logs(
         )
 
 
-async def acpidump(target_dir: Path, _: BugReport | PartialBugReport) -> None:
+async def acpidump(target_dir: Path, _: BugReport) -> None:
     await asp_check_call(
         [
             "acpidump",
@@ -149,9 +145,7 @@ async def acpidump(target_dir: Path, _: BugReport | PartialBugReport) -> None:
     )
 
 
-async def dmesg_of_current_boot(
-    target_dir: Path, _: BugReport | PartialBugReport
-) -> str:
+async def dmesg_of_current_boot(target_dir: Path, _: BugReport) -> str:
     with open("/proc/sys/kernel/random/boot_id") as boot_id_file:
         boot_id = boot_id_file.read().strip().replace("-", "")
         with open(target_dir / f"dmesg-of-boot-{boot_id}.log", "w") as f:
@@ -161,7 +155,7 @@ async def dmesg_of_current_boot(
             return f"Saved dmesg logs of boot {boot_id} to {f.name}"
 
 
-async def snap_list(target_dir: Path, _: BugReport | PartialBugReport):
+async def snap_list(target_dir: Path, _: BugReport):
     with open(target_dir / "snap_list.log", "w") as f:
         await asp_check_call(
             ["snap", "list", "--all"],
@@ -170,7 +164,7 @@ async def snap_list(target_dir: Path, _: BugReport | PartialBugReport):
         )
 
 
-async def snap_debug(target_dir: Path, _: BugReport | PartialBugReport):
+async def snap_debug(target_dir: Path, _: BugReport):
     script_path = importlib.resources.files("bugit_v2.dut_utils") / "snap_debug.sh"
     with open(target_dir / "snap_debug.log", "w") as f:
         await asp_check_call(
@@ -180,9 +174,7 @@ async def snap_debug(target_dir: Path, _: BugReport | PartialBugReport):
         )
 
 
-async def pack_checkbox_submission(
-    target_dir: Path, bug_report: BugReport | PartialBugReport
-):
+async def pack_checkbox_submission(target_dir: Path, bug_report: BugReport):
     assert (
         bug_report.checkbox_submission is not None
     ), "Can't use this collector if there's no checkbox submission"

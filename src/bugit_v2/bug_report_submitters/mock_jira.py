@@ -19,7 +19,7 @@ from bugit_v2.bug_report_submitters.jira_submitter import (
     JiraBasicAuth,
     JiraSubmitterError,
 )
-from bugit_v2.models.bug_report import BugReport, PartialBugReport, Severity
+from bugit_v2.models.bug_report import BugReport, Severity
 
 JIRA_SERVER_ADDRESS = os.getenv("JIRA_SERVER", "https://warthogs.atlassian.net")
 
@@ -170,12 +170,6 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         time.sleep(2)
         yield AdvanceMessage("OK! Created `issue id`")
         self.mock_issue = "mock_issue"
-
-    @override
-    def reopen(
-        self, bug_report: PartialBugReport, bug_id: str
-    ) -> Generator[str | AdvanceMessage, None, None]:
-        return super().reopen(bug_report, bug_id)
 
     @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:

@@ -25,7 +25,7 @@ from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
 from bugit_v2.models.app_args import AppArgs
-from bugit_v2.models.bug_report import BugReport, LogName, PartialBugReport
+from bugit_v2.models.bug_report import BugReport, LogName
 from bugit_v2.utils import is_prod, is_snap
 
 logger = logging.getLogger(__name__)
@@ -322,16 +322,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
         display_name = self.submitter.display_name or self.submitter.name
 
-        match self.bug_report:
-            case BugReport() as b:
-                submission_step_iterator = self.submitter.submit(b)
-            case PartialBugReport() as p:
-                assert self.app_args.bug_to_reopen
-                submission_step_iterator = self.submitter.reopen(
-                    p, self.app_args.bug_to_reopen
-                )
-
-        for step_result in submission_step_iterator:
+        for step_result in self.submitter.submit(self.bug_report):
             match step_result:
                 case str():
                     # general logs
