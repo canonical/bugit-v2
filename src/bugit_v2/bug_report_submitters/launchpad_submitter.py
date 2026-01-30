@@ -23,7 +23,6 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 )
 from bugit_v2.models.bug_report import (
     BugReport,
-    PartialBugReport,
     pretty_issue_file_times,
 )
 from bugit_v2.utils import is_prod
@@ -386,12 +385,6 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         yield "Saved bug settings"
 
         yield AdvanceMessage(f"Bug URL is: {self.bug_url}")
-
-    @override
-    def reopen(
-        self, bug_report: PartialBugReport, bug_id: str
-    ) -> Generator[str | AdvanceMessage, None, None]:
-        return super().reopen(bug_report, bug_id)
 
     @override
     def upload_attachment(self, attachment_file: Path) -> str | None:

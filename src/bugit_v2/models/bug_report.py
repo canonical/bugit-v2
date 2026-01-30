@@ -56,7 +56,7 @@ LogName = Literal[
     "snap-list",
     "snap-debug",
     "long-job-outputs",
-    "oem-getlogs"
+    "oem-getlogs",
 ]
 LOG_NAMES: tuple[LogName, ...] = LogName.__args__
 # pretty log names should be specified in the LogCollector class
@@ -124,34 +124,6 @@ class BugReport:
                 o[k] = v
         o["last_updated_timestamp"] = int(time.time())
         return o
-
-
-@dataclass(slots=True, frozen=True)
-class PartialBugReport:
-    """
-    The data model for a partial bug report used when reopening a bug.
-    Avoid attaching methods to this class unless it's a simple getter
-    """
-
-    # required
-    description: str
-    issue_file_time: IssueFileTime
-    # optionals
-    checkbox_session: Session | None
-    checkbox_submission: SimpleCheckboxSubmission | None
-    assignee: str | None = None  # appear as unassigned if None
-    platform_tags: Sequence[str] = field(default_factory=list[str])
-    additional_tags: Sequence[str] = field(default_factory=list[str])
-    # selections
-    logs_to_include: Sequence[LogName] = field(default_factory=list[LogName])
-
-    def get_with_type[T](self, attr: str, expected_type: type[T]) -> T:
-        value = getattr(self, attr)  # pyright: ignore[reportAny]
-        if type(value) is expected_type:  # pyright: ignore[reportAny]
-            return value
-        raise TypeError(
-            f"Expected {expected_type}, but got {type(value)}"  # pyright: ignore[reportAny]
-        )
 
 
 class BugReportAutoSaveData(BaseModel):
