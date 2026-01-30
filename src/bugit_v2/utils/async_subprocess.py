@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess as sp
 from collections.abc import MutableMapping, Sequence
 from subprocess import CalledProcessError
-from typing import IO, AnyStr, Literal, cast
+from typing import IO, AnyStr, Literal
 
 import psutil
 
@@ -46,7 +46,7 @@ async def asp_check_output(
                 )
                 parent = psutil.Process(proc.pid)
 
-                for child in cast(list[psutil.Process], parent.children(recursive=True)):
+                for child in parent.children(recursive=True):
                     child.kill()
 
                 parent.kill()
@@ -100,7 +100,7 @@ async def asp_check_call(
                 )
                 parent = psutil.Process(proc.pid)
 
-                for child in cast(list[psutil.Process], parent.children(recursive=True)):
+                for child in parent.children(recursive=True):
                     child.kill()
 
                 parent.kill()
@@ -148,7 +148,7 @@ async def asp_run(
                 )
                 parent = psutil.Process(proc.pid)
 
-                for child in cast(list[psutil.Process], parent.children(recursive=True)):
+                for child in parent.children(recursive=True):
                     child.kill()
 
                 parent.kill()
