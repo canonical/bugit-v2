@@ -151,6 +151,7 @@ class BugReportScreen(Screen[BugReport]):
     elem_id_to_border_title: Final[Mapping[BugReportElemId, tuple[str, str]]]
     # Is the device where bugit is running on the one we want to open bugs for?
     dut_is_report_target: Final[bool]
+    job_output_too_long: bool = False
 
     initial_report: dict[str, str]
 
@@ -289,6 +290,8 @@ class BugReportScreen(Screen[BugReport]):
             lines: list[str] = []
             for k in ("stdout", "stderr", "comments"):
                 if len(job_output[k]) < MAX_JOB_OUTPUT_LEN:
+                    # as long as 1 output is too long, set it to true
+                    self.job_output_too_long = False or self.job_output_too_long
                     lines.extend(
                         [
                             k,
@@ -298,6 +301,7 @@ class BugReportScreen(Screen[BugReport]):
                         ]
                     )
                 else:
+                    self.job_output_too_long = True or self.job_output_too_long
                     lines.extend(
                         [
                             k,
@@ -812,6 +816,10 @@ class BugReportScreen(Screen[BugReport]):
         assert selected_status_button
         assert selected_status_button.name in BUG_STATUSES
 
+        hidden_collectors: list[LogName] = []
+        if self.job_output_too_long:
+            hidden_collectors.append("long-job-outputs")
+
         return BugReport(
             report_id=self.report_id,
             title=self.query_exactly_one(
@@ -854,12 +862,15 @@ class BugReportScreen(Screen[BugReport]):
             impacted_vendors=self.query_exactly_one(
                 f"#{BugReportElemId.IMPACTED_VENDORS}", SelectionWithPreview
             ).selected_values,
-            logs_to_include=cast(
-                SelectionList[LogName],
-                self.query_exactly_one(
-                    f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
-                ),
-            ).selected,
+            logs_to_include=(
+                cast(
+                    SelectionList[LogName],
+                    self.query_exactly_one(
+                        f"#{BugReportElemId.LOGS_TO_INCLUDE}", SelectionList
+                    ),
+                ).selected
+                + hidden_collectors
+            ),
             source=self.existing_report and self.existing_report.source or "editor",
         )
 
@@ -929,10 +940,8 @@ class BugReportScreen(Screen[BugReport]):
                     elem.deselect_all()  # clear first, then recover
 
                     for v in elem_value:
-                        # if v in elem.options:
                         try:
                             elem.select(elem.get_option(v))
-                            # cast(SelectionList[str], elem).select(str(v))
                         except OptionDoesNotExist:
                             logger.warning("Ignoring option", v)
                 case _:

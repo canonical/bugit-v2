@@ -319,7 +319,7 @@ real_collectors: Sequence[LogCollector] = (
         long_job_outputs,
         "Long Job Outputs",
         collect_by_default=True,
-        hidden=True,
+        hidden=True
     ),
 )
 
