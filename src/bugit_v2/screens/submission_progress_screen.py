@@ -149,12 +149,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         # all log collectors are allowed to fail. If they do, write a message
         # to the screen to tell the user how to get the logs manually
 
-        final_logs_to_include = set(self.bug_report.logs_to_include)
-        for log_name, collector in LOG_NAME_TO_COLLECTOR.items():
-            if collector.hidden and collector.collect_by_default:
-                final_logs_to_include.add(log_name)
-
-        for log_name in final_logs_to_include:
+        for log_name in self.bug_report.logs_to_include:
 
             async def run_collect(log: LogName):
                 collector = LOG_NAME_TO_COLLECTOR[log]
