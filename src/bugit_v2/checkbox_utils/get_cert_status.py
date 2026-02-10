@@ -74,7 +74,8 @@ async def cache_cert_status_to_file(
             lines = raw_case.splitlines()
 
             if len(lines) != 3 or lines[2] not in CERT_STATUSES:
-                logger.error("Bad cert status group", lines)
+                logger.error("Bad cert status group")
+                logger.error(lines)
                 continue
 
             writer.writerow(lines)
@@ -96,7 +97,8 @@ async def _get_cert_status_from_file(
             full_id, template_id, cert_status = line
 
             if cert_status not in CERT_STATUSES:
-                logger.error("Bad cert status group", line)
+                logger.error("Bad cert status group")
+                logger.error(line)
                 continue
 
             if full_id == job_id:
@@ -108,7 +110,8 @@ async def _get_cert_status_from_file(
             full_id, template_id, cert_status = line
 
             if cert_status not in CERT_STATUSES:
-                logger.error("Bad cert status group", line)
+                logger.error("Bad cert status group")
+                logger.error(line)
                 continue
 
             if template_id == MISSING_TEMPLATE_ID:
