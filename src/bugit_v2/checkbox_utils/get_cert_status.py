@@ -8,6 +8,7 @@ from base64 import b64decode
 from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
+import re
 
 from bugit_v2.checkbox_utils.checkbox_exec import checkbox_exec, get_checkbox_info
 from bugit_v2.checkbox_utils.checkbox_session import SESSION_ROOT_DIR
@@ -24,6 +25,12 @@ MISSING_TEMPLATE_ID = "<missing template-id>"
 class TestCaseWithCertStatus(NamedTuple):
     full_id: str
     cert_status: CertificationStatus
+
+
+def _template_to_regex(template_str: str) -> str:
+    escaped_template = re.escape(template_str)
+    regex_pattern = re.sub(r"\\\{.*?\\\}", ".*", escaped_template)
+    return f"^{regex_pattern}$"
 
 
 async def cache_cert_status_to_file(
@@ -72,9 +79,15 @@ async def cache_cert_status_to_file(
             writer.writerow(lines)
 
 
-def _get_cert_status_from_file(
+async def _get_cert_status_from_file(
     filepath: Path, job_id: str
 ) -> TestCaseWithCertStatus | None:
+    """Use the cached csv file as a guide to find the cert status
+
+    :param filepath: where is the csv
+    :param job_id: full job id with namespace
+    :return: TestCaseWithCertStatus
+    """
     with open(filepath, "r", newline="") as f:
         reader = csv.reader(f, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
 
@@ -86,12 +99,27 @@ def _get_cert_status_from_file(
                 continue
 
             if full_id == job_id:
+                # already found!
                 return TestCaseWithCertStatus(job_id, cert_status)
 
-            # if template_id == MISSING_TEMPLATE_ID and full_id == job_id:
-            #     return TestCaseWithCertStatus(job_id, cert_status)
-            # elif _format_to_regex(template_id).match(job_id):
-            #     return TestCaseWithCertStatus(job_id, cert_status)
+            elif template_id != MISSING_TEMPLATE_ID:
+                # failed to match the id exactly
+                # see if the template id can match
+                out = await checkbox_exec(["show", template_id, "--exact"], timeout=5)
+
+                if out.returncode != 0:
+                    return None
+
+                # output from 'show' is usually really small, .splitlines should be ok
+                for line in out.stdout.splitlines():
+                    # this gets us the 'real' template id before slugify()
+                    if line.startswith("id:"):
+                        real_template_id = line.strip().removeprefix("id:").strip()
+                        template_id_regex = _template_to_regex(real_template_id)
+                        if re.match(
+                            template_id_regex, job_id.split("::", maxsplit=1)[-1].strip()
+                        ):
+                            return TestCaseWithCertStatus(job_id, cert_status)
 
 
 @lru_cache()
