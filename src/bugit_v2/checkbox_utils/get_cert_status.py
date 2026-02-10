@@ -94,22 +94,29 @@ async def _get_cert_status_from_file(
         reader = csv.reader(f, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
 
         for line in reader:
-            full_id, template_id, cert_status = line
+            if len(line) < 3:
+                logger.error("Bad cert status group len")
+                logger.error(line)
+                continue
 
+            full_id, template_id, cert_status = line
             if cert_status not in CERT_STATUSES:
                 logger.error("Bad cert status group")
                 logger.error(line)
                 continue
 
             if full_id == job_id:
-                # already found!
                 return TestCaseWithCertStatus(job_id, cert_status)
 
         f.seek(0)  # rewind to the top
         reader = csv.reader(f, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
         for line in reader:
-            full_id, template_id, cert_status = line
+            if len(line) < 3:
+                logger.error("Bad cert status group len")
+                logger.error(line)
+                continue
 
+            full_id, template_id, cert_status = line
             if cert_status not in CERT_STATUSES:
                 logger.error("Bad cert status group")
                 logger.error(line)
