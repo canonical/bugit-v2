@@ -3,18 +3,22 @@ import json
 import logging
 import os
 import shutil
+import csv
 from base64 import b64decode
 from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
 
-from async_lru import alru_cache
 
 from bugit_v2.checkbox_utils.checkbox_exec import checkbox_exec
 from bugit_v2.checkbox_utils.checkbox_session import SESSION_ROOT_DIR
 from bugit_v2.checkbox_utils.models import CERT_STATUSES, CertificationStatus
+from bugit_v2.utils.constants import DISK_CACHE_DIR
 
 logger = logging.getLogger(__name__)
+
+CERT_STATUS_FILE_PREFIX = "cert_status_cache"
+MISSING_TEMPLATE_ID = "<missing template-id>"
 
 
 class TestCaseWithCertStatus(NamedTuple):
@@ -22,39 +26,70 @@ class TestCaseWithCertStatus(NamedTuple):
     cert_status: CertificationStatus
 
 
-async def list_bootstrapped_cert_status(
-    test_plan: str, checkbox_env: dict[str, str] | None = None
-) -> dict[str, TestCaseWithCertStatus]:
-    lb_out = await checkbox_exec(
-        [
-            "list-bootstrapped",
-            test_plan,
-            "-f",
-            "{full_id}\n{certification_status}\n\n",
-        ],
-        checkbox_env,
-        10,
-    )
+async def cache_cert_status_to_file(
+    test_plan: str, filename: Path, checkbox_env: dict[str, str] | None = None
+) -> None:
+    """Writes a fresh cert status csv file
+
+    :param test_plan: the test plan with namespace
+    :param checkbox_env: optional env to use when bootstrapping
+    :raises RuntimeError: if checkbox-cli list-bootstrapped failed
+    """
+    remove_listing_ephemeral_dirs()
+    try:
+        lb_out = await checkbox_exec(
+            [
+                "list-bootstrapped",
+                test_plan,
+                "-f",
+                r"{full_id}\n{template-id}\n{certification_status}\n\n",
+            ],
+            checkbox_env,
+            30,
+        )
+    except Exception as e:
+        remove_listing_ephemeral_dirs()
+        raise e
 
     if lb_out.returncode != 0:
         raise RuntimeError(
             f"Failed to run checkbox-cli list-bootstrapped {repr(lb_out)}"
         )
 
-    out: dict[str, TestCaseWithCertStatus] = {}
+    with open(filename, "w", newline="") as f:
+        writer = csv.writer(f, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
+        # split by empty line
+        raw_cases = lb_out.stdout.strip().split("\n\n")
+        for raw_case in raw_cases:
+            lines = raw_case.splitlines()
 
-    # split by empty line
-    raw_cases = lb_out.stdout.strip().split("\n\n")
-    for raw_case in raw_cases:
-        lines = raw_case.splitlines()
+            if len(lines) != 3 or lines[2] not in CERT_STATUSES:
+                logger.error("Bad cert status group", lines)
+                continue
 
-        if len(lines) != 2 or lines[1] not in CERT_STATUSES:
-            logger.error("Bad cert status group", lines)
-            continue
+            writer.writerow(lines)
 
-        out[lines[0]] = TestCaseWithCertStatus(full_id=lines[0], cert_status=lines[1])
 
-    return out
+def _get_cert_status_from_file(
+    filepath: Path, job_id: str
+) -> TestCaseWithCertStatus | None:
+    with open(filepath, "r", newline="") as f:
+        reader = csv.reader(f, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
+
+        for line in reader:
+            full_id, template_id, cert_status = line
+
+            if cert_status not in CERT_STATUSES:
+                logger.error("Bad cert status group", line)
+                continue
+
+            if full_id == job_id:
+                return TestCaseWithCertStatus(job_id, cert_status)
+
+            # if template_id == MISSING_TEMPLATE_ID and full_id == job_id:
+            #     return TestCaseWithCertStatus(job_id, cert_status)
+            # elif _format_to_regex(template_id).match(job_id):
+            #     return TestCaseWithCertStatus(job_id, cert_status)
 
 
 @lru_cache()
@@ -93,25 +128,17 @@ def get_session_envs(session_path: Path) -> dict[str, str]:
     return out
 
 
-@alru_cache()
 async def get_certification_status(
-    test_plan: str, session_path: Path | None = None
-) -> dict[str, TestCaseWithCertStatus]:
+    test_plan: str, job_id: str
+) -> TestCaseWithCertStatus | None:
     logger.info(f"Getting all cert status values for {test_plan}")
 
-    cb_env: dict[str, str] | None = None
-
-    if session_path is not None:
-        logger.info(f"Using envs from {session_path}")
-        cb_env = get_session_envs(session_path)
-
-    remove_listing_ephemeral_dirs()
+    cache_file = DISK_CACHE_DIR / f"{CERT_STATUS_FILE_PREFIX}_{test_plan}.csv"
     try:
-        out = await list_bootstrapped_cert_status(test_plan, cb_env)
-    finally:
-        remove_listing_ephemeral_dirs()
-
-    return out
+        return _get_cert_status_from_file(cache_file, job_id)
+    except Exception:
+        await cache_cert_status_to_file(test_plan, cache_file)
+        return _get_cert_status_from_file(cache_file, job_id)
 
 
 def remove_listing_ephemeral_dirs() -> None:
