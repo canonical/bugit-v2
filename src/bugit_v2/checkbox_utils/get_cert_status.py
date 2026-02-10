@@ -176,7 +176,7 @@ async def get_certification_status(
         / f"{CERT_STATUS_FILE_PREFIX}_{test_plan}.csv"
     )
     try:
-        return _get_cert_status_from_file(cache_file, job_id)
+        return await _get_cert_status_from_file(cache_file, job_id)
     except Exception:
         cb_env = None
         if session_path:
@@ -184,7 +184,7 @@ async def get_certification_status(
             cb_env = get_session_envs(session_path)
 
         await cache_cert_status_to_file(test_plan, cache_file, cb_env)
-        return _get_cert_status_from_file(cache_file, job_id)
+        return await _get_cert_status_from_file(cache_file, job_id)
 
 
 def remove_listing_ephemeral_dirs() -> None:
