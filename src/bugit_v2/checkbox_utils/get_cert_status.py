@@ -52,6 +52,7 @@ async def cache_cert_status_to_file(
         raise e
 
     if lb_out.returncode != 0:
+        logger.error(lb_out.stderr)
         raise RuntimeError(
             f"Failed to run checkbox-cli list-bootstrapped {repr(lb_out)}"
         )
@@ -130,7 +131,7 @@ def get_session_envs(session_path: Path) -> dict[str, str]:
 
 
 async def get_certification_status(
-    test_plan: str, job_id: str
+    test_plan: str, job_id: str, session_path: Path | None = None
 ) -> TestCaseWithCertStatus | None:
     logger.info(f"Getting all cert status values for {test_plan}")
     cb_info = await get_checkbox_info()
@@ -149,7 +150,12 @@ async def get_certification_status(
     try:
         return _get_cert_status_from_file(cache_file, job_id)
     except Exception:
-        await cache_cert_status_to_file(test_plan, cache_file)
+        cb_env = None
+        if session_path:
+            logger.debug(f"Using envs from {session_path}")
+            cb_env = get_session_envs(session_path)
+
+        await cache_cert_status_to_file(test_plan, cache_file, cb_env)
         return _get_cert_status_from_file(cache_file, job_id)
 
 
