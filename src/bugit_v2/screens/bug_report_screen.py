@@ -931,7 +931,7 @@ class BugReportScreen(Screen[BugReport]):
                     value = cast(
                         list[str],
                         self.existing_report.get_with_type(elem_id, list),
-                    ) 
+                    )
                     elem.restore_selection(value)
                 case SelectionList():
                     elem_value = cast(
@@ -944,7 +944,7 @@ class BugReportScreen(Screen[BugReport]):
                         try:
                             elem.select(elem.get_option(v))
                         except OptionDoesNotExist:
-                            logger.warning("Ignoring option", v)
+                            logger.warning(f"Ignoring option: {v}")
                 case _:
                     pass
 
