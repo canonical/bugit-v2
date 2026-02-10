@@ -39,7 +39,13 @@ async def checkbox_exec(
 
     logger.info(f"Checkbox args: {checkbox_args}")
     if additional_env:
-        logger.info(f"Using additional env: {additional_env}")
+        clean_additional_env = {
+            k: v for k, v in additional_env.items() if not k.startswith("PYTHON")
+        }
+        logger.info(f"Using additional env: {clean_additional_env}")
+
+    else:
+        clean_additional_env = {}
 
     if checkbox_info.type == "snap" or not is_snap():
         # pipx bugit or snap checkbox
@@ -47,7 +53,7 @@ async def checkbox_exec(
         logger.info(f"Directly invoking checkbox at {checkbox_info.bin_path}")
         return await asp_run(
             [str(checkbox_info.bin_path), *checkbox_args],
-            env=(additional_env or {}) | os.environ,
+            env=clean_additional_env | os.environ,
             timeout=timeout,
         )
     else:
@@ -96,7 +102,7 @@ async def checkbox_exec(
             )
             return await asp_run(
                 [str(checkbox_info.bin_path), *checkbox_args],
-                env=(additional_env or {})
+                env=clean_additional_env
                 | {
                     "PATH": PATH,
                     "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages",
