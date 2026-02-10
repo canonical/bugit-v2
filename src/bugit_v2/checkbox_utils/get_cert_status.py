@@ -102,24 +102,34 @@ async def _get_cert_status_from_file(
                 # already found!
                 return TestCaseWithCertStatus(job_id, cert_status)
 
-            elif template_id != MISSING_TEMPLATE_ID:
-                # failed to match the id exactly
-                # see if the template id can match
-                out = await checkbox_exec(["show", template_id, "--exact"], timeout=5)
+        f.seek(0)  # rewind to the top
+        for line in reader:
+            full_id, template_id, cert_status = line
 
-                if out.returncode != 0:
-                    return None
+            if cert_status not in CERT_STATUSES:
+                logger.error("Bad cert status group", line)
+                continue
 
-                # output from 'show' is usually really small, .splitlines should be ok
-                for line in out.stdout.splitlines():
-                    # this gets us the 'real' template id before slugify()
-                    if line.startswith("id:"):
-                        real_template_id = line.strip().removeprefix("id:").strip()
-                        template_id_regex = _template_to_regex(real_template_id)
-                        if re.match(
-                            template_id_regex, job_id.split("::", maxsplit=1)[-1].strip()
-                        ):
-                            return TestCaseWithCertStatus(job_id, cert_status)
+            if template_id == MISSING_TEMPLATE_ID:
+                continue
+
+            # failed to match the id exactly
+            # see if the template id can match
+            out = await checkbox_exec(["show", template_id, "--exact"], timeout=5)
+
+            if out.returncode != 0:
+                return None
+
+            # output from 'show' is usually really small, .splitlines should be ok
+            for line in out.stdout.splitlines():
+                # this gets us the 'real' template id before slugify()
+                if line.startswith("id:"):
+                    real_template_id = line.strip().removeprefix("id:").strip()
+                    template_id_regex = _template_to_regex(real_template_id)
+                    if re.match(
+                        template_id_regex, job_id.split("::", maxsplit=1)[-1].strip()
+                    ):
+                        return TestCaseWithCertStatus(job_id, cert_status)
 
 
 @lru_cache()
