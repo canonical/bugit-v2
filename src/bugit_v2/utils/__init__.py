@@ -52,7 +52,7 @@ def pretty_date(d: dt.datetime) -> str:
         return "{:.2f} hours ago".format(s / 3600)
 
 
-def slugify(s: str):
+def slugify(s: str) -> str:
     """the slugify from checkbox
 
     :param s: string to slugify

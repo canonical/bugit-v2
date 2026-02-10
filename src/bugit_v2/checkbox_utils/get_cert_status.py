@@ -34,7 +34,7 @@ def _template_to_regex(template_str: str) -> str:
     return f"^{regex_pattern}$"
 
 
-async def cache_cert_status_to_file(
+async def _cache_cert_status_to_file(
     test_plan: str, filepath: Path, checkbox_env: dict[str, str] | None = None
 ) -> None:
     """Writes a fresh cert status csv file
@@ -208,7 +208,7 @@ async def get_certification_status(
             logger.debug(f"Using envs from {session_path}")
             cb_env = get_session_envs(session_path)
 
-        await cache_cert_status_to_file(test_plan, cache_file, cb_env)
+        await _cache_cert_status_to_file(test_plan, cache_file, cb_env)
         return await _get_cert_status_from_file(cache_file, job_id)
 
 
