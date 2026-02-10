@@ -106,6 +106,7 @@ async def _get_cert_status_from_file(
                 return TestCaseWithCertStatus(job_id, cert_status)
 
         f.seek(0)  # rewind to the top
+        reader = csv.reader(f, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
         for line in reader:
             full_id, template_id, cert_status = line
 
@@ -125,7 +126,7 @@ async def _get_cert_status_from_file(
                 continue
 
             if out.returncode != 0:
-                return None
+                continue
 
             # output from 'show' is usually really small, .splitlines should be ok
             for line in out.stdout.splitlines():
@@ -190,7 +191,7 @@ async def get_certification_status(
     cache_file = (
         DISK_CACHE_DIR
         / slugify(cb_info.version)
-        / f"{CERT_STATUS_FILE_PREFIX}_{test_plan}.csv"
+        / f"{CERT_STATUS_FILE_PREFIX}_{slugify(test_plan)}.csv"
     )
     try:
         return await _get_cert_status_from_file(cache_file, job_id)
