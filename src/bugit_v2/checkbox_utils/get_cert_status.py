@@ -9,10 +9,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
 
-
-from bugit_v2.checkbox_utils.checkbox_exec import checkbox_exec
+from bugit_v2.checkbox_utils.checkbox_exec import checkbox_exec, get_checkbox_info
 from bugit_v2.checkbox_utils.checkbox_session import SESSION_ROOT_DIR
 from bugit_v2.checkbox_utils.models import CERT_STATUSES, CertificationStatus
+from bugit_v2.utils import slugify
 from bugit_v2.utils.constants import DISK_CACHE_DIR
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class TestCaseWithCertStatus(NamedTuple):
 
 
 async def cache_cert_status_to_file(
-    test_plan: str, filename: Path, checkbox_env: dict[str, str] | None = None
+    test_plan: str, filepath: Path, checkbox_env: dict[str, str] | None = None
 ) -> None:
     """Writes a fresh cert status csv file
 
@@ -56,7 +56,8 @@ async def cache_cert_status_to_file(
             f"Failed to run checkbox-cli list-bootstrapped {repr(lb_out)}"
         )
 
-    with open(filename, "w", newline="") as f:
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    with open(filepath, "w", newline="") as f:
         writer = csv.writer(f, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL)
         # split by empty line
         raw_cases = lb_out.stdout.strip().split("\n\n")
@@ -132,8 +133,19 @@ async def get_certification_status(
     test_plan: str, job_id: str
 ) -> TestCaseWithCertStatus | None:
     logger.info(f"Getting all cert status values for {test_plan}")
+    cb_info = await get_checkbox_info()
 
-    cache_file = DISK_CACHE_DIR / f"{CERT_STATUS_FILE_PREFIX}_{test_plan}.csv"
+    if cb_info is None:
+        logger.warning(
+            "get_certification_status was called while no checkbox is present on the system"
+        )
+        return None
+
+    cache_file = (
+        DISK_CACHE_DIR
+        / slugify(cb_info.version)
+        / f"{CERT_STATUS_FILE_PREFIX}_{test_plan}.csv"
+    )
     try:
         return _get_cert_status_from_file(cache_file, job_id)
     except Exception:

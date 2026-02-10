@@ -2,8 +2,12 @@ import datetime as dt
 import importlib.metadata
 import os
 import shutil
+import string
 
 from bugit_v2.utils.constants import HOST_FS
+
+
+_VALID_CHARS = frozenset(f"-_.{string.ascii_letters}{string.digits}")
 
 
 def is_prod() -> bool:
@@ -46,3 +50,13 @@ def pretty_date(d: dt.datetime) -> str:
         return "1 hour ago"
     else:
         return "{:.2f} hours ago".format(s / 3600)
+
+
+def slugify(s: str):
+    """the slugify from checkbox
+
+    :param s: string to slugify
+    :return: a clean string for filenames
+    """
+
+    return "".join(char if char in _VALID_CHARS else "_" for char in s)
