@@ -94,6 +94,10 @@ DUT_INFO_DIR = (
 )
 HOST_FS = Path("/var/lib/snapd/hostfs")
 MAX_JOB_OUTPUT_LEN = 10_000
+DISK_CACHE_DIR = (
+    Path(os.getenv("SNAP_COMMON", str(Path().home().absolute() / ".cache")))
+    / "bugit-v2-persistent-cache"
+)
 
 
 class NullSelection(enum.Enum):

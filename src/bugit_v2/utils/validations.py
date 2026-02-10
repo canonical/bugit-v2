@@ -9,6 +9,7 @@ from bugit_v2.checkbox_utils.submission_extractor import read_simple_submission
 from bugit_v2.utils import is_snap
 from bugit_v2.utils.constants import (
     AUTOSAVE_DIR,
+    DISK_CACHE_DIR,
     DUT_INFO_DIR,
     VISUAL_CONFIG_DIR,
     NullSelection,
@@ -78,3 +79,5 @@ def ensure_all_directories_exist() -> None:
         os.makedirs(VISUAL_CONFIG_DIR)
     if not DUT_INFO_DIR.exists():
         os.makedirs(DUT_INFO_DIR)
+    if not DISK_CACHE_DIR.exists():
+        os.makedirs(DISK_CACHE_DIR)

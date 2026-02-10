@@ -535,7 +535,7 @@ class BugReportScreen(Screen[BugReport]):
             elif self.session is not NullSelection.NO_SESSION:
                 self.run_worker(
                     get_certification_status(
-                        self.session.testplan_id, self.session.session_path
+                        self.session.testplan_id, self.job_id, self.session.session_path
                     ),
                     name=WorkerName.GET_CERT_STATUS,
                     exit_on_error=False,
@@ -775,11 +775,12 @@ class BugReportScreen(Screen[BugReport]):
             cert_status_box.update(f"Failed to get cert status. {event.worker.error}")
             return
 
-        all_cert_statuses = cast(
-            dict[str, TestCaseWithCertStatus],
+        cert_status = cast(
+            TestCaseWithCertStatus | None,
             event.worker.result,
         )
-        self._color_cert_status_box(all_cert_statuses[self.job_id].cert_status)
+        if cert_status is not None:
+            self._color_cert_status_box(cert_status.cert_status)
 
     def _get_submission_cert_status_worker_callback(self, event: Worker.StateChanged):
         assert self.job_id is not NullSelection.NO_JOB
@@ -943,7 +944,7 @@ class BugReportScreen(Screen[BugReport]):
                         try:
                             elem.select(elem.get_option(v))
                         except OptionDoesNotExist:
-                            logger.warning("Ignoring option", v)
+                            logger.warning(f"Ignoring option: {v}")
                 case _:
                     pass
 
