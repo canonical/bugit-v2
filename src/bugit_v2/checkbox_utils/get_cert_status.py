@@ -1,3 +1,4 @@
+import asyncio
 import gzip
 import json
 import logging
@@ -115,7 +116,10 @@ async def _get_cert_status_from_file(
 
             # failed to match the id exactly
             # see if the template id can match
-            out = await checkbox_exec(["show", template_id, "--exact"], timeout=5)
+            try:
+                out = await checkbox_exec(["show", template_id, "--exact"], timeout=5)
+            except asyncio.TimeoutError:
+                continue
 
             if out.returncode != 0:
                 return None
