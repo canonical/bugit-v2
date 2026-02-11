@@ -73,11 +73,10 @@ def is_cid(cid: str) -> bool:
 
 
 def ensure_all_directories_exist() -> None:
-    if not AUTOSAVE_DIR.exists():
-        os.makedirs(AUTOSAVE_DIR)
-    if not VISUAL_CONFIG_DIR.exists():
-        os.makedirs(VISUAL_CONFIG_DIR)
-    if not DUT_INFO_DIR.exists():
-        os.makedirs(DUT_INFO_DIR)
-    if not DISK_CACHE_DIR.exists():
-        os.makedirs(DISK_CACHE_DIR)
+    for directory in (
+        AUTOSAVE_DIR,
+        VISUAL_CONFIG_DIR,
+        DUT_INFO_DIR,
+        DISK_CACHE_DIR,
+    ):
+        os.makedirs(directory, exist_ok=True)
