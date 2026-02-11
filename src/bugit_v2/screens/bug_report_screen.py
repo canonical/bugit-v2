@@ -779,7 +779,7 @@ class BugReportScreen(Screen[BugReport]):
             TestCaseWithCertStatus | None,
             event.worker.result,
         )
-        self._color_cert_status_box(cert_status.cert_status)
+        self._color_cert_status_box(cert_status and cert_status.cert_status)
 
     def _get_submission_cert_status_worker_callback(self, event: Worker.StateChanged):
         assert self.job_id is not NullSelection.NO_JOB
