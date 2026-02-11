@@ -959,6 +959,7 @@ class BugReportScreen(Screen[BugReport]):
 
     def _color_cert_status_box(self, cert_status: CertificationStatus | None):
         cert_status_box = self.query_exactly_one("#cert_status_box", Label)
+        logger.debug(self.app.theme_variables)
         if cert_status == "blocker":
             cert_status_box.update(
                 "\n".join(
@@ -996,5 +997,5 @@ class BugReportScreen(Screen[BugReport]):
             )
             cert_status_box.styles.border = (
                 "round",
-                self.app.theme_variables["info"],
+                self.app.theme_variables["secondary"],
             )
