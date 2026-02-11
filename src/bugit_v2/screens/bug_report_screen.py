@@ -779,8 +779,7 @@ class BugReportScreen(Screen[BugReport]):
             TestCaseWithCertStatus | None,
             event.worker.result,
         )
-        if cert_status is not None:
-            self._color_cert_status_box(cert_status.cert_status)
+        self._color_cert_status_box(cert_status.cert_status)
 
     def _get_submission_cert_status_worker_callback(self, event: Worker.StateChanged):
         assert self.job_id is not NullSelection.NO_JOB
@@ -958,7 +957,7 @@ class BugReportScreen(Screen[BugReport]):
             and collector.name == "checkbox-submission"
         )
 
-    def _color_cert_status_box(self, cert_status: CertificationStatus):
+    def _color_cert_status_box(self, cert_status: CertificationStatus | None):
         cert_status_box = self.query_exactly_one("#cert_status_box", Label)
         if cert_status == "blocker":
             cert_status_box.update(
@@ -985,4 +984,17 @@ class BugReportScreen(Screen[BugReport]):
             cert_status_box.styles.border = (
                 "round",
                 self.app.theme_variables["warning"],
+            )
+        else:
+            cert_status_box.update(
+                "\n".join(
+                    [
+                        "[$warning]Couldn't find this job in the test plan",
+                        "This might be a bug in bugit[/]",
+                    ]
+                )
+            )
+            cert_status_box.styles.border = (
+                "round",
+                self.app.theme_variables["info"],
             )
