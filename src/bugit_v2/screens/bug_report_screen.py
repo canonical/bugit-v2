@@ -36,7 +36,7 @@ from textual.widgets.selection_list import Selection
 from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
-from bugit_v2.checkbox_utils.checkbox_session import Session
+from bugit_v2.checkbox_utils.checkbox_session import CheckboxSession
 from bugit_v2.checkbox_utils.get_cert_status import (
     TestCaseWithCertStatus,
     get_certification_status,
@@ -138,7 +138,7 @@ class NonEmpty(Validator):
 @final
 class BugReportScreen(Screen[BugReport]):
     report_id: Final[uuid.UUID]
-    session: Final[Session | Literal[NullSelection.NO_SESSION]]
+    session: Final[CheckboxSession | Literal[NullSelection.NO_SESSION]]
     checkbox_submission: Final[
         SimpleCheckboxSubmission | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
     ]
@@ -211,7 +211,7 @@ class BugReportScreen(Screen[BugReport]):
 
     def __init__(
         self,
-        session: Session | Literal[NullSelection.NO_SESSION],
+        session: CheckboxSession | Literal[NullSelection.NO_SESSION],
         checkbox_submission: (
             SimpleCheckboxSubmission | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
         ),

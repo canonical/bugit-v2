@@ -50,7 +50,7 @@ SessionResults = Mapping[str, Sequence[JobResult]]
 
 
 @final
-class Session:
+class CheckboxSession:
     """
     A Checkbox session
     """
