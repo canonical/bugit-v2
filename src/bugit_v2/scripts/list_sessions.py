@@ -7,7 +7,7 @@ from rich import print as rich_print
 from typing_extensions import Annotated
 
 from bugit_v2.checkbox_utils.checkbox_session import (
-    Session,
+    CheckboxSession,
     get_valid_sessions,
 )
 from bugit_v2.utils import is_prod, is_snap
@@ -45,7 +45,7 @@ def main(
         d: list[dict[str, str]] = []
         for session_path in valid_sessions:
             try:
-                session = Session(session_path)
+                session = CheckboxSession(session_path)
             except Exception as e:
                 print(repr(e), file=stderr)
                 continue
@@ -59,7 +59,7 @@ def main(
     else:
         for idx, session_path in enumerate(valid_sessions):
             try:
-                session = Session(session_path)
+                session = CheckboxSession(session_path)
             except Exception as e:
                 rich_print(
                     f"This session [red]{session_path}[/] doesn't seem valid because of this error:",

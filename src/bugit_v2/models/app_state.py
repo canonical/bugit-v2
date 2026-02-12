@@ -9,7 +9,7 @@ from textual.screen import Screen
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
 )
-from bugit_v2.checkbox_utils.checkbox_session import Session
+from bugit_v2.checkbox_utils.checkbox_session import CheckboxSession
 from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import (
@@ -37,7 +37,7 @@ class AppContext(abc.ABC):
     # NullSelection means an explicit selection of no session/no job
     args: AppArgs
     submitter: type[BugReportSubmitter[Any, Any]]
-    session: Session | Literal[NullSelection.NO_SESSION] | None = field(
+    session: CheckboxSession | Literal[NullSelection.NO_SESSION] | None = field(
         default=None, repr=False
     )
     job_id: str | Literal[NullSelection.NO_JOB] | None = None
@@ -173,7 +173,7 @@ class SessionSelectionState(AppState):
                 self.context.session = NullSelection.NO_SESSION
                 return ReportEditorState(self.context)
             case Path():
-                self.context.session = Session(screen_result)
+                self.context.session = CheckboxSession(screen_result)
                 return JobSelectionState(self.context)
             case _:
                 raise RuntimeError(
@@ -189,7 +189,7 @@ class JobSelectionState(AppState):
 
     @override
     def assertions(self) -> None:
-        assert isinstance(self.context.session, Session) or isinstance(
+        assert isinstance(self.context.session, CheckboxSession) or isinstance(
             self.context.checkbox_submission, SimpleCheckboxSubmission
         ), "No source to choose jobs from"
         assert (
@@ -223,7 +223,7 @@ class JobSelectionState(AppState):
             self.context.checkbox_submission,
         ):
             case (
-                Session() as session,
+                CheckboxSession() as session,
                 NullSelection.NO_CHECKBOX_SUBMISSION,
             ):
                 return lambda: JobSelectionScreen(
@@ -280,7 +280,7 @@ class ReportEditorState(AppState):
                 # came from nothing => go back to recovery
                 return RecoverFromAutosaveState(self.context)
             case (
-                Session(),
+                CheckboxSession(),
                 str() | NullSelection.NO_JOB | None,
                 NullSelection.NO_CHECKBOX_SUBMISSION as cbs,
             ) | (

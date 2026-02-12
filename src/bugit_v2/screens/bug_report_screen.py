@@ -36,7 +36,7 @@ from textual.widgets.selection_list import Selection
 from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
-from bugit_v2.checkbox_utils.checkbox_session import Session
+from bugit_v2.checkbox_utils.checkbox_session import CheckboxSession
 from bugit_v2.checkbox_utils.get_cert_status import (
     TestCaseWithCertStatus,
     get_certification_status,
@@ -138,7 +138,7 @@ class NonEmpty(Validator):
 @final
 class BugReportScreen(Screen[BugReport]):
     report_id: Final[uuid.UUID]
-    session: Final[Session | Literal[NullSelection.NO_SESSION]]
+    session: Final[CheckboxSession | Literal[NullSelection.NO_SESSION]]
     checkbox_submission: Final[
         SimpleCheckboxSubmission | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
     ]
@@ -211,7 +211,7 @@ class BugReportScreen(Screen[BugReport]):
 
     def __init__(
         self,
-        session: Session | Literal[NullSelection.NO_SESSION],
+        session: CheckboxSession | Literal[NullSelection.NO_SESSION],
         checkbox_submission: (
             SimpleCheckboxSubmission | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
         ),
@@ -779,8 +779,7 @@ class BugReportScreen(Screen[BugReport]):
             TestCaseWithCertStatus | None,
             event.worker.result,
         )
-        if cert_status is not None:
-            self._color_cert_status_box(cert_status.cert_status)
+        self._color_cert_status_box(cert_status and cert_status.cert_status)
 
     def _get_submission_cert_status_worker_callback(self, event: Worker.StateChanged):
         assert self.job_id is not NullSelection.NO_JOB
@@ -958,8 +957,9 @@ class BugReportScreen(Screen[BugReport]):
             and collector.name == "checkbox-submission"
         )
 
-    def _color_cert_status_box(self, cert_status: CertificationStatus):
+    def _color_cert_status_box(self, cert_status: CertificationStatus | None):
         cert_status_box = self.query_exactly_one("#cert_status_box", Label)
+        logger.debug(self.app.theme_variables)
         if cert_status == "blocker":
             cert_status_box.update(
                 "\n".join(
@@ -985,4 +985,17 @@ class BugReportScreen(Screen[BugReport]):
             cert_status_box.styles.border = (
                 "round",
                 self.app.theme_variables["warning"],
+            )
+        else:
+            cert_status_box.update(
+                "\n".join(
+                    [
+                        "[$warning]Couldn't find this job in the test plan",
+                        "This might be a bug in bugit[/]",
+                    ]
+                )
+            )
+            cert_status_box.styles.border = (
+                "round",
+                self.app.theme_variables["secondary"],
             )

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from bugit_v2.checkbox_utils.checkbox_session import Session
+from bugit_v2.checkbox_utils.checkbox_session import CheckboxSession
 from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.checkbox_utils.submission_extractor import read_simple_submission
 
@@ -77,7 +77,7 @@ class BugReport:
     severity: Severity
     issue_file_time: IssueFileTime
     # optionals
-    checkbox_session: Session | None
+    checkbox_session: CheckboxSession | None
     checkbox_submission: SimpleCheckboxSubmission | None
     job_id: str | None
     assignee: str | None = None  # appear as unassigned if None
@@ -114,7 +114,7 @@ class BugReport:
                 else:
                     o[k] = None
             elif k == "checkbox_session":
-                if isinstance(v, Session):
+                if isinstance(v, CheckboxSession):
                     o[k] = str(v.session_path.absolute())
                 else:
                     o[k] = None
@@ -159,7 +159,7 @@ def recover_from_autosave(
         autosave_data.project,
         autosave_data.severity,
         autosave_data.issue_file_time,
-        autosave_data.checkbox_session and Session(autosave_data.checkbox_session),
+        autosave_data.checkbox_session and CheckboxSession(autosave_data.checkbox_session),
         autosave_data.checkbox_submission
         and read_simple_submission(autosave_data.checkbox_submission),
         autosave_data.job_id,
