@@ -1,3 +1,17 @@
+# 0.2.8
+
+## Added
+
+- Experimental oem-getlogs log collector
+
+## Fixed
+
+- Problem with the certification status getter using too much memory
+- Hanging checkbox subprocesses not getting cleaned up
+- Tab completion
+- Issue where the `long-job-stdout` collector always runs even if the job stdout is not long
+
+
 # 0.2.7
 
 ## Added
