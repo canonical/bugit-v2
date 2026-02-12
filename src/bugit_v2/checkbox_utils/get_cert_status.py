@@ -43,21 +43,16 @@ async def _cache_cert_status_to_file(
     :param checkbox_env: optional env to use when bootstrapping
     :raises RuntimeError: if checkbox-cli list-bootstrapped failed
     """
-    remove_listing_ephemeral_dirs()
-    try:
-        lb_out = await checkbox_exec(
-            [
-                "list-bootstrapped",
-                test_plan,
-                "-f",
-                r"{full_id}\n{template-id}\n{certification_status}\n\n",
-            ],
-            checkbox_env,
-            30,
-        )
-    except Exception as e:
-        remove_listing_ephemeral_dirs()
-        raise e
+    lb_out = await checkbox_exec(
+        [
+            "list-bootstrapped",
+            test_plan,
+            "-f",
+            r"{full_id}\n{template-id}\n{certification_status}\n\n",
+        ],
+        checkbox_env,
+        30,
+    )
 
     if lb_out.returncode != 0:
         logger.error(lb_out.stderr)
@@ -201,8 +196,11 @@ async def get_certification_status(
         / f"{CERT_STATUS_FILE_PREFIX}_{slugify(test_plan)}.csv"
     )
     try:
-        return await _get_cert_status_from_file(cache_file, job_id)
+        out = await _get_cert_status_from_file(cache_file, job_id)
+        remove_listing_ephemeral_dirs()
+        return out
     except Exception:
+        remove_listing_ephemeral_dirs()
         cb_env = None
         if session_path:
             logger.debug(f"Using envs from {session_path}")
