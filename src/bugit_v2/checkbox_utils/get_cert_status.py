@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import gzip
 import json
 import logging
@@ -26,6 +27,19 @@ MISSING_TEMPLATE_ID = "<missing template-id>"
 class TestCaseWithCertStatus(NamedTuple):
     full_id: str
     cert_status: CertificationStatus
+
+
+@contextlib.contextmanager
+def _remove_listing_ephemeral_dirs():
+    try:
+        yield  # do whatever is inside the `with` block
+        # list-bootstrapped always generates a new 'session'
+        for extra_dir in os.listdir(SESSION_ROOT_DIR):
+            if extra_dir.startswith("checkbox-listing-ephemeral"):
+                logger.info(f"Removing checkbox-listing temp dir {extra_dir}")
+                shutil.rmtree(SESSION_ROOT_DIR / extra_dir, ignore_errors=True)
+    except Exception:
+        pass
 
 
 def _template_to_regex(template_str: str) -> str:
@@ -195,27 +209,17 @@ async def get_certification_status(
         / slugify(cb_info.version)
         / f"{CERT_STATUS_FILE_PREFIX}_{slugify(test_plan)}.csv"
     )
-    try:
-        out = await _get_cert_status_from_file(cache_file, job_id)
-        remove_listing_ephemeral_dirs()
-        return out
-    except Exception:
-        remove_listing_ephemeral_dirs()
-        cb_env = None
-        if session_path:
-            logger.debug(f"Using envs from {session_path}")
-            cb_env = get_session_envs(session_path)
 
-        await _cache_cert_status_to_file(test_plan, cache_file, cb_env)
-        return await _get_cert_status_from_file(cache_file, job_id)
+    with _remove_listing_ephemeral_dirs():
+        try:
+            return await _get_cert_status_from_file(cache_file, job_id)
+        except Exception:
+            cb_env = None
+            if session_path:
+                logger.debug(f"Using envs from {session_path}")
+                cb_env = get_session_envs(session_path)
+
+            await _cache_cert_status_to_file(test_plan, cache_file, cb_env)
+            return await _get_cert_status_from_file(cache_file, job_id)
 
 
-def remove_listing_ephemeral_dirs() -> None:
-    try:
-        # list-bootstrapped always generates a new 'session'
-        for extra_dir in os.listdir(SESSION_ROOT_DIR):
-            if extra_dir.startswith("checkbox-listing-ephemeral"):
-                logger.info(f"Removing checkbox-listing temp dir {extra_dir}")
-                shutil.rmtree(SESSION_ROOT_DIR / extra_dir, ignore_errors=True)
-    except Exception:
-        pass
