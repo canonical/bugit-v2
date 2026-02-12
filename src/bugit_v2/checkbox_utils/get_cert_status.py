@@ -9,7 +9,7 @@ import csv
 from base64 import b64decode
 from functools import lru_cache
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, final
 import re
 
 from bugit_v2.checkbox_utils.checkbox_exec import checkbox_exec, get_checkbox_info
@@ -34,12 +34,11 @@ def _remove_listing_ephemeral_dirs():
     try:
         yield  # do whatever is inside the `with` block
         # list-bootstrapped always generates a new 'session'
+    finally:
         for extra_dir in os.listdir(SESSION_ROOT_DIR):
             if extra_dir.startswith("checkbox-listing-ephemeral"):
                 logger.info(f"Removing checkbox-listing temp dir {extra_dir}")
                 shutil.rmtree(SESSION_ROOT_DIR / extra_dir, ignore_errors=True)
-    except Exception:
-        pass
 
 
 def _template_to_regex(template_str: str) -> str:
@@ -221,5 +220,3 @@ async def get_certification_status(
 
             await _cache_cert_status_to_file(test_plan, cache_file, cb_env)
             return await _get_cert_status_from_file(cache_file, job_id)
-
-
