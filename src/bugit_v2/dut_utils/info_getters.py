@@ -156,7 +156,6 @@ async def get_standard_info(
         dmi(),
         lspci(),
         ec(),
-        get_checkbox_info(),  # populates cache
         return_exceptions=True,
     )
 
@@ -211,7 +210,7 @@ async def get_standard_info(
 
     standard_info["Kernel Version"] = platform.uname().release
 
-    if (cb_info := await get_checkbox_info()) is not None:
+    if (cb_info := get_checkbox_info()) is not None:
         standard_info["Checkbox Version"] = cb_info.version
         standard_info["Checkbox Type"] = cb_info.type.capitalize()
 
