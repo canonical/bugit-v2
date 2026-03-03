@@ -156,6 +156,7 @@ async def get_standard_info(
         dmi(),
         lspci(),
         ec(),
+        cpu(),
         return_exceptions=True,
     )
 
