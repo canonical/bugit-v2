@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 from typing import Literal, NamedTuple
 import subprocess as sp
 from bugit_v2.utils import is_snap
-from bugit_v2.utils.async_subprocess import asp_check_output, asp_run
+from bugit_v2.utils.async_subprocess import asp_run
 from bugit_v2.utils.constants import HOST_FS
 
 logger = logging.getLogger(__name__)
