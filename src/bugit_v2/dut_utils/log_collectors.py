@@ -302,14 +302,14 @@ real_collectors: Sequence[LogCollector] = (
         # can be very big because it tries to get journal logs
         # only run this by default on ubuntu core
         host_is_ubuntu_core(),
-        "curl -fsSL https://raw.githubusercontent.com/canonical/snapd/refs/heads/master/debug-tools/snap-debug-info.sh | bash",
+        "curl -fsSL https://raw.githubusercontent.com/canonical/snapd/refs/heads/master/debug-tools/snap-debug-info.sh | sudo bash",
         advertised_timeout=COMMAND_TIMEOUT,
     ),
     LogCollector(
         "oem-getlogs",
         oem_getlogs,
         "oem-getlogs (experimental)",
-        False,
+        True,
         "sudo -E oem-getlogs",
         advertised_timeout=COMMAND_TIMEOUT,
     ),
