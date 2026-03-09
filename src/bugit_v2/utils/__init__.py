@@ -6,7 +6,6 @@ import string
 
 from bugit_v2.utils.constants import HOST_FS
 
-
 _VALID_CHARS = frozenset(f"-_.{string.ascii_letters}{string.digits}")
 
 

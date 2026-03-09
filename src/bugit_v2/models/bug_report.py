@@ -57,7 +57,7 @@ LogName = Literal[
     "snap-debug",
     "long-job-outputs",
     "oem-getlogs",
-    'sosreport'
+    "sosreport",
 ]
 LOG_NAMES: tuple[LogName, ...] = LogName.__args__
 # pretty log names should be specified in the LogCollector class
@@ -160,7 +160,8 @@ def recover_from_autosave(
         autosave_data.project,
         autosave_data.severity,
         autosave_data.issue_file_time,
-        autosave_data.checkbox_session and CheckboxSession(autosave_data.checkbox_session),
+        autosave_data.checkbox_session
+        and CheckboxSession(autosave_data.checkbox_session),
         autosave_data.checkbox_submission
         and read_simple_submission(autosave_data.checkbox_submission),
         autosave_data.job_id,

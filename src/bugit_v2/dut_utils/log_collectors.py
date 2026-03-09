@@ -228,12 +228,12 @@ async def sos_report(target_dir: Path, _: BugReport) -> str:
     assert target_dir.is_dir()
     out = await asp_check_output(
         ["sos", "report", "--batch", f"--tmp-dir={target_dir}"],
-        timeout=600,  # just in case
+        timeout=COMMAND_TIMEOUT,  # just in case
     )
     # remove the sha file
     for file in target_dir.iterdir():
         if file.name.startswith("sosreport") and file.name.endswith(".sha256"):
-            os.remove(file)
+            file.unlink()
     return out
 
 

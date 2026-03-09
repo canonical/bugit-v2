@@ -9,7 +9,7 @@ import csv
 from base64 import b64decode
 from functools import lru_cache
 from pathlib import Path
-from typing import NamedTuple, final
+from typing import NamedTuple
 import re
 
 from bugit_v2.checkbox_utils.checkbox_exec import checkbox_exec, get_checkbox_info
