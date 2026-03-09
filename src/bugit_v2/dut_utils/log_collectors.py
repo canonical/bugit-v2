@@ -308,7 +308,7 @@ real_collectors: Sequence[LogCollector] = (
     LogCollector(
         "oem-getlogs",
         oem_getlogs,
-        "oem-getlogs (experimental)",
+        "OEM Get Logs (oem-getlogs)",
         True,
         "sudo -E oem-getlogs",
         advertised_timeout=COMMAND_TIMEOUT,
