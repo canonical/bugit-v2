@@ -117,3 +117,8 @@ parts:
     plugin: nil
     stage-packages:
       - apport
+
+  sosreport:
+    plugin: nil
+    stage-packages:
+      - sosreport
