@@ -167,7 +167,7 @@ class BugitApp(App[None]):
 
         # snap checkbox takes a while to respond especially if it's the
         # 1st use after reboot
-        if (cb := await get_checkbox_info()) is not None:
+        if (cb := get_checkbox_info()) is not None:
             self.sub_title = f"Checkbox {cb.version}"
 
         self.call_after_refresh(self.watch_state)
@@ -347,7 +347,7 @@ def launchpad_mode(
     saved_dut_info = get_saved_dut_info() or DutInfo()  # all none
 
     print("Waiting for checkbox...")
-    asyncio.run(get_checkbox_info())  # populate cache
+    get_checkbox_info()  # populate cache
 
     BugitApp(
         AppArgs(
@@ -466,7 +466,7 @@ def jira_mode(
     saved_dut_info = get_saved_dut_info() or DutInfo()  # all none
 
     print("Waiting for checkbox...")
-    asyncio.run(get_checkbox_info())  # populate cache
+    get_checkbox_info()  # populate cache
 
     BugitApp(
         # reopen is disabled for now

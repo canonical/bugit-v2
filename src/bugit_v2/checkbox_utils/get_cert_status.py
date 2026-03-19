@@ -9,7 +9,7 @@ import csv
 from base64 import b64decode
 from functools import lru_cache
 from pathlib import Path
-from typing import NamedTuple, final
+from typing import NamedTuple
 import re
 
 from bugit_v2.checkbox_utils.checkbox_exec import checkbox_exec, get_checkbox_info
@@ -195,7 +195,7 @@ async def get_certification_status(
     test_plan: str, job_id: str, session_path: Path | None = None
 ) -> TestCaseWithCertStatus | None:
     logger.info(f"Getting all cert status values for {test_plan}")
-    cb_info = await get_checkbox_info()
+    cb_info = get_checkbox_info()
 
     if cb_info is None:
         logger.warning(
