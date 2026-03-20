@@ -345,12 +345,24 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         issue_file_time_block = (
             f"[Stage]\n{pretty_issue_file_times[bug_report.issue_file_time]}"
         )
+
+        description_to_submit = (
+            bug_report.description
+            + "\n\n"
+            + issue_file_time_block
+        )
+        if bug_report.checkbox_session and bug_report.job_id:
+            job_output = bug_report.checkbox_session.get_job_output(bug_report.job_id)
+            if job_output:
+                description_to_submit += "\n\n" + "[Job Output]\n"
+
+                for k, v in job_output.items():
+                    description_to_submit += "\n".join([f"Job {k}\n", "----", str(v)])
+
         # actually create the bug
         self.lp_bug_object = self.lp_client.bugs.createBug(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
             title=bug_report.title,
-            description=bug_report.description
-            + "\n\n"
-            + issue_file_time_block,  # TODO: is there a length limit?
+            description=description_to_submit,  # TODO: is there a length limit?
             tags=[
                 *bug_report.platform_tags,
                 *bug_report.additional_tags,
