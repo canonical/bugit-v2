@@ -346,18 +346,21 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
             f"[Stage]\n{pretty_issue_file_times[bug_report.issue_file_time]}"
         )
 
-        description_to_submit = (
-            bug_report.description
-            + "\n\n"
-            + issue_file_time_block
-        )
+        description_to_submit = bug_report.description + "\n\n" + issue_file_time_block
         if bug_report.checkbox_session and bug_report.job_id:
             job_output = bug_report.checkbox_session.get_job_output(bug_report.job_id)
             if job_output:
                 description_to_submit += "\n\n" + "[Job Output]\n"
 
                 for k, v in job_output.items():
-                    description_to_submit += "\n".join([f"Job {k}\n", "----", str(v)])
+                    description_to_submit += "\n".join(
+                        [
+                            f"Job {k}",
+                            "----",
+                            str(v) or f"No {v} was found for this job",
+                            "\n",
+                        ]
+                    )
 
         # actually create the bug
         self.lp_bug_object = self.lp_client.bugs.createBug(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
