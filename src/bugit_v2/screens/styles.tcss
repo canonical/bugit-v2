@@ -18,6 +18,10 @@
     max-width: 75%;
 }
 
+.mh75 {
+    max-height: 75%;
+}
+
 .mh100 {
     max-height: 100%;
 }

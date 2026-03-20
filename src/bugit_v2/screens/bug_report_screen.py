@@ -153,6 +153,8 @@ class BugReportScreen(Screen[BugReport]):
     dut_is_report_target: Final[bool]
     job_output_too_long: bool = False
 
+    # the initial, plain text report,
+    # key is section header name, value is section content
     initial_report: dict[str, str]
 
     autosave_timer: Timer | None = None
@@ -283,41 +285,20 @@ class BugReportScreen(Screen[BugReport]):
         if session is not NullSelection.NO_SESSION:
             job_output = session.get_job_output(job_id)
             if job_output is None:
-                self.initial_report["Job Output"] = "No output was found for this job"
                 return
 
             # add an empty string at the end for a new line
-            lines: list[str] = []
             for k in ("stdout", "stderr", "comments"):
                 if len(job_output[k]) < MAX_JOB_OUTPUT_LEN:
                     # as long as 1 output is too long, set it to true
                     self.job_output_too_long = False or self.job_output_too_long
-                    lines.extend(
-                        [
-                            k,
-                            "------",
-                            job_output[k] or f"No {k} were found for this job",
-                            "",
-                        ]
-                    )
                 else:
                     self.job_output_too_long = True or self.job_output_too_long
-                    lines.extend(
-                        [
-                            k,
-                            "------",
-                            f"{k} of this job is too long. It will be attached as a file.",
-                            "",
-                        ]
-                    )
 
-            self.initial_report["Job Output"] = "\n".join(lines)
         elif checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION:
             job_output = checkbox_submission.get_job_output(job_id)
             if not job_output:  # can be empty string
-                self.initial_report["Job Output"] = "No output was found for this job"
                 return
-            self.initial_report["Job Output"] = job_output
 
     @override
     def compose(self) -> ComposeResult:
@@ -471,6 +452,33 @@ class BugReportScreen(Screen[BugReport]):
                             )
                         )
 
+            if (
+                self.session is not NullSelection.NO_SESSION
+                and self.job_id is not NullSelection.NO_JOB
+            ):
+                job_output = self.session.get_job_output(self.job_id)
+                if job_output is None:
+                    t = TextArea(
+                        "No output was found for this job",
+                        read_only=True,
+                        classes="ha default_box mh75",
+                    )
+                    t.border_title = "Job Output"
+                    yield t
+                else:
+                    for k, output in job_output.items():
+                        assert type(output) is str
+                        t = TextArea(
+                            output, read_only=True, classes="ha default_box mh75"
+                        )
+                        t.border_title = f"Job {k} (Readonly)"
+                        t.border_subtitle = (
+                            ""
+                            if self.app_args.submitter == "lp"
+                            else "This will be shown in code blocks on Jira"
+                        )
+                        yield t
+
             # always make it query-able, but visually hide it when not using lp
             yield RadioSet(
                 *(
@@ -542,6 +550,13 @@ class BugReportScreen(Screen[BugReport]):
                 )
 
         self.query_exactly_one(f"#{BugReportElemId.TITLE}", Input).focus()
+
+        if self.job_output_too_long:
+            self.notify(
+                "They will be attached as files when you click submit.",
+                title="Job output is too long",
+                severity="warning",
+            )
 
         if self.existing_report is not None:
             self._restore_existing_report()
