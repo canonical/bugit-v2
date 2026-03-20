@@ -27,6 +27,7 @@ from bugit_v2.models.bug_report import (
     Severity,
     pretty_issue_file_times,
 )
+from bugit_v2.utils.constants import MAX_JOB_OUTPUT_LEN
 
 logger = logging.getLogger(__name__)
 JIRA_SERVER_ADDRESS = os.getenv("JIRA_SERVER", "https://warthogs.atlassian.net")
@@ -243,6 +244,23 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
             "priority": {"name": self.severity_name_map[bug_report.severity]},
             "issuetype": {"name": "Bug"},
         }
+
+        if bug_report.checkbox_session and bug_report.job_id:
+            job_output = bug_report.checkbox_session.get_job_output(bug_report.job_id)
+            if job_output:
+                content_str = str(bug_dict["description"])
+                content_str += "\n\n" + "[Job Output]" + "\n\n"
+
+                for k, v in job_output.items():
+                    if len(str(v)) < MAX_JOB_OUTPUT_LEN:
+                        content_str += f"*Job {k}*\n"
+                        content_str += f"{{noformat}}{v}{{noformat}}"
+                    else:
+                        content_str += f"*Job {k}*\n"
+                        content_str += f"{{noformat}}Job {k} is too long. See the attachments section.{{noformat}}"
+                    content_str += "\n\n"
+
+                bug_dict["description"] = content_str
 
         assert self.auth, "Missing auth credentials"
         assert JIRA_SERVER_ADDRESS, "JIRA_SERVER is not specified!"
