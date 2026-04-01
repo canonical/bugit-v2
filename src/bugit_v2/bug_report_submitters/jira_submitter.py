@@ -82,6 +82,7 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
                 id="token",
             )
             yield Label("https://id.atlassian.com/manage-profile/security/api-tokens")
+            yield Label('Create a "Classic" token, not the granular one')
             yield Checkbox(
                 "Cache valid credentials until next boot",
                 tooltip=(
