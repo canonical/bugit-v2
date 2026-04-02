@@ -258,7 +258,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
                         content_str += f"{{noformat}}{v}{{noformat}}"
                     else:
                         content_str += f"*Job {k}*\n"
-                        content_str += f"{{noformat}}Job {k} is too long. See the attachments section.{{noformat}}"
+                        content_str += f"{{noformat}}Job {k} is too long to fit inside jira description. It's in the job_{k}.txt file in the attachments.{{noformat}}"
                     content_str += "\n\n"
 
                 bug_dict["description"] = content_str
