@@ -8,18 +8,23 @@ from all other collectors.
 
 import asyncio
 import importlib.resources
+import logging
 import os
 import shutil
+import subprocess
 import tarfile
 from collections.abc import Awaitable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+
 from bugit_v2.models.bug_report import BugReport, LogName
 from bugit_v2.utils import host_is_ubuntu_core, is_snap
 from bugit_v2.utils.async_subprocess import asp_check_call, asp_check_output
 from bugit_v2.utils.constants import MAX_JOB_OUTPUT_LEN
+
+logger = logging.getLogger(__name__)
 
 COMMAND_TIMEOUT = 10 * 60  # 10 minutes
 NVIDIA_BUG_REPORT_PATH = Path(
@@ -221,6 +226,14 @@ async def long_job_outputs(target_dir: Path, bug_report: BugReport):
 
 async def oem_getlogs(target_dir: Path, _: BugReport):
     assert target_dir.exists(), f"Target directory {target_dir} does not exist"
+    dump_coef_path = Path("/sys/module/snd_hda_codec/parameters/dump_coef")
+    if dump_coef_path.exists():
+        with dump_coef_path.open("w") as f:
+            try:
+                f.write("1")
+                logger.debug(f"wrote 1 to {dump_coef_path}")
+            except OSError:
+                pass
     await asp_check_output(["oem-getlogs"], cwd=target_dir)
 
 
@@ -319,7 +332,7 @@ real_collectors: Sequence[LogCollector] = (
         long_job_outputs,
         "Long Job Outputs",
         collect_by_default=True,
-        hidden=True
+        hidden=True,
     ),
 )
 
