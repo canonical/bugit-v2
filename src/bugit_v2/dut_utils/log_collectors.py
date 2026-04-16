@@ -11,7 +11,6 @@ import importlib.resources
 import logging
 import os
 import shutil
-import subprocess
 import tarfile
 from collections.abc import Awaitable, Mapping, Sequence
 from dataclasses import dataclass
