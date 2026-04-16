@@ -231,7 +231,7 @@ async def oem_getlogs(target_dir: Path, _: BugReport):
         with dump_coef_path.open("w") as f:
             try:
                 f.write("1")
-                logger.debug(f"wrote 1 to {dump_coef_path}")
+                logger.info(f"wrote 1 to {dump_coef_path}")
             except OSError:
                 pass
     await asp_check_output(["oem-getlogs"], cwd=target_dir)
