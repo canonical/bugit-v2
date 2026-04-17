@@ -236,6 +236,19 @@ async def oem_getlogs(target_dir: Path, _: BugReport):
     await asp_check_output(["oem-getlogs"], cwd=target_dir)
 
 
+async def sos_report(target_dir: Path, _: BugReport) -> str:
+    assert target_dir.is_dir()
+    out = await asp_check_output(
+        ["sos", "report", "--batch", f"--tmp-dir={target_dir}"],
+        timeout=COMMAND_TIMEOUT,  # just in case
+    )
+    # remove the sha file
+    for file in target_dir.iterdir():
+        if file.name.startswith("sosreport") and file.name.endswith(".sha256"):
+            file.unlink()
+    return out
+
+
 async def slow(target_dir: Path, bug_report: BugReport, secs: int):
     await asp_check_call(["sleep", "10"])
 
@@ -323,6 +336,14 @@ real_collectors: Sequence[LogCollector] = (
         "OEM Get Logs (oem-getlogs)",
         True,
         "sudo -E oem-getlogs",
+        advertised_timeout=COMMAND_TIMEOUT,
+    ),
+    LogCollector(
+        "sosreport",
+        sos_report,
+        "SOS Report (experimental)",
+        False,
+        "sudo sos report --batch",
         advertised_timeout=COMMAND_TIMEOUT,
     ),
     LogCollector(
