@@ -12,6 +12,9 @@ __pycache__/
 # snaps
 *.snap
 
+# tar files
+*bug-report*
+
 # temp files
 bugit-v2-autosave-*
 
