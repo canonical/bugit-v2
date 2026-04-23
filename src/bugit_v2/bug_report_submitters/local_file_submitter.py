@@ -20,6 +20,9 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
     display_name = "Local File Submitter"
     severity_name_map = {sev: sev for sev in SEVERITIES}
     steps = 1
+
+    final_archive_name: str | None = None
+
     WRAPPER_DIR = "tar-contents"
 
     def __init__(self) -> None:
@@ -51,25 +54,24 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
         # must bring the checkbox session if one was referenced
         # even if the user didn't select it
         # do check for selection because we don't want parallel writes
-        if (
-            bug_report.checkbox_session
-            and "checkbox-session" not in bug_report.logs_to_include
-        ):
-            with tarfile.open(
-                working_dir / self.WRAPPER_DIR / "checkbox_session.tar.gz", "w:gz"
-            ) as f:
-                f.add(bug_report.checkbox_session.session_path)
-                # the bugit.submit command should read this relative to the
-                # file produced by this submitter
-                report_json["checkbox_session"] = "checkbox_session.tar.gz"
+        if bug_report.checkbox_session:
+            # the bugit.submit command should read this relative to the
+            # file produced by this submitter
+            report_json["checkbox_session"] = "checkbox_session.tar.gz"
+            if "checkbox-session" not in bug_report.logs_to_include:
+                with tarfile.open(
+                    working_dir / self.WRAPPER_DIR / "checkbox_session.tar.gz", "w:gz"
+                ) as f:
+                    f.add(bug_report.checkbox_session.session_path)
 
         with open(report_json_path, "w") as f:
             json.dump(report_json, f)
 
         yield AdvanceMessage(f"Dumped bug report to {report_json_path}")
 
+        final_archive_name = f"bugit-bug-report-{bug_report.report_id}"
         shutil.make_archive(
-            f"bugit-bug-report-{bug_report.report_id}.tar.gz",
+            final_archive_name,
             root_dir=working_dir / self.WRAPPER_DIR,
             format="gztar",
         )
@@ -89,4 +91,5 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
     @property
     @override
     def bug_url(self) -> str:
-        return self.working_dir.name
+        assert self.final_archive_name, "Report archive not created"
+        return self.final_archive_name
