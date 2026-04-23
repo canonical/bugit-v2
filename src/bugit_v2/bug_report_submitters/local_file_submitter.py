@@ -1,8 +1,10 @@
 from collections.abc import Generator
 from dataclasses import asdict
 import json
+import os
 from pathlib import Path
 import shutil
+import tarfile
 from tempfile import TemporaryDirectory
 from typing import final, override
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
@@ -12,47 +14,69 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 from bugit_v2.models.bug_report import SEVERITIES, BugReport
 
 
-"""
-A local .gz file should have
-
-bug-report.gz
-    bug-report.txt
-    attachment1.tar
-    attachment2.tar
-    checkbox-session.tar
-
-
-"""
-
-
 @final
 class LocalFileSubmitter(BugReportSubmitter[None]):
     name = "local_file_submitter"
     display_name = "Local File Submitter"
     severity_name_map = {sev: sev for sev in SEVERITIES}
     steps = 1
+    WRAPPER_DIR = "tar-contents"
 
     def __init__(self) -> None:
         super().__init__()
-        self.working_dir = TemporaryDirectory()
+        self.working_dir = TemporaryDirectory(delete=False)
+        os.makedirs(Path(self.working_dir.name) / self.WRAPPER_DIR, exist_ok=True)
 
     def __del__(self):
-        self.working_dir.cleanup()
+        shutil.rmtree(Path(self.working_dir.name) / self.WRAPPER_DIR, True)
 
     @override
     def submit(
         self, bug_report: BugReport
     ) -> Generator[str | AdvanceMessage, None, None]:
-        report_json_path = Path(self.working_dir.name) / "bug-report.json"
-        with open(report_json_path, "w") as f:
-            d = asdict(bug_report, dict_factory=BugReport.dict_factory)
-            json.dump(d, f)
+        """
+        A local .gz file should have
 
-        yield f"Dumped bug report to {report_json_path}"
+        bug-report.gz
+            bug-report.txt
+            attachment1.tar
+            attachment2.tar
+            checkbox-session.tar
+        """
+
+        working_dir = Path(self.working_dir.name)
+        report_json_path = working_dir / self.WRAPPER_DIR / "bug-report.json"
+        report_json = asdict(bug_report, dict_factory=bug_report.dict_factory)
+
+        # must bring the checkbox session if one was referenced
+        # even if the user didn't select it
+        # do check for selection because we don't want parallel writes
+        if (
+            bug_report.checkbox_session
+            and "checkbox-session" not in bug_report.logs_to_include
+        ):
+            with tarfile.open(
+                working_dir / self.WRAPPER_DIR / "checkbox_session.tar.gz", "w:gz"
+            ) as f:
+                f.add(bug_report.checkbox_session.session_path)
+                # the bugit.submit command should read this relative to the
+                # file produced by this submitter
+                report_json["checkbox_session"] = "checkbox_session.tar.gz"
+
+        with open(report_json_path, "w") as f:
+            json.dump(report_json, f)
+
+        yield AdvanceMessage(f"Dumped bug report to {report_json_path}")
+
+        shutil.make_archive(
+            f"bugit-bug-report-{bug_report.report_id}.tar.gz",
+            root_dir=working_dir / self.WRAPPER_DIR,
+            format="gztar",
+        )
 
     @override
     def upload_attachment(self, attachment_file: Path) -> str | None:
-        shutil.copy(attachment_file, self.working_dir.name)
+        shutil.copy(attachment_file, Path(self.working_dir.name) / self.WRAPPER_DIR)
 
     @override
     def bug_exists(self, bug_id: str) -> bool:
@@ -65,4 +89,4 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
     @property
     @override
     def bug_url(self) -> str:
-        return ""
+        return self.working_dir.name
