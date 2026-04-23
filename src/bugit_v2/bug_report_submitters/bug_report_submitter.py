@@ -18,7 +18,7 @@ class AdvanceMessage:
     message: str
 
 
-class BugReportSubmitter[TAuth, TReturn](abc.ABC):
+class BugReportSubmitter[TAuth](abc.ABC):
     """The bug report submitter interface"""
 
     # name of the submitter, used in the credential cache file name
@@ -51,7 +51,7 @@ class BugReportSubmitter[TAuth, TReturn](abc.ABC):
     @abc.abstractmethod
     def submit(
         self, bug_report: BugReport
-    ) -> Generator[str | AdvanceMessage, None, TReturn]:
+    ) -> Generator[str | AdvanceMessage, None, None]:
         """The main bug creation sequence
 
         :param bug_report: bug report to submit

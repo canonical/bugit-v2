@@ -25,7 +25,7 @@ JIRA_SERVER_ADDRESS = os.getenv("JIRA_SERVER", "https://warthogs.atlassian.net")
 
 
 @final
-class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
+class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
     name = "mock_jira_submitter"
     display_name = "Mock Jira"
     steps = 5

@@ -25,7 +25,7 @@ VALID_SERVICE_ROOTS = ("production", "qastaging")
 
 
 @final
-class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
+class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
     name = "mock_launchpad_submitter"
     display_name = "Mock Launchpad"
     severity_name_map = {

@@ -134,7 +134,7 @@ class JiraSubmitterError(Exception):
 
 
 @final
-class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
+class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
     name = "jira_submitter"
     display_name = "Jira"
     steps = 5

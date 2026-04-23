@@ -8,11 +8,11 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 from bugit_v2.models.bug_report import BugReport
 
 
-class LocalFileSubmitter(BugReportSubmitter[None, Path]):
+class LocalFileSubmitter(BugReportSubmitter[None]):
     @override
     def submit(
         self, bug_report: BugReport
-    ) -> Generator[str | AdvanceMessage, None, Path]:
+    ) -> Generator[str | AdvanceMessage, None, None]:
         return super().submit(bug_report)
 
     @override

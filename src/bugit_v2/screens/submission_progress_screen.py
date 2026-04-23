@@ -60,7 +60,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     log_widget: RichLog | None = None  # late init in on_mount
     upload_attempted = False
 
-    submitter: Final[BugReportSubmitter[TAuth, TReturn]]
+    submitter: Final[BugReportSubmitter[TAuth]]
 
     CSS = """
     SubmissionProgressScreen {
@@ -79,7 +79,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     def __init__(
         self,
         bug_report: BugReport,
-        submitter: BugReportSubmitter[TAuth, TReturn],
+        submitter: BugReportSubmitter[TAuth],
         app_args: AppArgs,
         name: str | None = None,
         id: str | None = None,
