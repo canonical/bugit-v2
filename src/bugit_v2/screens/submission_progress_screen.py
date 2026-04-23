@@ -40,7 +40,7 @@ class WorkerName(enum.StrEnum):
 
 
 @final
-class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
+class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     """
     The progress screen shown while submission/log collection is happening
     """
