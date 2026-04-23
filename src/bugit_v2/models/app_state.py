@@ -31,7 +31,7 @@ from bugit_v2.utils.constants import AUTOSAVE_DIR, NullSelection
 
 
 @dataclass(slots=True)
-class AppContext(abc.ABC):
+class AppContext:
     # For session and job_id, None means the user hasn't selected anything
     # but still POSSIBLE to go to a screen that can select them
     # NullSelection means an explicit selection of no session/no job
