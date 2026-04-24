@@ -330,3 +330,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
         assert self.jira
         assert self.issue, "Nothing has been submitted to Jira yet"
         return f"{self.jira.server_url}/browse/{self.issue.key}"
+
+    @override
+    def finalize(self) -> None:
+        return

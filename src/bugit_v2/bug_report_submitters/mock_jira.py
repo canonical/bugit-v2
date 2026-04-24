@@ -190,3 +190,7 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
     def bug_url(self) -> str:
         assert self.mock_issue
         return "http://example.com/"
+
+    @override
+    def finalize(self) -> None:
+        return

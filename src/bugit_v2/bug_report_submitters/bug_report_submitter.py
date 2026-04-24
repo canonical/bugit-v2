@@ -87,6 +87,15 @@ class BugReportSubmitter[TAuth](abc.ABC):
         """
         pass
 
+    @abc.abstractmethod
+    def finalize(self) -> None:
+        """Finalize the submission, each submitter can decide what to do here
+
+        This is useful if we need something to happen AFTER self.submit and
+        all of the self.upload_attachment calls are done.
+        """
+        pass
+
     @property
     @abc.abstractmethod
     def bug_url(self) -> str:

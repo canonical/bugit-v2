@@ -68,13 +68,7 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
             json.dump(report_json, f)
 
         yield AdvanceMessage(f"Dumped bug report to {report_json_path}")
-
-        final_archive_name = f"bugit-bug-report-{bug_report.report_id}"
-        shutil.make_archive(
-            final_archive_name,
-            root_dir=working_dir / self.WRAPPER_DIR,
-            format="gztar",
-        )
+        self.final_archive_name = f"bugit-bug-report-{bug_report.report_id}"
 
     @override
     def upload_attachment(self, attachment_file: Path) -> str | None:
@@ -92,4 +86,17 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
     @override
     def bug_url(self) -> str:
         assert self.final_archive_name, "Report archive not created"
-        return self.final_archive_name
+        return str(Path().absolute() / self.final_archive_name)
+
+    @override
+    def finalize(self) -> None:
+        assert (
+            self.final_archive_name
+        ), "Unexpected call before final archive name can be determined"
+
+        working_dir = Path(self.working_dir.name)
+        shutil.make_archive(
+            self.final_archive_name,
+            root_dir=working_dir / self.WRAPPER_DIR,
+            format="gztar",
+        )

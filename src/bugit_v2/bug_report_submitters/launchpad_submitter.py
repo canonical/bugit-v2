@@ -428,3 +428,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
         if LP_AUTH_FILE_PATH.exists():
             return LP_AUTH_FILE_PATH
         return None
+
+    @override
+    def finalize(self) -> None:
+        return
