@@ -452,6 +452,13 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             self._log_with_time(f"[yellow]{event.worker.name} was cancelled[/]")
 
         if self.finished:
+            try:
+                rv = self.submitter.finalize()
+                if self.log_widget and rv:
+                    self.log_widget.write(rv)
+            except Exception as e:
+                if self.log_widget:
+                    self.log_widget.write(f"[red]ERR when finalizing[/]: {repr(e)}")
             # don't do the following callbacks if finished
             return
 

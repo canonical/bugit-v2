@@ -89,7 +89,7 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
         return str(Path().absolute() / self.final_archive_name)
 
     @override
-    def finalize(self) -> None:
+    def finalize(self) -> str:
         assert (
             self.final_archive_name
         ), "Unexpected call before final archive name can be determined"
@@ -99,4 +99,8 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
             self.final_archive_name,
             root_dir=working_dir / self.WRAPPER_DIR,
             format="gztar",
+        )
+
+        return (
+            f"The bug report archive is at {Path().absolute() / self.final_archive_name}"
         )

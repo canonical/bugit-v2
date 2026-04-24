@@ -88,7 +88,7 @@ class BugReportSubmitter[TAuth](abc.ABC):
         pass
 
     @abc.abstractmethod
-    def finalize(self) -> None:
+    def finalize(self) -> str | None:
         """Finalize the submission, each submitter can decide what to do here
 
         This is useful if we need something to happen AFTER self.submit and
