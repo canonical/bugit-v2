@@ -100,7 +100,7 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
             root_dir=working_dir / self.WRAPPER_DIR,
             format="gztar",
         )
-
-        return (
-            f"The bug report archive is at {Path().absolute() / self.final_archive_name}"
-        )
+        if (Path().absolute() / self.final_archive_name).exists():
+            return f"The bug report archive is at {Path().absolute() / self.final_archive_name}.tar.gz"
+        else:
+            raise RuntimeError("Failed to create archive")

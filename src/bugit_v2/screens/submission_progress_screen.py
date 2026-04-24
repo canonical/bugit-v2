@@ -410,6 +410,18 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         if not self.finished:
             return
 
+        try:
+            rv = self.submitter.finalize()
+            if rv:
+                self._log_with_time(f"[green]FINALIZE OK[/] {rv}")
+            else:
+                self._log_with_time(
+                    f"[green]FINALIZE OK[/] {self.submitter.display_name}"
+                )
+        except Exception as e:
+            self._log_with_time(f"[red]ERR when finalizing[/]: {repr(e)}")
+            logger.error(e)
+
         self.query_exactly_one("#give_up", Button).display = False
 
         all_upload_ok = all(
@@ -421,7 +433,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
         finish_message_lines = [
             "[green]Submission finished![/]",
-            f"URL: {self.submitter.bug_url}",
+            f"URL: [$primary]{self.submitter.bug_url}[/]",
             "You can go back to job/session selection or quit BugIt.",
         ]
 
@@ -452,13 +464,6 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             self._log_with_time(f"[yellow]{event.worker.name} was cancelled[/]")
 
         if self.finished:
-            try:
-                rv = self.submitter.finalize()
-                if self.log_widget and rv:
-                    self.log_widget.write(rv)
-            except Exception as e:
-                if self.log_widget:
-                    self.log_widget.write(f"[red]ERR when finalizing[/]: {repr(e)}")
             # don't do the following callbacks if finished
             return
 
