@@ -258,7 +258,7 @@ def common(
 @cli_app.command("local", help="Pack the bug report to a local file")
 @cli_app.command("lp", help="Submit a bug to Launchpad")
 @cli_app.command("jira", help="Submit a bug to Jira")
-def shared_entry_point(
+def main(
     ctx: typer.Context,
     checkbox_submission: Annotated[
         Path | None,
