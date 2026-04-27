@@ -22,7 +22,7 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
     steps = 1
 
     # this is determined when submit() finishes
-    archive_name: str | None = None 
+    archive_name: str | None = None
     # this is determined in finalize()
     archive_path: Path | None = None
 
@@ -34,20 +34,26 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
         os.makedirs(Path(self.working_dir.name) / self.WRAPPER_DIR, exist_ok=True)
 
     def __del__(self):
-        shutil.rmtree(Path(self.working_dir.name) / self.WRAPPER_DIR, True)
+        shutil.rmtree(Path(self.working_dir.name), True)
 
     @override
     def submit(
         self, bug_report: BugReport
     ) -> Generator[str | AdvanceMessage, None, None]:
         """
-        A local .gz file should have
+        A local .tar.gz file should have these files
 
         bug-report.gz
-            bug-report.txt
+            bug-report.json
             attachment1.tar
             attachment2.tar
             checkbox-session.tar
+
+        `submit()` in this case only serializes the report and force includes
+        checkbox-session if not selected.
+
+        `finalize()` creates the actual archive because `submit()` is run in
+        parallel to the `upload_attachment()` methods
         """
 
         working_dir = Path(self.working_dir.name)
@@ -93,9 +99,7 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
 
     @override
     def finalize(self) -> str:
-        assert (
-            self.archive_name
-        ), "Unexpected call before archive name was determined"
+        assert self.archive_name, "Unexpected call before archive name was determined"
 
         working_dir = Path(self.working_dir.name)
         archive_path = Path(
