@@ -372,7 +372,13 @@ def main(
             cid=cid or saved_dut_info.cid,
             sku=sku or saved_dut_info.sku,
             project=project or saved_dut_info.project,
-            assignee=assignee or saved_dut_info.jira_assignee,
+            assignee=assignee
+            or (
+                # NOTE: user need to manually set this param when using `local`
+                saved_dut_info.lp_assignee
+                if ctx.command.name == "lp"
+                else saved_dut_info.jira_assignee
+            ),
             platform_tags=platform_tags or saved_dut_info.platform_tags,
             tags=tags or saved_dut_info.tags,
         )
