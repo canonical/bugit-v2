@@ -102,14 +102,14 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
         assert self.archive_name, "Unexpected call before archive name was determined"
 
         working_dir = Path(self.working_dir.name)
-        archive_path = Path(
+        self.archive_path = Path(
             shutil.make_archive(
                 self.archive_name,
                 root_dir=working_dir / self.WRAPPER_DIR,
                 format="gztar",
             )
         )
-        if archive_path.exists():
-            return f"The bug report archive is at {archive_path}"
+        if self.archive_path.exists():
+            return f"The bug report archive is at {self.archive_path}"
         else:
             raise RuntimeError("Failed to create archive")
