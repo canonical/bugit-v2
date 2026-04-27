@@ -25,6 +25,7 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
     archive_name: str | None = None
     # this is determined in finalize()
     archive_path: Path | None = None
+    finalize_ok = False
 
     WRAPPER_DIR = "tar-contents"
 
@@ -34,7 +35,8 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
         os.makedirs(Path(self.working_dir.name) / self.WRAPPER_DIR, exist_ok=True)
 
     def __del__(self):
-        shutil.rmtree(Path(self.working_dir.name), True)
+        if self.finalize_ok:
+            shutil.rmtree(Path(self.working_dir.name), True)
 
     @override
     def submit(
@@ -102,14 +104,19 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
         assert self.archive_name, "Unexpected call before archive name was determined"
 
         working_dir = Path(self.working_dir.name)
-        self.archive_path = Path(
-            shutil.make_archive(
-                self.archive_name,
-                root_dir=working_dir / self.WRAPPER_DIR,
-                format="gztar",
+
+        try:
+            self.archive_path = Path(
+                shutil.make_archive(
+                    self.archive_name,
+                    root_dir=working_dir / self.WRAPPER_DIR,
+                    format="gztar",
+                )
             )
-        )
-        if self.archive_path.exists():
+            assert self.archive_path.exists()
+            self.finalize_ok = True
             return f"The bug report archive is at {self.archive_path}"
-        else:
-            raise RuntimeError("Failed to create archive")
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to create archive, you can manually recover the files at {self.working_dir.name}. Original err: {repr(e)}"
+            )
