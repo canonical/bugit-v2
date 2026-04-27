@@ -21,7 +21,10 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
     severity_name_map = {sev: sev for sev in SEVERITIES}
     steps = 1
 
-    final_archive_name: str | None = None
+    # this is determined when submit() finishes
+    archive_name: str | None = None 
+    # this is determined in finalize()
+    archive_path: Path | None = None
 
     WRAPPER_DIR = "tar-contents"
 
@@ -68,7 +71,7 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
             json.dump(report_json, f)
 
         yield AdvanceMessage(f"Dumped bug report to {report_json_path}")
-        self.final_archive_name = f"bugit-bug-report-{bug_report.report_id}"
+        self.archive_name = f"bugit-bug-report-{bug_report.report_id}"
 
     @override
     def upload_attachment(self, attachment_file: Path) -> str | None:
@@ -85,19 +88,19 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
     @property
     @override
     def bug_url(self) -> str:
-        assert self.final_archive_name, "Report archive not created"
-        return str(Path().absolute() / self.final_archive_name)
+        assert self.archive_path, "Report archive not created"
+        return str(self.archive_path)
 
     @override
     def finalize(self) -> str:
         assert (
-            self.final_archive_name
-        ), "Unexpected call before final archive name can be determined"
+            self.archive_name
+        ), "Unexpected call before archive name was determined"
 
         working_dir = Path(self.working_dir.name)
         archive_path = Path(
             shutil.make_archive(
-                self.final_archive_name,
+                self.archive_name,
                 root_dir=working_dir / self.WRAPPER_DIR,
                 format="gztar",
             )
