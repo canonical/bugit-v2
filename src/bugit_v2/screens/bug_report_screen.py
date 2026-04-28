@@ -1,9 +1,7 @@
 import enum
-import json
 import logging
 import uuid
 from collections.abc import Mapping
-from dataclasses import asdict
 from functools import wraps
 from typing import Callable, Final, Literal, cast, final
 
@@ -63,6 +61,7 @@ from bugit_v2.models.bug_report import (
     SEVERITIES,
     BugReport,
     LogName,
+    SerializableBugReport,
     pretty_issue_file_times,
     pretty_severities,
 )
@@ -374,11 +373,13 @@ class BugReportScreen(Screen[BugReport]):
                     )
 
                     with HorizontalGroup():
-                        highest_display_name = (
-                            "Highest (Jira)"
-                            if self.app_args.submitter == "jira"
-                            else "Critical (LP)"
-                        )
+                        match self.app_args.submitter:
+                            case "jira":
+                                highest_display_name = "Highest (Jira)"
+                            case "lp":
+                                highest_display_name = "Critical (LP)"
+                            case "local":
+                                highest_display_name = "Highest / Critical"
                         yield RadioSet(
                             *(
                                 RadioButton(
@@ -645,13 +646,10 @@ class BugReportScreen(Screen[BugReport]):
             try:
                 # filename is just a unix timestamp in seconds
                 with open(AUTOSAVE_DIR / f"{self.report_id}.json", "w") as f:
-                    report = self._build_bug_report()
-                    d = asdict(report, dict_factory=BugReport.dict_factory)
-                    if self.job_id is NullSelection.NO_JOB:
-                        d["job_id"] = None
-                    else:
-                        d["job_id"] = self.job_id
-                    json.dump(d, f)
+                    report = SerializableBugReport.from_bug_report(
+                        self._build_bug_report()
+                    )
+                    f.write(report.model_dump_json())
                 label.update("[green]Progress Saved")
             except Exception as e:
                 logger.error(repr(e))

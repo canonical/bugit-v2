@@ -14,8 +14,7 @@ from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import (
     BugReport,
-    BugReportAutoSaveData,
-    recover_from_autosave,
+    SerializableBugReport,
 )
 from bugit_v2.screens.bug_report_screen import BugReportScreen
 from bugit_v2.screens.job_selection_screen import JobSelectionScreen
@@ -118,8 +117,8 @@ class RecoverFromAutosaveState(AppState):
                 return JobSelectionState(self.context)
 
         # recover from existing report path
-        assert isinstance(screen_result, BugReportAutoSaveData)
-        backup = recover_from_autosave(screen_result)
+        assert isinstance(screen_result, SerializableBugReport)
+        backup = screen_result.to_bug_report()
         self.context.bug_report_init_state = backup
         self.context.session = backup.checkbox_session or NullSelection.NO_SESSION
         self.context.job_id = backup.job_id or NullSelection.NO_JOB
