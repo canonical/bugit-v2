@@ -119,4 +119,4 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
         except Exception as e:
             raise RuntimeError(
                 f"Failed to create archive, you can manually recover the files at {self.working_dir.name}. Original err: {repr(e)}"
-            )
+            ) from e
