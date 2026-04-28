@@ -2,7 +2,7 @@ import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Final, Literal
+from typing import Final, Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -100,34 +100,9 @@ class BugReport:
             f"Expected {expected_type}, but got {type(value)}"  # pyright: ignore[reportAny]
         )
 
-    @staticmethod
-    def dict_factory(x: list[tuple[str, Any]]) -> dict[str, Any]:
-        OMIT_KEYS = ("base",)
-        o = {}
-        for k, v in x:
-            if k in OMIT_KEYS:
-                continue
-            if k == "checkbox_submission":
-                if type(v) is dict:
-                    # dataclass already converted into dict
-                    o[k] = str(v["submission_path"].absolute())
-                else:
-                    o[k] = None
-            elif k == "checkbox_session":
-                if isinstance(v, CheckboxSession):
-                    o[k] = str(v.session_path.absolute())
-                else:
-                    o[k] = None
-            elif k == "report_id":
-                o[k] = str(v)
-            else:
-                o[k] = v
-        o["last_updated_timestamp"] = int(time.time())
-        return o
-
 
 class SerializableBugReport(BaseModel):
-    report_id: str  # internal uuid, used for keeping track of auto saves
+    report_id: UUID  # internal uuid, used for keeping track of auto saves
     last_updated_timestamp: int
     title: str
     description: str
@@ -138,38 +113,60 @@ class SerializableBugReport(BaseModel):
     checkbox_submission: Path | None
     job_id: str | None
     assignee: str | None
-    platform_tags: list[str]
-    additional_tags: list[str]
+    platform_tags: Sequence[str]
+    additional_tags: Sequence[str]
     status: BugStatus
     series: str | None
     # selections
-    logs_to_include: list[LogName]
-    impacted_features: list[str]
-    impacted_vendors: list[str]
+    logs_to_include: Sequence[LogName]
+    impacted_features: Sequence[str]
+    impacted_vendors: Sequence[str]
 
+    @classmethod
+    def from_bug_report(cls, r: BugReport) -> Self:
+        return cls(
+            report_id=r.report_id,
+            last_updated_timestamp=int(time.time()),
+            title=r.title,
+            description=r.description,
+            project=r.project,
+            severity=r.severity,
+            issue_file_time=r.issue_file_time,
+            checkbox_session=r.checkbox_session
+            and r.checkbox_session.session_path.absolute(),
+            checkbox_submission=r.checkbox_submission
+            and r.checkbox_submission.submission_path.absolute(),
+            job_id=r.job_id,
+            assignee=r.assignee,
+            platform_tags=r.platform_tags,
+            additional_tags=r.additional_tags,
+            status=r.status,
+            series=r.series,
+            logs_to_include=r.logs_to_include,
+            impacted_features=r.impacted_features,
+            impacted_vendors=r.impacted_vendors,
+        )
 
-def recover_from_autosave(
-    autosave_data: SerializableBugReport,
-) -> BugReport:
-    # job_id is handled separately
-    return BugReport(
-        UUID(autosave_data.report_id, version=4),
-        autosave_data.title,
-        autosave_data.description,
-        autosave_data.project,
-        autosave_data.severity,
-        autosave_data.issue_file_time,
-        autosave_data.checkbox_session and CheckboxSession(autosave_data.checkbox_session),
-        autosave_data.checkbox_submission
-        and read_simple_submission(autosave_data.checkbox_submission),
-        autosave_data.job_id,
-        autosave_data.assignee,
-        autosave_data.platform_tags,
-        autosave_data.additional_tags,
-        autosave_data.status,
-        autosave_data.series,
-        autosave_data.logs_to_include,
-        autosave_data.impacted_features,
-        autosave_data.impacted_vendors,
-        "recovery",
-    )
+    def to_bug_report(self) -> BugReport:
+        # job_id conversion to NULL_JOB is handled separately
+        return BugReport(
+            self.report_id,
+            self.title,
+            self.description,
+            self.project,
+            self.severity,
+            self.issue_file_time,
+            self.checkbox_session and CheckboxSession(self.checkbox_session),
+            self.checkbox_submission
+            and read_simple_submission(self.checkbox_submission),
+            self.job_id,
+            self.assignee,
+            self.platform_tags,
+            self.additional_tags,
+            self.status,
+            self.series,
+            self.logs_to_include,
+            self.impacted_features,
+            self.impacted_vendors,
+            "recovery",
+        )

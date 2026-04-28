@@ -1,6 +1,4 @@
 from collections.abc import Generator
-from dataclasses import asdict
-import json
 import os
 from pathlib import Path
 import shutil
@@ -11,7 +9,7 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
     BugReportSubmitter,
 )
-from bugit_v2.models.bug_report import SEVERITIES, BugReport
+from bugit_v2.models.bug_report import SEVERITIES, BugReport, SerializableBugReport
 
 
 @final
@@ -60,7 +58,7 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
 
         working_dir = Path(self.working_dir.name)
         report_json_path = working_dir / self.WRAPPER_DIR / "bug-report.json"
-        report_json = asdict(bug_report, dict_factory=bug_report.dict_factory)
+        report_json = SerializableBugReport.from_bug_report(bug_report)
 
         # must bring the checkbox session if one was referenced
         # even if the user didn't select it
@@ -68,7 +66,7 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
         if bug_report.checkbox_session:
             # the bugit.submit command should read this relative to the
             # file produced by this submitter
-            report_json["checkbox_session"] = "checkbox_session.tar.gz"
+            report_json.checkbox_session = Path("checkbox_session.tar.gz")
             if "checkbox-session" not in bug_report.logs_to_include:
                 with tarfile.open(
                     working_dir / self.WRAPPER_DIR / "checkbox_session.tar.gz", "w:gz"
@@ -76,7 +74,7 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
                     f.add(bug_report.checkbox_session.session_path)
 
         with open(report_json_path, "w") as f:
-            json.dump(report_json, f)
+            f.write(report_json.model_dump_json())
 
         yield AdvanceMessage(f"Dumped bug report to {report_json_path}")
         self.archive_name = f"bugit-bug-report-{bug_report.report_id}"
