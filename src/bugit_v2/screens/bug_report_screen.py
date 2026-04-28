@@ -373,11 +373,13 @@ class BugReportScreen(Screen[BugReport]):
                     )
 
                     with HorizontalGroup():
-                        highest_display_name = (
-                            "Highest (Jira)"
-                            if self.app_args.submitter == "jira"
-                            else "Critical (LP)"
-                        )
+                        match self.app_args.submitter:
+                            case "jira":
+                                highest_display_name = "Highest (Jira)"
+                            case "lp":
+                                highest_display_name = "Critical (LP)"
+                            case "local":
+                                highest_display_name = "Highest / Critical"
                         yield RadioSet(
                             *(
                                 RadioButton(
