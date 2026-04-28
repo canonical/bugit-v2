@@ -435,13 +435,14 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         all_upload_ok = all(
             w.state == WorkerState.SUCCESS for w in self.upload_workers.values()
         )
-        if is_prod() and all_upload_ok and finalize_ok:
+        if all_upload_ok and finalize_ok:
             # only cleanup if everything was uploaded
             finish_message_lines.insert(
                 1,
                 f"URL: [$primary]{self.submitter.bug_url}[/]",
             )
-            shutil.rmtree(self.attachment_dir, ignore_errors=True)
+            if is_prod():
+                shutil.rmtree(self.attachment_dir, ignore_errors=True)
 
         if not (all_upload_ok and finalize_ok) and self.attachment_dir.exists():
             if is_snap():
