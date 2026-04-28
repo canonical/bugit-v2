@@ -87,7 +87,7 @@ async def checkbox_exec(
 
             PATH = ":".join(
                 map(
-                    lambda s: str(HOST_FS) + s,
+                    lambda s: str(HOST_FS).rstrip("/") + s,
                     [
                         "/usr/local/sbin",
                         "/usr/local/bin",
