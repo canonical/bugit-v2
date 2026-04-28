@@ -181,5 +181,7 @@ def get_checkbox_info() -> CheckboxInfo | None:
                             ).strip(),
                             Path("/snap/bin") / executable,
                         )
-    except CalledProcessError:
+    except CalledProcessError as e:
+        logger.error("Failed to check checkbox version")
+        logger.error(repr(e))
         return None
