@@ -22,7 +22,7 @@ from textual.widgets import Button, Checkbox, Footer, Label, Rule
 from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.models.app_args import AppArgs
-from bugit_v2.models.bug_report import BugReportAutoSaveData
+from bugit_v2.models.bug_report import SerializableBugReport
 from bugit_v2.utils import pretty_date
 from bugit_v2.utils.constants import AUTOSAVE_DIR
 
@@ -32,13 +32,13 @@ logger = logging.getLogger(__name__)
 
 
 @final
-class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
+class RecoverFromAutoSaveScreen(Screen[SerializableBugReport | None]):
 
     CSS_PATH = "styles.tcss"
 
     is_relative = reactive[bool](True, recompose=True)
     lock_delete = reactive[bool](True, recompose=True)
-    valid_autosave_data: dict[str, BugReportAutoSaveData]
+    valid_autosave_data: dict[str, SerializableBugReport]
     save_type: SaveType
 
     def __init__(
@@ -57,7 +57,7 @@ class RecoverFromAutoSaveScreen(Screen[BugReportAutoSaveData | None]):
         for file in os.listdir(autosave_dir):
             with open(autosave_dir / file) as f:
                 try:
-                    autosave = BugReportAutoSaveData.model_validate_json(f.read())
+                    autosave = SerializableBugReport.model_validate_json(f.read())
                     match (
                         save_type,
                         autosave.checkbox_submission,

@@ -126,7 +126,7 @@ class BugReport:
         return o
 
 
-class BugReportAutoSaveData(BaseModel):
+class SerializableBugReport(BaseModel):
     report_id: str  # internal uuid, used for keeping track of auto saves
     last_updated_timestamp: int
     title: str
@@ -149,7 +149,7 @@ class BugReportAutoSaveData(BaseModel):
 
 
 def recover_from_autosave(
-    autosave_data: BugReportAutoSaveData,
+    autosave_data: SerializableBugReport,
 ) -> BugReport:
     # job_id is handled separately
     return BugReport(
