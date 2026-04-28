@@ -18,7 +18,7 @@ class AdvanceMessage:
     message: str
 
 
-class BugReportSubmitter[TAuth, TReturn](abc.ABC):
+class BugReportSubmitter[TAuth](abc.ABC):
     """The bug report submitter interface"""
 
     # name of the submitter, used in the credential cache file name
@@ -51,7 +51,7 @@ class BugReportSubmitter[TAuth, TReturn](abc.ABC):
     @abc.abstractmethod
     def submit(
         self, bug_report: BugReport
-    ) -> Generator[str | AdvanceMessage, None, TReturn]:
+    ) -> Generator[str | AdvanceMessage, None, None]:
         """The main bug creation sequence
 
         :param bug_report: bug report to submit
@@ -84,6 +84,15 @@ class BugReportSubmitter[TAuth, TReturn](abc.ABC):
                                putting the desired files in this directory
         :yield: Intermediate messages or errors. Caller can decide whether to
                 stop on error
+        """
+        pass
+
+    @abc.abstractmethod
+    def finalize(self) -> str | None:
+        """Finalize the submission, each submitter can decide what to do here
+
+        This is useful if we need something to happen AFTER self.submit and
+        all of the self.upload_attachment calls are done.
         """
         pass
 

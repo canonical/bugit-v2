@@ -40,7 +40,7 @@ class WorkerName(enum.StrEnum):
 
 
 @final
-class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
+class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     """
     The progress screen shown while submission/log collection is happening
     """
@@ -60,7 +60,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     log_widget: RichLog | None = None  # late init in on_mount
     upload_attempted = False
 
-    submitter: Final[BugReportSubmitter[TAuth, TReturn]]
+    submitter: Final[BugReportSubmitter[TAuth]]
 
     CSS = """
     SubmissionProgressScreen {
@@ -79,7 +79,7 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
     def __init__(
         self,
         bug_report: BugReport,
-        submitter: BugReportSubmitter[TAuth, TReturn],
+        submitter: BugReportSubmitter[TAuth],
         app_args: AppArgs,
         name: str | None = None,
         id: str | None = None,
@@ -410,22 +410,41 @@ class SubmissionProgressScreen[TAuth, TReturn](Screen[ReturnScreenChoice]):
         if not self.finished:
             return
 
+        # immediately hide the give up button
         self.query_exactly_one("#give_up", Button).display = False
+
+        try:
+            rv = self.submitter.finalize()
+            finalize_ok = True
+            if rv:
+                self._log_with_time(f"[green]FINALIZE OK[/] {rv}")
+            else:
+                self._log_with_time(
+                    f"[green]FINALIZE OK[/] {self.submitter.display_name}"
+                )
+        except Exception as e:
+            finalize_ok = False
+            self._log_with_time(f"[red]ERR when finalizing[/]: {repr(e)}")
+            logger.error(e)
+
+        finish_message_lines = [
+            "[green]Submission finished![/]",
+            "You can go back to job/session selection or quit BugIt.",
+        ]
 
         all_upload_ok = all(
             w.state == WorkerState.SUCCESS for w in self.upload_workers.values()
         )
-        if is_prod() and all_upload_ok:
+        if all_upload_ok and finalize_ok:
             # only cleanup if everything was uploaded
-            shutil.rmtree(self.attachment_dir, ignore_errors=True)
+            finish_message_lines.insert(
+                1,
+                f"URL: [$primary]{self.submitter.bug_url}[/]",
+            )
+            if is_prod():
+                shutil.rmtree(self.attachment_dir, ignore_errors=True)
 
-        finish_message_lines = [
-            "[green]Submission finished![/]",
-            f"URL: {self.submitter.bug_url}",
-            "You can go back to job/session selection or quit BugIt.",
-        ]
-
-        if not all_upload_ok and self.attachment_dir.exists():
+        if not (all_upload_ok and finalize_ok) and self.attachment_dir.exists():
             if is_snap():
                 attachment_dir = (
                     "/tmp/snap-private-tmp/snap.bugit-v2/tmp" / self.attachment_dir

@@ -27,7 +27,7 @@ def get_valid_sessions() -> list[Path]:
         try:
             if len(os.listdir(SESSION_ROOT_DIR / d / "io-logs")) != 0:
                 valid_session_dirs.append(SESSION_ROOT_DIR / d)
-        except FileNotFoundError:
+        except (FileNotFoundError, NotADirectoryError):
             continue
     return valid_session_dirs
 

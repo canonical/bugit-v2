@@ -25,7 +25,7 @@ VALID_SERVICE_ROOTS = ("production", "qastaging")
 
 
 @final
-class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
+class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
     name = "mock_launchpad_submitter"
     display_name = "Mock Launchpad"
     severity_name_map = {
@@ -188,3 +188,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path, None]):
     @override
     def upload_attachment(self, attachment_file: Path) -> str | None:
         return super().upload_attachment(attachment_file)
+
+    @override
+    def finalize(self) -> None:
+        return

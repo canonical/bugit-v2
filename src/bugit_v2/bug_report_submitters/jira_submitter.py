@@ -134,7 +134,7 @@ class JiraSubmitterError(Exception):
 
 
 @final
-class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
+class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
     name = "jira_submitter"
     display_name = "Jira"
     steps = 5
@@ -330,3 +330,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
         assert self.jira
         assert self.issue, "Nothing has been submitted to Jira yet"
         return f"{self.jira.server_url}/browse/{self.issue.key}"
+
+    @override
+    def finalize(self) -> None:
+        return

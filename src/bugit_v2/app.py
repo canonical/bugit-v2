@@ -21,6 +21,7 @@ from bugit_v2.bug_report_submitters.jira_submitter import JiraSubmitter
 from bugit_v2.bug_report_submitters.launchpad_submitter import (
     LaunchpadSubmitter,
 )
+from bugit_v2.bug_report_submitters.local_file_submitter import LocalFileSubmitter
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils.checkbox_exec import get_checkbox_info
@@ -139,6 +140,8 @@ class BugitApp(App[None]):
                 submitter_class = (
                     LaunchpadSubmitter if is_prod() else MockLaunchpadSubmitter
                 )
+            case "local":
+                submitter_class = LocalFileSubmitter
 
         self.state.context = AppContext(
             args,
@@ -252,119 +255,11 @@ def common(
     pass
 
 
+@cli_app.command("local", help="Pack the bug report to a local file")
 @cli_app.command("lp", help="Submit a bug to Launchpad")
-def launchpad_mode(
-    checkbox_submission: Annotated[
-        Path | None,
-        typer.Option(
-            "-s",
-            "--checkbox-submission",
-            help=(
-                "The .tar.xz file submitted by checkbox after a test session has finished. "
-                + "If this option is specified, "
-                + "Bugit will read from this file instead of checkbox sessions "
-                + "and enter the editor directly"
-            ),
-            exists=True,
-            dir_okay=False,
-            file_okay=True,
-            readable=True,
-            resolve_path=True,
-        ),
-    ] = None,
-    cid: Annotated[
-        str | None,
-        typer.Option(
-            "-c",
-            "--cid",
-            help="Canonical ID (CID) of the device under test",
-            file_okay=False,
-            dir_okay=False,
-            callback=cid_check,
-        ),
-    ] = None,
-    sku: Annotated[
-        str | None,
-        typer.Option(
-            "-k",
-            "--sku",
-            help="Stock Keeping Unit (SKU) string of the device under test",
-            file_okay=False,
-            dir_okay=False,
-            callback=strip,
-        ),
-    ] = None,
-    project: Annotated[
-        str | None,
-        typer.Option(
-            "-p",
-            "--project",
-            help="Project name like STELLA, SOMERVILLE. Case sensitive.",
-            file_okay=False,
-            dir_okay=False,
-            callback=alnum_check,
-        ),
-    ] = None,
-    assignee: Annotated[
-        str | None,
-        typer.Option(
-            "-a",
-            "--assignee",
-            help='Assignee ID. For Launchpad it\'s LP ID, without the "lp:" part',
-            file_okay=False,
-            dir_okay=False,
-            callback=assignee_str_check,
-        ),
-    ] = None,
-    platform_tags: Annotated[
-        list[str],
-        typer.Option(
-            "-pt",
-            "--platform-tags",
-            help='Platform Tags. They appear under "Components" on Jira',
-            file_okay=False,
-            dir_okay=False,
-        ),
-    ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
-    tags: Annotated[
-        list[str],
-        typer.Option(
-            "-t",
-            "--tags",
-            help="Additional tags on Jira",
-            file_okay=False,
-            dir_okay=False,
-        ),
-    ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
-):
-    sudo_devmode_check()
-
-    if checkbox_submission:
-        print(f"Decompressing checkbox submission at {checkbox_submission}")
-
-    cbs = checkbox_submission_check(checkbox_submission)
-    saved_dut_info = get_saved_dut_info() or DutInfo()  # all none
-
-    print("Waiting for checkbox...")
-    get_checkbox_info()  # populate cache
-
-    BugitApp(
-        AppArgs(
-            submitter="lp",
-            checkbox_submission=cbs,
-            bug_to_reopen=None,
-            cid=cid or saved_dut_info.cid,
-            sku=sku or saved_dut_info.sku,
-            project=project or saved_dut_info.project,
-            assignee=assignee or saved_dut_info.lp_assignee,
-            platform_tags=platform_tags or saved_dut_info.platform_tags,
-            tags=tags or saved_dut_info.tags,
-        )
-    ).run()
-
-
 @cli_app.command("jira", help="Submit a bug to Jira")
-def jira_mode(
+def main(
+    ctx: typer.Context,
     checkbox_submission: Annotated[
         Path | None,
         typer.Option(
@@ -426,7 +321,7 @@ def jira_mode(
         typer.Option(
             "-a",
             "--assignee",
-            help="Assignee ID. For Jira it's the assignee's email. "
+            help="Assignee ID. For Jira it's the assignee's email. For Launchpad it's the launchpad ID. "
             + 'This is used to pre-fill the "Assignee" field in the editor',
             file_okay=False,
             dir_okay=False,
@@ -438,7 +333,7 @@ def jira_mode(
         typer.Option(
             "-pt",
             "--platform-tags",
-            help='Platform Tags. They will appear under "Components" on Jira. '
+            help='Platform Tags. They will appear under "Components" on Jira, or as regular tags on Launchpad. '
             + 'This is used to pre-fill the "Platform Tags" field in the editor',
             file_okay=False,
             dir_okay=False,
@@ -449,7 +344,7 @@ def jira_mode(
         typer.Option(
             "-t",
             "--tags",
-            help="Additional tags on Jira. "
+            help="Additional tags on Jira/Launchpad. "
             + 'This is used to pre-fill the "Tags" field in the editor',
             file_okay=False,
             dir_okay=False,
@@ -457,6 +352,7 @@ def jira_mode(
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
 ):
     sudo_devmode_check()
+    assert ctx.command.name in ("lp", "jira", "local")
 
     if checkbox_submission:
         print(f"Decompressing checkbox submission at {checkbox_submission}")
@@ -470,13 +366,19 @@ def jira_mode(
     BugitApp(
         # reopen is disabled for now
         AppArgs(
-            submitter="jira",
+            submitter=ctx.command.name,
             checkbox_submission=cbs,
             bug_to_reopen=None,
             cid=cid or saved_dut_info.cid,
             sku=sku or saved_dut_info.sku,
             project=project or saved_dut_info.project,
-            assignee=assignee or saved_dut_info.jira_assignee,
+            assignee=assignee
+            or (
+                # NOTE: user need to manually set this param when using `local`
+                saved_dut_info.lp_assignee
+                if ctx.command.name == "lp"
+                else saved_dut_info.jira_assignee
+            ),
             platform_tags=platform_tags or saved_dut_info.platform_tags,
             tags=tags or saved_dut_info.tags,
         )

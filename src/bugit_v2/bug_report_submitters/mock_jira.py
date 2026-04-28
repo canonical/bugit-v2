@@ -25,7 +25,7 @@ JIRA_SERVER_ADDRESS = os.getenv("JIRA_SERVER", "https://warthogs.atlassian.net")
 
 
 @final
-class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
+class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
     name = "mock_jira_submitter"
     display_name = "Mock Jira"
     steps = 5
@@ -190,3 +190,7 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth, None]):
     def bug_url(self) -> str:
         assert self.mock_issue
         return "http://example.com/"
+
+    @override
+    def finalize(self) -> None:
+        return

@@ -87,7 +87,7 @@ async def checkbox_exec(
 
             PATH = ":".join(
                 map(
-                    lambda s: str(HOST_FS) + s,
+                    lambda s: str(HOST_FS).rstrip("/") + s,
                     [
                         "/usr/local/sbin",
                         "/usr/local/bin",
@@ -181,5 +181,7 @@ def get_checkbox_info() -> CheckboxInfo | None:
                             ).strip(),
                             Path("/snap/bin") / executable,
                         )
-    except CalledProcessError:
+    except CalledProcessError as e:
+        logger.error("Failed to check checkbox version")
+        logger.error(repr(e))
         return None

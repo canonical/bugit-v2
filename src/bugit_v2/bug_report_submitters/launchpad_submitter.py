@@ -228,7 +228,7 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool] | None]):
 
 
 @final
-class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
+class LaunchpadSubmitter(BugReportSubmitter[Path]):
     name = "launchpad_submitter"
     severity_name_map = {
         "highest": "Critical",
@@ -428,3 +428,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path, None]):
         if LP_AUTH_FILE_PATH.exists():
             return LP_AUTH_FILE_PATH
         return None
+
+    @override
+    def finalize(self) -> None:
+        return

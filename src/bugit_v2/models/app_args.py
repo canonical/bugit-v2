@@ -10,7 +10,7 @@ from bugit_v2.utils.constants import NullSelection
 class AppArgs:
     """The global constant holding the values from the CLI"""
 
-    submitter: Literal["lp", "jira"]
+    submitter: Literal["lp", "jira", "local"]
     # read from this submission tarball
     # instead of asking the user to select session/job
     checkbox_submission: (
