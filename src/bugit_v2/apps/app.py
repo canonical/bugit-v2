@@ -352,6 +352,7 @@ def main(
     ] = [],  # pyright: ignore[reportCallInDefaultInitializer]
 ):
     sudo_devmode_check()
+    ensure_all_directories_exist()
     assert ctx.command.name in ("lp", "jira", "local")
 
     if checkbox_submission:
@@ -393,10 +394,10 @@ def configure_visuals(
     ],
 ):
     sudo_devmode_check()
+    ensure_all_directories_exist()
     with open(VISUAL_CONFIG_DIR / "visual-config.json", "w") as f:
         f.write(VisualConfig(theme=theme).model_dump_json())
 
 
 if __name__ == "__main__":
-    ensure_all_directories_exist()
     cli_app(prog_name="bugit.bugit-v2" if is_snap() else "bugit-v2")

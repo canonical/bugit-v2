@@ -1,0 +1,133 @@
+import json
+from pathlib import Path
+import tarfile
+from tempfile import TemporaryDirectory
+from typing import Any, final
+from textual import work
+from textual.app import App
+from textual.driver import Driver
+from textual.types import CSSPathType
+from typing_extensions import Annotated
+import typer
+
+from bugit_v2.bug_report_submitters.bug_report_submitter import BugReportSubmitter
+from bugit_v2.bug_report_submitters.jira_submitter import JiraSubmitter
+from bugit_v2.bug_report_submitters.launchpad_submitter import LaunchpadSubmitter
+from bugit_v2.bug_report_submitters.local_file_submitter import SERIALIZED_REPORT_NAME
+from bugit_v2.models.bug_report import BugReport, SerializableBugReport
+from bugit_v2.screens.submission_progress_screen import SubmissionProgressScreen
+from bugit_v2.utils import is_prod, is_snap
+
+app = typer.Typer(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    pretty_exceptions_enable=not is_prod(),
+    pretty_exceptions_show_locals=not is_prod(),
+    no_args_is_help=True,
+    help="Submit the archive made by [yellow]bugit-v2 local[/]",
+    add_completion=not is_snap(),  # the built-in ones doesn't work in snap
+)
+
+
+@final
+class SubmitOnlyApp(App[None]):
+    def __init__(
+        self,
+        report: BugReport,
+        submitter: BugReportSubmitter[Any],
+        # ---
+        driver_class: type[Driver] | None = None,
+        css_path: CSSPathType | None = None,
+        watch_css: bool = False,
+        ansi_color: bool = False,
+    ):
+        super().__init__(driver_class, css_path, watch_css, ansi_color)
+        self.report = report
+        self.submitter = submitter
+
+    @work
+    async def on_mount(self):
+        await self.push_screen_wait(
+            SubmissionProgressScreen(self.report, self.submitter, mode="app"),
+        )
+        self.exit()
+
+
+def build_bug_report_from_archive(file: Path, working_dir: Path) -> BugReport:
+    with tarfile.open(file, "r:gz") as report_tar:
+        report_tar.extractall(working_dir)
+
+        if not (working_dir / SERIALIZED_REPORT_NAME).exists():
+            raise typer.Abort(
+                f"{SERIALIZED_REPORT_NAME} doesn't exist in {file}, cannot continue"
+            )
+
+        with open(working_dir / SERIALIZED_REPORT_NAME) as f:
+            serialized_report = SerializableBugReport.model_validate(
+                json.load(f), extra="allow"
+            )
+            if (
+                serialized_report.checkbox_session
+                and not (working_dir / "checkbox_session.tar.gz").exists()
+            ):
+                typer.echo(
+                    f"The bug report requires a checkbox session, but it wasn't in {file}",
+                    err=True,
+                )
+                raise typer.Exit(1)
+
+            with tarfile.open(working_dir / "checkbox_session.tar.gz", "r:gz") as cbs:
+                cbs.extractall(working_dir / "checkbox_session")
+
+            serialized_report.checkbox_session = working_dir / "checkbox_session"
+            return serialized_report.to_bug_report()
+
+
+@app.command("jira", help="Submit to Jira")
+def jira_main(
+    file: Annotated[
+        Path,
+        typer.Argument(
+            help=(
+                "The .tar.gz file created by [u]bugit-v2 local[/]. "
+                + "A jira bug report will be created based on the content of this archive."
+            ),
+            exists=True,
+            dir_okay=False,
+            file_okay=True,
+            readable=True,
+            resolve_path=True,
+        ),
+        build_bug_report_from_archive,
+    ],
+):
+    with TemporaryDirectory() as temp_dir_str:
+        report = build_bug_report_from_archive(file, Path(temp_dir_str))
+        submitter = JiraSubmitter()
+        SubmitOnlyApp(report, submitter).run()
+
+
+@app.command("lp", help="Submit to Launchpad")
+def lp_main(
+    file: Annotated[
+        Path,
+        typer.Argument(
+            help=(
+                "The .tar.gz file created by [u]bugit-v2 local[/]. "
+                + "A launchpad bug report will be created based on the content of this archive."
+            ),
+            exists=True,
+            dir_okay=False,
+            file_okay=True,
+            readable=True,
+            resolve_path=True,
+        ),
+    ],
+):
+    with TemporaryDirectory() as temp_dir_str:
+        report = build_bug_report_from_archive(file, Path(temp_dir_str))
+        submitter = LaunchpadSubmitter()
+        SubmitOnlyApp(report, submitter).run()
+
+
+if __name__ == "__main__":
+    app(prog_name="bugit.submit" if is_snap() else "bugit-submit")
