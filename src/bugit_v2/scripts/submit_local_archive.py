@@ -3,6 +3,7 @@ from pathlib import Path
 import tarfile
 from tempfile import TemporaryDirectory
 from typing import Any, final
+from textual import work
 from textual.app import App
 from textual.driver import Driver
 from textual.types import CSSPathType
@@ -11,6 +12,7 @@ import typer
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import BugReportSubmitter
 from bugit_v2.bug_report_submitters.jira_submitter import JiraSubmitter
+from bugit_v2.bug_report_submitters.launchpad_submitter import LaunchpadSubmitter
 from bugit_v2.bug_report_submitters.local_file_submitter import SERIALIZED_REPORT_NAME
 from bugit_v2.models.bug_report import BugReport, SerializableBugReport
 from bugit_v2.screens.submission_progress_screen import SubmissionProgressScreen
@@ -43,8 +45,12 @@ class SubmitOnlyApp(App[None]):
         self.report = report
         self.submitter = submitter
 
+    @work
     async def on_mount(self):
-        self.push_screen(SubmissionProgressScreen(self.report, self.submitter))
+        await self.push_screen_wait(
+            SubmissionProgressScreen(self.report, self.submitter, mode="app"),
+        )
+        self.exit()
 
 
 def build_bug_report_from_archive(file: Path, working_dir: Path) -> BugReport:
@@ -102,7 +108,7 @@ def jira_main(
 @app.command("lp", help="Submit to Launchpad")
 def lp_main(
     file: Annotated[
-        Path | None,
+        Path,
         typer.Argument(
             help=(
                 "The .tar.gz file created by [u]bugit-v2 local[/]. "
@@ -114,9 +120,12 @@ def lp_main(
             readable=True,
             resolve_path=True,
         ),
-    ] = None,
+    ],
 ):
-    pass
+    with TemporaryDirectory() as temp_dir_str:
+        report = build_bug_report_from_archive(file, Path(temp_dir_str))
+        submitter = LaunchpadSubmitter()
+        SubmitOnlyApp(report, submitter).run()
 
 
 if __name__ == "__main__":

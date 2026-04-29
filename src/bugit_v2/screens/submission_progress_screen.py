@@ -140,16 +140,22 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 # for the auth modal
                 self.progress_start_time = time.time()
             except AssertionError:
-                await self.app.push_screen_wait(
-                    ConfirmScreen[ReturnScreenChoice](
+                if self.mode == "screen":
+                    prompt = ConfirmScreen[ReturnScreenChoice](
                         "[red]Authentication form returned nothing[/]",
                         sub_prompt="Click this button to go back to the editor and try again",
                         choices=(("Return to Report Editor", "report_editor"),),
                         focus_id_on_mount="report_editor",
                     )
-                )
-                self.dismiss("report_editor")
-                return
+                else:
+                    prompt = ConfirmScreen[Literal["quit"]](
+                        "[red]Authentication form returned nothing[/]",
+                        sub_prompt="Relaunch bugit to authenticate again",
+                        choices=(("Quit", "quit"),),
+                        focus_id_on_mount="quit",
+                    )
+                self.dismiss(await self.app.push_screen_wait(prompt))
+                return  # need explicit return here
 
         # auth ready, do the jira/lp steps
         self.start_parallel_log_collection()
@@ -559,15 +565,20 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 yield Center(Label(classes="wa", id="finish_message"))
                 with Center():
                     with HorizontalGroup(classes="wa center"):
-                        if self.bug_report.checkbox_session:
-                            yield Button(
-                                "Select another session",
-                                classes="mr1",
-                                id="session",
-                            )
-                            yield Button("Select another job", classes="mr1", id="job")
-                        if self.bug_report.checkbox_submission:
-                            yield Button("Select another job", classes="mr1", id="job")
+                        if self.mode == "screen":
+                            if self.bug_report.checkbox_session:
+                                yield Button(
+                                    "Select another session",
+                                    classes="mr1",
+                                    id="session",
+                                )
+                                yield Button(
+                                    "Select another job", classes="mr1", id="job"
+                                )
+                            if self.bug_report.checkbox_submission:
+                                yield Button(
+                                    "Select another job", classes="mr1", id="job"
+                                )
                         yield Button("Quit", id="quit")
 
             yield Footer()
@@ -595,21 +606,39 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     if is_prod():
                         shutil.rmtree(self.attachment_dir, ignore_errors=True)
 
-                def dismiss_wrapper(_: ReturnScreenChoice | None):
-                    # force a null return to avoid awaiting inside a msg handler
-                    self.dismiss("report_editor")
-                    return None
+                match self.mode:
+                    case "screen":
 
-                logger.warning("pushing confirm screen")
-                self.app.push_screen(
-                    ConfirmScreen[ReturnScreenChoice](
-                        "Got the following error during submission",
-                        sub_prompt=f"[red]{event.worker.error}",
-                        choices=(("Return to Report Editor", "report_editor"),),
-                        focus_id_on_mount="report_editor",
-                    ),
-                    dismiss_wrapper,
-                )
+                        def dismiss_wrapper(_: ReturnScreenChoice | None):
+                            # force a null return to avoid awaiting inside a msg handler
+                            self.dismiss("report_editor")
+                            return None
+
+                        self.app.push_screen(
+                            ConfirmScreen[ReturnScreenChoice](
+                                "Got the following error during submission",
+                                sub_prompt=f"[red]{event.worker.error}",
+                                choices=(("Return to Report Editor", "report_editor"),),
+                                focus_id_on_mount="report_editor",
+                            ),
+                            dismiss_wrapper,
+                        )
+                    case "app":
+
+                        def dismiss_wrapper(_: ReturnScreenChoice | None):
+                            self.dismiss("quit")
+                            return None
+
+                        self.app.push_screen(
+                            ConfirmScreen[Literal["quit"]](
+                                "Got the following error during submission",
+                                sub_prompt=f"[red]{event.worker.error}",
+                                choices=(("Quit", "quit"),),
+                                focus_id_on_mount="quit",
+                            ),
+                            dismiss_wrapper,
+                        )
+
             case WorkerState.SUCCESS:
                 if self._ready_to_upload_attachments():
                     self._launch_upload_workers()
