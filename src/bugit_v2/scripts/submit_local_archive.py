@@ -2,12 +2,18 @@ import json
 from pathlib import Path
 import tarfile
 from tempfile import TemporaryDirectory
+from typing import Any, final
+from textual.app import App
+from textual.driver import Driver
+from textual.types import CSSPathType
 from typing_extensions import Annotated
 import typer
 
+from bugit_v2.bug_report_submitters.bug_report_submitter import BugReportSubmitter
 from bugit_v2.bug_report_submitters.jira_submitter import JiraSubmitter
 from bugit_v2.bug_report_submitters.local_file_submitter import SERIALIZED_REPORT_NAME
 from bugit_v2.models.bug_report import BugReport, SerializableBugReport
+from bugit_v2.screens.submission_progress_screen import SubmissionProgressScreen
 from bugit_v2.utils import is_prod, is_snap
 
 
@@ -19,6 +25,26 @@ app = typer.Typer(
     help="Submit the archive made by `bugit-v2 local`",
     add_completion=not is_snap(),  # the built-in ones doesn't work in snap
 )
+
+
+@final
+class SubmitOnlyApp(App[None]):
+    def __init__(
+        self,
+        report: BugReport,
+        submitter: BugReportSubmitter[Any],
+        # ---
+        driver_class: type[Driver] | None = None,
+        css_path: CSSPathType | None = None,
+        watch_css: bool = False,
+        ansi_color: bool = False,
+    ):
+        super().__init__(driver_class, css_path, watch_css, ansi_color)
+        self.report = report
+        self.submitter = submitter
+
+    async def on_mount(self):
+        self.push_screen(SubmissionProgressScreen(self.report, self.submitter))
 
 
 def build_bug_report_from_archive(file: Path, working_dir: Path) -> BugReport:
@@ -68,10 +94,9 @@ def jira_main(
     ],
 ):
     with TemporaryDirectory() as temp_dir_str:
-        print(build_bug_report_from_archive(file, Path(temp_dir_str)))
-
+        report = build_bug_report_from_archive(file, Path(temp_dir_str))
         submitter = JiraSubmitter()
-        
+        SubmitOnlyApp(report, submitter).run()
 
 
 @app.command("lp", help="Submit to Launchpad")

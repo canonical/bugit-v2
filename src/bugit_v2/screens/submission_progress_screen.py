@@ -46,7 +46,6 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     """
 
     bug_report: BugReport
-    app_args: AppArgs
 
     finished = var(False)
 
@@ -80,7 +79,6 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         self,
         bug_report: BugReport,
         submitter: BugReportSubmitter[TAuth],
-        app_args: AppArgs,
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
@@ -92,7 +90,6 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         self.attachment_worker_checker_timers = {}
         self.upload_workers = {}
         self.progress_start_time = time.time()  # doesn't have to precise
-        self.app_args = app_args
 
         super().__init__(name, id, classes)
 

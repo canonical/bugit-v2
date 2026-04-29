@@ -370,7 +370,7 @@ class SubmissionProgressState(AppState):
             return SubmissionProgressScreen(
                 self.context.bug_report_to_submit,
                 self.context.submitter(),
-                self.context.args,
+                # self.context.args, # optional
             )
 
         return c
