@@ -18,7 +18,6 @@ from bugit_v2.models.bug_report import BugReport, SerializableBugReport
 from bugit_v2.screens.submission_progress_screen import SubmissionProgressScreen
 from bugit_v2.utils import is_prod, is_snap
 
-
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
     pretty_exceptions_enable=not is_prod(),
@@ -70,9 +69,11 @@ def build_bug_report_from_archive(file: Path, working_dir: Path) -> BugReport:
                 serialized_report.checkbox_session
                 and not (working_dir / "checkbox_session.tar.gz").exists()
             ):
-                raise typer.Abort(
-                    f"The bug report requires a checkbox session, but it wasn't in {file}"
+                typer.echo(
+                    f"The bug report requires a checkbox session, but it wasn't in {file}",
+                    err=True,
                 )
+                raise typer.Exit(1)
 
             with tarfile.open(working_dir / "checkbox_session.tar.gz", "r:gz") as cbs:
                 cbs.extractall(working_dir / "checkbox_session")
