@@ -24,14 +24,16 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
-from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import BugReport, LogName
 from bugit_v2.utils import is_prod, is_snap
 
 logger = logging.getLogger(__name__)
 
 ReturnScreenChoice = Literal["job", "session", "quit", "report_editor"]
-RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = ReturnScreenChoice.__args__
+SCREEN_MODE_RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
+    ReturnScreenChoice.__args__
+)
+APP_MODE_RETURN_SCREEN_CHOICES = ("quit",)
 
 
 class WorkerName(enum.StrEnum):
@@ -60,6 +62,11 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     upload_attempted = False
 
     submitter: Final[BugReportSubmitter[TAuth]]
+    # handles the special case for bugit.submit
+    # app mode is for bugit.submit
+    # screen mode is for the main app
+    mode: Final[Literal["app", "screen"]]
+    return_screen_choices: Final[tuple[ReturnScreenChoice, ...]]
 
     CSS = """
     SubmissionProgressScreen {
@@ -79,12 +86,21 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         self,
         bug_report: BugReport,
         submitter: BugReportSubmitter[TAuth],
+        mode: Literal["app", "screen"] = "screen",
+        # ---
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
     ) -> None:
         self.bug_report = bug_report
         self.submitter = submitter
+        self.mode = mode
+        self.return_screen_choices = (
+            APP_MODE_RETURN_SCREEN_CHOICES
+            if mode == "app"
+            else SCREEN_MODE_RETURN_SCREEN_CHOICES
+        )
+
         self.attachment_dir = Path(mkdtemp()).expanduser().absolute()
         self.attachment_workers = {}
         self.attachment_worker_checker_timers = {}
@@ -124,7 +140,16 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 # for the auth modal
                 self.progress_start_time = time.time()
             except AssertionError:
+                await self.app.push_screen_wait(
+                    ConfirmScreen[ReturnScreenChoice](
+                        "[red]Authentication form returned nothing[/]",
+                        sub_prompt="Click this button to go back to the editor and try again",
+                        choices=(("Return to Report Editor", "report_editor"),),
+                        focus_id_on_mount="report_editor",
+                    )
+                )
                 self.dismiss("report_editor")
+                return
 
         # auth ready, do the jira/lp steps
         self.start_parallel_log_collection()
@@ -484,7 +509,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     @on(Button.Pressed, "#session")
     @on(Button.Pressed, "#quit")
     def handle_button_in_menu_after_finish(self, event: Button.Pressed):
-        if event.button.id in RETURN_SCREEN_CHOICES:
+        if event.button.id in SCREEN_MODE_RETURN_SCREEN_CHOICES:
             self.dismiss(event.button.id)
 
     @on(Button.Pressed, "#give_up")
