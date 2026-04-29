@@ -22,7 +22,7 @@ app = typer.Typer(
     pretty_exceptions_enable=not is_prod(),
     pretty_exceptions_show_locals=not is_prod(),
     no_args_is_help=True,
-    help="Submit the archive made by `bugit-v2 local`",
+    help="Submit the archive made by [yellow]bugit-v2 local[/]",
     add_completion=not is_snap(),  # the built-in ones doesn't work in snap
 )
 

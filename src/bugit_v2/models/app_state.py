@@ -23,7 +23,7 @@ from bugit_v2.screens.recover_from_autosave_screen import (
 )
 from bugit_v2.screens.session_selection_screen import SessionSelectionScreen
 from bugit_v2.screens.submission_progress_screen import (
-    RETURN_SCREEN_CHOICES,
+    SCREEN_MODE_RETURN_SCREEN_CHOICES,
     SubmissionProgressScreen,
 )
 from bugit_v2.utils.constants import AUTOSAVE_DIR, NullSelection
@@ -342,7 +342,7 @@ class SubmissionProgressState(AppState):
 
     @override
     def go_forward(self, screen_result: object) -> AppState:
-        assert screen_result in RETURN_SCREEN_CHOICES
+        assert screen_result in SCREEN_MODE_RETURN_SCREEN_CHOICES
         backup = self.context.bug_report_to_submit
         self.context.bug_report_to_submit = None
         # this is where we get the select a new session/job buttons
