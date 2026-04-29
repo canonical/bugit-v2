@@ -5,8 +5,9 @@ from tempfile import TemporaryDirectory
 from typing_extensions import Annotated
 import typer
 
+from bugit_v2.bug_report_submitters.jira_submitter import JiraSubmitter
 from bugit_v2.bug_report_submitters.local_file_submitter import SERIALIZED_REPORT_NAME
-from bugit_v2.models.bug_report import SerializableBugReport
+from bugit_v2.models.bug_report import BugReport, SerializableBugReport
 from bugit_v2.utils import is_prod, is_snap
 
 
@@ -20,10 +21,38 @@ app = typer.Typer(
 )
 
 
+def build_bug_report_from_archive(file: Path, working_dir: Path) -> BugReport:
+    with tarfile.open(file, "r:gz") as report_tar:
+        report_tar.extractall(working_dir)
+
+        if not (working_dir / SERIALIZED_REPORT_NAME).exists():
+            raise typer.Abort(
+                f"{SERIALIZED_REPORT_NAME} doesn't exist in {file}, cannot continue"
+            )
+
+        with open(working_dir / SERIALIZED_REPORT_NAME) as f:
+            serialized_report = SerializableBugReport.model_validate(
+                json.load(f), extra="allow"
+            )
+            if (
+                serialized_report.checkbox_session
+                and not (working_dir / "checkbox_session.tar.gz").exists()
+            ):
+                raise typer.Abort(
+                    f"The bug report requires a checkbox session, but it wasn't in {file}"
+                )
+
+            with tarfile.open(working_dir / "checkbox_session.tar.gz", "r:gz") as cbs:
+                cbs.extractall(working_dir / "checkbox_session")
+
+            serialized_report.checkbox_session = working_dir / "checkbox_session"
+            return serialized_report.to_bug_report()
+
+
 @app.command("jira", help="Submit to Jira")
 def jira_main(
     file: Annotated[
-        Path | None,
+        Path,
         typer.Argument(
             help=(
                 "The .tar.gz file created by [u]bugit-v2 local[/]. "
@@ -35,38 +64,14 @@ def jira_main(
             readable=True,
             resolve_path=True,
         ),
-    ] = None,
+        build_bug_report_from_archive,
+    ],
 ):
-    with (
-        tarfile.open(file, "r:gz") as report_tar,
-        TemporaryDirectory(delete=False) as temp_dir_str,
-    ):
-        report_tar.extractall(temp_dir_str)
-        temp_dir = Path(temp_dir_str)
+    with TemporaryDirectory() as temp_dir_str:
+        print(build_bug_report_from_archive(file, Path(temp_dir_str)))
 
-        if not (temp_dir / SERIALIZED_REPORT_NAME).exists():
-            raise typer.Abort(
-                f"{SERIALIZED_REPORT_NAME} doesn't exist in {file}, cannot continue"
-            )
-
-        with open(temp_dir / SERIALIZED_REPORT_NAME) as f:
-            serialized_report = SerializableBugReport.model_validate(
-                json.load(f), extra="allow"
-            )
-            if (
-                serialized_report.checkbox_session
-                and not (temp_dir / "checkbox_session.tar.gz").exists()
-            ):
-                raise typer.Abort(
-                    f"The bug report requires a checkbox session, but it wasn't in {file}"
-                )
-
-            with tarfile.open(temp_dir / "checkbox_session.tar.gz", "r:gz") as cbs:
-                cbs.extractall(temp_dir / "checkbox_session")
-
-            serialized_report.checkbox_session = temp_dir / "checkbox_session"
-            report = serialized_report.to_bug_report()
-            print(report)
+        submitter = JiraSubmitter()
+        
 
 
 @app.command("lp", help="Submit to Launchpad")
