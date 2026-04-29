@@ -30,10 +30,9 @@ from bugit_v2.utils import is_prod, is_snap
 logger = logging.getLogger(__name__)
 
 ReturnScreenChoice = Literal["job", "session", "quit", "report_editor"]
-SCREEN_MODE_RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
+RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
     ReturnScreenChoice.__args__
 )
-APP_MODE_RETURN_SCREEN_CHOICES = ("quit",)
 
 
 class WorkerName(enum.StrEnum):
@@ -66,7 +65,6 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     # app mode is for bugit.submit
     # screen mode is for the main app
     mode: Final[Literal["app", "screen"]]
-    return_screen_choices: Final[tuple[ReturnScreenChoice, ...]]
 
     CSS = """
     SubmissionProgressScreen {
@@ -95,11 +93,6 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         self.bug_report = bug_report
         self.submitter = submitter
         self.mode = mode
-        self.return_screen_choices = (
-            APP_MODE_RETURN_SCREEN_CHOICES
-            if mode == "app"
-            else SCREEN_MODE_RETURN_SCREEN_CHOICES
-        )
 
         self.attachment_dir = Path(mkdtemp()).expanduser().absolute()
         self.attachment_workers = {}
@@ -515,7 +508,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     @on(Button.Pressed, "#session")
     @on(Button.Pressed, "#quit")
     def handle_button_in_menu_after_finish(self, event: Button.Pressed):
-        if event.button.id in SCREEN_MODE_RETURN_SCREEN_CHOICES:
+        if event.button.id in RETURN_SCREEN_CHOICES:
             self.dismiss(event.button.id)
 
     @on(Button.Pressed, "#give_up")
