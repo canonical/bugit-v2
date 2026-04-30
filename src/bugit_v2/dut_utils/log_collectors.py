@@ -11,7 +11,6 @@ import importlib.resources
 import logging
 import os
 import shutil
-import tarfile
 from collections.abc import Awaitable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,8 +64,11 @@ async def pack_checkbox_session(target_dir: Path, bug_report: BugReport) -> str:
         bug_report.checkbox_session is not None
     ), "Can't use this collector if there's no checkbox session"
 
-    with tarfile.open(target_dir / "checkbox_session.tar.gz", "w:gz") as f:
-        f.add(bug_report.checkbox_session.session_path)
+    shutil.make_archive(
+        str(target_dir / "checkbox_session"),
+        root_dir=bug_report.checkbox_session.session_path,
+        format="gztar",
+    )
 
     return f"Added checkbox session to {target_dir}"
 

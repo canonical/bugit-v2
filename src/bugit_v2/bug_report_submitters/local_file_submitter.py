@@ -2,7 +2,6 @@ from collections.abc import Generator
 import os
 from pathlib import Path
 import shutil
-import tarfile
 from tempfile import TemporaryDirectory
 from typing import final, override
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
@@ -10,6 +9,9 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
 )
 from bugit_v2.models.bug_report import SEVERITIES, BugReport, SerializableBugReport
+
+
+SERIALIZED_REPORT_NAME = "bug-report.json"
 
 
 @final
@@ -57,7 +59,7 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
         """
 
         working_dir = Path(self.working_dir.name)
-        report_json_path = working_dir / self.WRAPPER_DIR / "bug-report.json"
+        report_json_path = working_dir / self.WRAPPER_DIR / SERIALIZED_REPORT_NAME
         report_json = SerializableBugReport.from_bug_report(bug_report)
 
         # must bring the checkbox session if one was referenced
@@ -68,10 +70,11 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
             # file produced by this submitter
             report_json.checkbox_session = Path("checkbox_session.tar.gz")
             if "checkbox-session" not in bug_report.logs_to_include:
-                with tarfile.open(
-                    working_dir / self.WRAPPER_DIR / "checkbox_session.tar.gz", "w:gz"
-                ) as f:
-                    f.add(bug_report.checkbox_session.session_path)
+                shutil.make_archive(
+                    str(working_dir / self.WRAPPER_DIR / "checkbox_session"),
+                    root_dir=bug_report.checkbox_session.session_path,
+                    format="gztar",
+                )
 
         with open(report_json_path, "w") as f:
             f.write(report_json.model_dump_json())
