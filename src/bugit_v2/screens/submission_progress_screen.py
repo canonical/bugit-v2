@@ -159,6 +159,16 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             exit_on_error=False,
         )
 
+    def on_unmount(self) -> None:
+        for key, worker in self.attachment_workers.items():
+            if worker.is_running:
+                self._log_with_time(f"Unmount, cancelling collector [b]{key}[/]")
+                worker.cancel()
+        for key, worker in self.upload_workers.items():
+            if worker.is_running:
+                self._log_with_time(f"Unmount, cancelling uploader [b]{key}[/]")
+                worker.cancel()
+
     def start_parallel_log_collection(self) -> None:
         """Launches all log collectors and keep the worker objects
 
