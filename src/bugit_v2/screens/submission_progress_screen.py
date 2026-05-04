@@ -85,6 +85,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         bug_report: BugReport,
         submitter: BugReportSubmitter[TAuth],
         mode: Literal["app", "screen"] = "screen",
+        attachment_dir: Path | None = None,
         # ---
         name: str | None = None,
         id: str | None = None,
@@ -94,7 +95,11 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         self.submitter = submitter
         self.mode = mode
 
-        self.attachment_dir = Path(mkdtemp()).expanduser().absolute()
+        if attachment_dir and attachment_dir.exists():
+            self.attachment_dir = attachment_dir
+        else:
+            self.attachment_dir = Path(mkdtemp()).expanduser().absolute()
+
         self.attachment_workers = {}
         self.attachment_worker_checker_timers = {}
         self.upload_workers = {}
@@ -112,9 +117,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             try:
                 cached_credentials = self.submitter.get_cached_credentials()
                 if cached_credentials is None:
-                    auth_rv = await self.app.push_screen_wait(
-                        self.submitter.auth_modal()
-                    )
+                    auth_rv = await self.app.push_screen_wait(self.submitter.auth_modal())
                     assert auth_rv
                     (
                         self.submitter.auth,
@@ -150,8 +153,11 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 self.dismiss(await self.app.push_screen_wait(prompt))
                 return  # need explicit return here
 
+        # only collect logs when it's in the main app
+        if self.mode == "screen":
+            self.start_parallel_log_collection()
+
         # auth ready, do the jira/lp steps
-        self.start_parallel_log_collection()
         self.bug_creation_worker = self.run_worker(
             self.create_bug,
             thread=True,
@@ -227,9 +233,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             def check_if_worker_is_pending(name: LogName):
                 if self.attachment_workers[name].is_running:
                     msg = LOG_NAME_TO_COLLECTOR[name].display_name + " is still running"
-                    if (
-                        t := LOG_NAME_TO_COLLECTOR[name].advertised_timeout
-                    ) is not None:
+                    if (t := LOG_NAME_TO_COLLECTOR[name].advertised_timeout) is not None:
                         msg += f" (timeout: {t}s)"
                     msg += "..."
                     self._log_with_time(msg)
@@ -258,7 +262,6 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     def start_parallel_attachment_upload(self) -> None:
         assert self.log_widget
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
-
         for file_name in self.attachment_dir.iterdir():
 
             def upload_one(f: Path):
@@ -361,9 +364,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     )
                     progress_bar.advance()
 
-        running_collectors = [
-            w for w in self.attachment_workers.values() if w.is_running
-        ]
+        running_collectors = [w for w in self.attachment_workers.values() if w.is_running]
         num_attachments = sum(1 for _ in self.attachment_dir.iterdir())
         if len(running_collectors) > 0:
             self._log_with_time(
@@ -628,9 +629,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
         progress_bar.total = (
-            self.submitter.steps
-            + len(self.attachment_workers)
-            + len(self.upload_workers)
+            self.submitter.steps + len(self.attachment_workers) + len(self.upload_workers)
         )
 
     def _actually_finish(self):
