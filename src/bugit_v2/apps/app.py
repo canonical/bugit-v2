@@ -212,8 +212,8 @@ class BugitApp(App[None]):
             case QuitState():
                 self.exit()
             case _:
-                screen_result = (  # pyright: ignore[reportAny]
-                    await self.push_screen_wait(self.state.get_screen_constructor()())
+                screen_result = await self.push_screen_wait(  # pyright: ignore[reportAny]
+                    self.state.get_screen_constructor()()
                 )
                 self.state = self.state.go_forward(
                     screen_result  # pyright: ignore[reportAny]
@@ -221,6 +221,7 @@ class BugitApp(App[None]):
 
     def action_go_back(self):
         if (next_state := self.state.go_back()) is not None:
+            self.pop_screen()
             self.state = next_state
         elif isinstance(self.state, SubmissionProgressState):
             self.notify(
