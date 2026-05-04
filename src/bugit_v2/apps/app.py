@@ -110,7 +110,6 @@ def assignee_str_check(value: str | None) -> str | None:
 
 @final
 class BugitApp(App[None]):
-
     state = var[AppState](RecoverFromAutosaveState(), init=False)
 
     BINDINGS = [Binding("alt+left", "go_back", "Go Back")]

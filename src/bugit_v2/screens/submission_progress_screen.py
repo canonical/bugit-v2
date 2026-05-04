@@ -30,9 +30,7 @@ from bugit_v2.utils import is_prod, is_snap
 logger = logging.getLogger(__name__)
 
 ReturnScreenChoice = Literal["job", "session", "quit", "report_editor"]
-RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = (
-    ReturnScreenChoice.__args__
-)
+RETURN_SCREEN_CHOICES: tuple[ReturnScreenChoice, ...] = ReturnScreenChoice.__args__
 
 
 class WorkerName(enum.StrEnum):
@@ -54,6 +52,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     attachment_worker_checker_timers: dict[str, Timer]
     upload_workers: dict[str, Worker[str | None]]
     bug_creation_worker: Worker[None] | None = None
+    finalize_worker: Worker[None] | None = None
+
     progress_start_time: float
 
     attachment_dir: Path
@@ -159,6 +159,16 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             exit_on_error=False,
         )
 
+    def on_unmount(self) -> None:
+        for key, worker in self.attachment_workers.items():
+            if worker.is_running:
+                self._log_with_time(f"Unmount, cancelling collector [b]{key}[/]")
+                worker.cancel()
+        for key, worker in self.upload_workers.items():
+            if worker.is_running:
+                self._log_with_time(f"Unmount, cancelling uploader [b]{key}[/]")
+                worker.cancel()
+
     def start_parallel_log_collection(self) -> None:
         """Launches all log collectors and keep the worker objects
 
@@ -217,7 +227,9 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             def check_if_worker_is_pending(name: LogName):
                 if self.attachment_workers[name].is_running:
                     msg = LOG_NAME_TO_COLLECTOR[name].display_name + " is still running"
-                    if (t := LOG_NAME_TO_COLLECTOR[name].advertised_timeout) is not None:
+                    if (
+                        t := LOG_NAME_TO_COLLECTOR[name].advertised_timeout
+                    ) is not None:
                         msg += f" (timeout: {t}s)"
                     msg += "..."
                     self._log_with_time(msg)
@@ -267,7 +279,6 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     else:
                         self._log_with_time(f"[green]OK[/] [b]Uploaded {f}[/b]")
                 except Exception as e:
-
                     self._log_with_time(
                         f"[red]FAIL[/red] failed to upload {f}: {repr(e)}"
                     )
@@ -433,59 +444,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
         # immediately hide the give up button
         self.query_exactly_one("#give_up", Button).display = False
-
-        try:
-            rv = self.submitter.finalize()
-            finalize_ok = True
-            if rv:
-                self._log_with_time(f"[green]FINALIZE OK[/] {rv}")
-            else:
-                self._log_with_time(
-                    f"[green]FINALIZE OK[/] {self.submitter.display_name}"
-                )
-        except Exception as e:
-            finalize_ok = False
-            self._log_with_time(f"[red]ERR when finalizing[/]: {repr(e)}")
-            logger.error(e)
-
-        finish_message_lines = [
-            "[green]Submission finished![/]",
-            "You can go back to job/session selection or quit BugIt.",
-        ]
-
-        all_upload_ok = all(
-            w.state == WorkerState.SUCCESS for w in self.upload_workers.values()
-        )
-        if all_upload_ok and finalize_ok:
-            # only cleanup if everything was uploaded
-            finish_message_lines.insert(
-                1,
-                f"URL: [$primary]{self.submitter.bug_url}[/]",
-            )
-            if is_prod():
-                shutil.rmtree(self.attachment_dir, ignore_errors=True)
-
-        if not (all_upload_ok and finalize_ok) and self.attachment_dir.exists():
-            if is_snap():
-                attachment_dir = (
-                    "/tmp/snap-private-tmp/snap.bugit-v2/tmp" / self.attachment_dir
-                )
-            else:
-                attachment_dir = self.attachment_dir
-            finish_message_lines.insert(
-                1,
-                "\n".join(
-                    [
-                        "[red]But some files failed to upload.[/]",
-                        f"[red]You can manually reupload the files at: {attachment_dir}[/]",
-                    ]
-                ),
-            )
-
-        self.query_exactly_one("#finish_message", Label).update(
-            "\n".join(finish_message_lines)
-        )
-        self.query_exactly_one("#menu_after_finish").display = True
+        self.run_worker(self._actually_finish, thread=True)
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         if event.worker.state == WorkerState.CANCELLED:
@@ -673,3 +632,59 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             + len(self.attachment_workers)
             + len(self.upload_workers)
         )
+
+    def _actually_finish(self):
+        try:
+            rv = self.submitter.finalize()
+            finalize_ok = True
+            if rv:
+                self._log_with_time(f"[green]FINALIZE OK[/] {rv}")
+            else:
+                self._log_with_time(
+                    f"[green]FINALIZE OK[/] {self.submitter.display_name}"
+                )
+        except Exception as e:
+            finalize_ok = False
+            self._log_with_time(f"[red]ERR when finalizing[/]: {repr(e)}")
+            logger.error(e)
+
+        finish_message_lines = ["[green]Submission finished![/]"]
+
+        all_upload_ok = all(
+            w.state == WorkerState.SUCCESS for w in self.upload_workers.values()
+        )
+        if all_upload_ok and finalize_ok:
+            # only cleanup if everything was uploaded
+            finish_message_lines.insert(
+                1,
+                f"URL: [$primary]{self.submitter.bug_url}[/]",
+            )
+            if is_prod():
+                shutil.rmtree(self.attachment_dir, ignore_errors=True)
+
+        if not (all_upload_ok and finalize_ok) and self.attachment_dir.exists():
+            if is_snap():
+                attachment_dir = (
+                    "/tmp/snap-private-tmp/snap.bugit-v2/tmp" / self.attachment_dir
+                )
+            else:
+                attachment_dir = self.attachment_dir
+            finish_message_lines.insert(
+                1,
+                "\n".join(
+                    [
+                        "[red]But some files failed to upload.[/]",
+                        f"[red]You can manually reupload the files at: {attachment_dir}[/]",
+                    ]
+                ),
+            )
+
+        if self.mode == "screen":
+            finish_message_lines.append(
+                "You can go back to job/session selection or quit BugIt."
+            )
+
+        self.query_exactly_one("#finish_message", Label).update(
+            "\n".join(finish_message_lines)
+        )
+        self.query_exactly_one("#menu_after_finish").display = True

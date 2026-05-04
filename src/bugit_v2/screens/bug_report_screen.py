@@ -533,8 +533,8 @@ class BugReportScreen(Screen[BugReport]):
         else:
             if self.checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION:
                 self.run_worker(
-                    lambda cbs=self.checkbox_submission, jid=self.job_id: cbs.get_job_cert_status(
-                        jid
+                    lambda cbs=self.checkbox_submission, jid=self.job_id: (
+                        cbs.get_job_cert_status(jid)
                     ),
                     name=WorkerName.SUBMISSION_CERT_STATUS,
                     thread=True,
@@ -578,6 +578,12 @@ class BugReportScreen(Screen[BugReport]):
             except OptionDoesNotExist:
                 logger.warning("checkbox-submission collector doesn't exist")
         # TODO: select the severity button automatically when using a submission
+
+    def on_unmount(self):
+        for worker in self.workers:
+            print(worker.name)
+            if worker.name in WorkerName and worker.state == WorkerState.RUNNING:
+                worker.cancel()
 
     @work
     @on(Button.Pressed, "#submit_button")
@@ -901,9 +907,9 @@ class BugReportScreen(Screen[BugReport]):
                 " ".join(self.app_args.platform_tags)
             )
         if len(self.app_args.tags) > 0:
-            self.query_exactly_one(
-                f"#{BugReportElemId.ADDITIONAL_TAGS}", Input
-            ).value = " ".join(self.app_args.tags)
+            self.query_exactly_one(f"#{BugReportElemId.ADDITIONAL_TAGS}", Input).value = (
+                " ".join(self.app_args.tags)
+            )
 
     def _restore_existing_report(self):
         if not self.existing_report:
@@ -934,10 +940,7 @@ class BugReportScreen(Screen[BugReport]):
                 case RadioSet():
                     selected_name = self.existing_report.get_with_type(elem_id, str)
                     for child in elem.children:
-                        if (
-                            isinstance(child, RadioButton)
-                            and child.name == selected_name
-                        ):
+                        if isinstance(child, RadioButton) and child.name == selected_name:
                             child.action_toggle_button()
                 case SelectionWithPreview():
                     value = cast(
