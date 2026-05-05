@@ -134,7 +134,7 @@ def main(
         temp_attachment_dir = Path(temp_attachment_dir_str)
 
         report = build_bug_report_from_archive(file, temp_extract_dir)
-        
+
         for file in temp_extract_dir.iterdir():
             if not file.is_file():
                 continue
@@ -146,7 +146,7 @@ def main(
             ):
                 continue
 
-            shutil.copy(file, temp_attachment_dir)
+            (temp_attachment_dir / file.name).symlink_to(file)
 
         SubmitOnlyApp(report, submitter, temp_attachment_dir).run()
 
