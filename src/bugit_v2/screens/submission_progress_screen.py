@@ -95,7 +95,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         self.submitter = submitter
         self.mode = mode
 
-        if attachment_dir and attachment_dir.exists():
+        if attachment_dir and attachment_dir.exists() and attachment_dir.is_dir():
             self.attachment_dir = attachment_dir
         else:
             self.attachment_dir = Path(mkdtemp()).expanduser().absolute()
