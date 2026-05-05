@@ -20,7 +20,7 @@ from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.models.bug_report import BugReport, SerializableBugReport
 from bugit_v2.screens.submission_progress_screen import SubmissionProgressScreen
-from bugit_v2.utils import is_prod, is_snap, os
+from bugit_v2.utils import is_prod, is_snap
 
 # these files or directories in the working_dir should not be uploaded to jira/lp
 ATTACHMENT_BLACKLIST = [
@@ -98,42 +98,10 @@ def build_bug_report_from_archive(file: Path, working_dir: Path) -> BugReport:
             return serialized_report.to_bug_report()
 
 
-@app.command("jira", help="Submit to Jira")
-def jira_main(
-    file: Annotated[
-        Path,
-        typer.Argument(
-            help=(
-                "The .tar.gz file created by [u]bugit-v2 local[/]. "
-                + "A jira bug report will be created based on the content of this archive."
-            ),
-            exists=True,
-            dir_okay=False,
-            file_okay=True,
-            readable=True,
-            resolve_path=True,
-        ),
-    ],
-):
-    with (
-        TemporaryDirectory() as temp_extract_dir_str,
-        TemporaryDirectory() as temp_attachment_dir_str,
-    ):
-        temp_extract_dir = Path(temp_extract_dir_str)
-        temp_attachment_dir = Path(temp_attachment_dir_str)
-
-        report = build_bug_report_from_archive(file, temp_extract_dir)
-        submitter = JiraSubmitter() if is_prod() else MockJiraSubmitter()
-
-        for file in temp_extract_dir.iterdir():
-            if file.is_file() and os.path.basename(file) not in ATTACHMENT_BLACKLIST:
-                shutil.copy(file, temp_attachment_dir)
-
-        SubmitOnlyApp(report, submitter, temp_attachment_dir).run()
-
-
 @app.command("lp", help="Submit to Launchpad")
-def lp_main(
+@app.command("jira", help="Submit to Jira")
+def main(
+    ctx: typer.Context,
     file: Annotated[
         Path,
         typer.Argument(
@@ -149,6 +117,15 @@ def lp_main(
         ),
     ],
 ):
+    match ctx.command.name:
+        case "lp":
+            submitter = LaunchpadSubmitter() if is_prod() else MockLaunchpadSubmitter()
+        case "jira":
+            submitter = JiraSubmitter() if is_prod() else MockJiraSubmitter()
+        case _:
+            typer.echo(f"Unexpected command '{ctx.command.name}'")
+            raise typer.Exit(1)
+
     with (
         TemporaryDirectory() as temp_extract_dir_str,
         TemporaryDirectory() as temp_attachment_dir_str,
@@ -157,11 +134,20 @@ def lp_main(
         temp_attachment_dir = Path(temp_attachment_dir_str)
 
         report = build_bug_report_from_archive(file, temp_extract_dir)
-        submitter = LaunchpadSubmitter() if is_prod() else MockLaunchpadSubmitter()
-
+        print(report.logs_to_include)
         for file in temp_extract_dir.iterdir():
-            if file.is_file() and os.path.basename(file) not in ATTACHMENT_BLACKLIST:
-                shutil.copy(file, temp_attachment_dir)
+            if not file.is_file():
+                continue
+            if file.name in ATTACHMENT_BLACKLIST:
+                continue
+            if (
+                file.name == "checkbox_session.tar.gz"
+                and "checkbox-session" not in report.logs_to_include
+            ):
+                continue
+
+            print("copying", file)
+            shutil.copy(file, temp_attachment_dir)
 
         SubmitOnlyApp(report, submitter, temp_attachment_dir).run()
 
