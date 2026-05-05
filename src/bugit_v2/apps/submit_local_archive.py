@@ -107,7 +107,7 @@ def main(
         typer.Argument(
             help=(
                 "The .tar.gz file created by [u]bugit-v2 local[/]. "
-                + "A launchpad bug report will be created based on the content of this archive."
+                + "A Jira/Launchpad bug report will be created based on the content of this archive."
             ),
             exists=True,
             dir_okay=False,
