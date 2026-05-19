@@ -1,20 +1,31 @@
 import configparser as cp
-from functools import lru_cache
-import subprocess as sp
 import logging
 import os
 import shutil
+import subprocess as sp
+from functools import lru_cache
 from pathlib import Path
 from subprocess import CalledProcessError, CompletedProcess
 from tempfile import TemporaryDirectory
 from typing import Literal, NamedTuple
-
 
 from bugit_v2.utils import is_snap
 from bugit_v2.utils.async_subprocess import asp_run
 from bugit_v2.utils.constants import HOST_FS
 
 logger = logging.getLogger(__name__)
+
+_checkbox_bin_path_override: Path | None = None
+
+
+def set_checkbox_bin_path_override(path: Path | None) -> None:
+    """
+    set the checkbox executable path override used by get_checkbox_info()
+    **must be called before the first call to get_checkbox_info()**
+    """
+    global _checkbox_bin_path_override
+    _checkbox_bin_path_override = path
+    get_checkbox_info.cache_clear()
 
 
 class CheckboxInfo(NamedTuple):
@@ -117,8 +128,43 @@ async def checkbox_exec(
 
 @lru_cache
 def get_checkbox_info() -> CheckboxInfo | None:
+    checkbox_path_override = _checkbox_bin_path_override
     try:
-        if is_snap():
+        if checkbox_path_override:
+            if checkbox_path_override.exists():
+                checkbox_path_override = checkbox_path_override.absolute()
+                if checkbox_path_override.is_relative_to(
+                    HOST_FS / "snap" / "bin"
+                ) or checkbox_path_override.is_relative_to("/snap/bin"):
+                    return CheckboxInfo(
+                        "snap",
+                        (
+                            sp.check_output(
+                                [
+                                    checkbox_path_override,
+                                    "--version",
+                                ],
+                                text=True,
+                            )
+                        ).strip(),
+                        checkbox_path_override,
+                    )
+                else:
+                    return CheckboxInfo(
+                        "deb",
+                        sp.check_output(
+                            [checkbox_path_override, "--version"],
+                            env={
+                                "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages"
+                            },
+                            text=True,
+                        ).strip(),
+                        checkbox_path_override,
+                    )
+            else:
+                return None
+
+        elif is_snap():
             if (deb_checkbox := HOST_FS / "usr" / "bin" / "checkbox-cli").exists():
                 # host is using debian checkbox
                 return CheckboxInfo(

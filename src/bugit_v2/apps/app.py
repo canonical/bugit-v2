@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from pathlib import Path
 from typing import final, override
 
@@ -24,7 +25,10 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
 from bugit_v2.bug_report_submitters.local_file_submitter import LocalFileSubmitter
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
-from bugit_v2.checkbox_utils.checkbox_exec import get_checkbox_info
+from bugit_v2.checkbox_utils.checkbox_exec import (
+    get_checkbox_info,
+    set_checkbox_bin_path_override,
+)
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.app_state import (
@@ -69,6 +73,15 @@ cli_app = typer.Typer(
     pretty_exceptions_enable=not is_prod(),
     pretty_exceptions_show_locals=not is_prod(),
 )
+
+
+def executable_check(value: Path | None) -> Path | None:
+    if value:
+        if not os.access(value, os.X_OK):
+            raise typer.BadParameter(f"{value} is not executable")
+        else:
+            return value
+    return value
 
 
 def strip(value: str | None) -> str | None:
@@ -278,6 +291,20 @@ def main(
             resolve_path=True,
         ),
     ] = None,
+    checkbox_bin_path: Annotated[
+        Path | None,
+        typer.Option(
+            "-cb",
+            "--checkbox-bin-path",
+            help="Override the path to the checkbox executable. "
+            + "Use this option if bugit can't find your checkbox installation",
+            dir_okay=False,
+            file_okay=True,
+            resolve_path=True,
+            readable=True,
+            callback=executable_check,
+        ),
+    ] = None,
     cid: Annotated[
         str | None,
         typer.Option(
@@ -362,6 +389,7 @@ def main(
     saved_dut_info = get_saved_dut_info() or DutInfo()  # all none
 
     print("Waiting for checkbox...")
+    set_checkbox_bin_path_override(checkbox_bin_path)
     get_checkbox_info()  # populate cache
 
     BugitApp(
