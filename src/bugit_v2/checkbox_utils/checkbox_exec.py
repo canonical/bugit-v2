@@ -25,6 +25,7 @@ def set_checkbox_bin_path_override(path: Path | None) -> None:
     """
     global _checkbox_bin_path_override
     _checkbox_bin_path_override = path
+    get_checkbox_info.cache_clear()
 
 
 class CheckboxInfo(NamedTuple):
