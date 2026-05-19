@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 _checkbox_bin_path_override: Path | None = None
 
 
-def set_checkbox_bin_path(path: Path | None) -> None:
-    """Configure the checkbox executable path override used by get_checkbox_info().
-
-    Must be called before the first call to get_checkbox_info().
+def set_checkbox_bin_path_override(path: Path | None) -> None:
+    """
+    set the checkbox executable path override used by get_checkbox_info()
+    **must be called before the first call to get_checkbox_info()**
     """
     global _checkbox_bin_path_override
     _checkbox_bin_path_override = path

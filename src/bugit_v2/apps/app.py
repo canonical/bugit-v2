@@ -24,7 +24,7 @@ from bugit_v2.bug_report_submitters.launchpad_submitter import (
 from bugit_v2.bug_report_submitters.local_file_submitter import LocalFileSubmitter
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
-from bugit_v2.checkbox_utils.checkbox_exec import get_checkbox_info, set_checkbox_bin_path
+from bugit_v2.checkbox_utils.checkbox_exec import get_checkbox_info, set_checkbox_bin_path_override
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.app_state import (
@@ -371,7 +371,7 @@ def main(
     saved_dut_info = get_saved_dut_info() or DutInfo()  # all none
 
     print("Waiting for checkbox...")
-    set_checkbox_bin_path(checkbox_bin_path)
+    set_checkbox_bin_path_override(checkbox_bin_path)
     get_checkbox_info()  # populate cache
 
     BugitApp(
