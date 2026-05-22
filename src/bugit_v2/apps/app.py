@@ -39,7 +39,7 @@ from bugit_v2.models.app_state import (
     SubmissionProgressState,
 )
 from bugit_v2.models.dut_info import DutInfo, get_saved_dut_info
-from bugit_v2.models.visual_customization import ThemeName, VisualConfig
+from bugit_v2.models.visual_customization import VisualConfig
 from bugit_v2.utils import get_bugit_version, is_prod, is_snap
 from bugit_v2.utils.constants import (
     LOGO_ASCII_ART,
@@ -185,6 +185,11 @@ class BugitApp(App[None]):
             self.sub_title = f"Checkbox {cb.version}"
 
         self.call_after_refresh(self.watch_state)
+
+    def watch_theme(self, theme: str) -> None:
+        VISUAL_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with open(VISUAL_CONFIG_DIR / "visual-config.json", "w") as f:
+            f.write(VisualConfig(theme=theme).model_dump_json())
 
     @override
     def format_title(self, title: str, sub_title: str) -> Content:
@@ -412,19 +417,6 @@ def main(
             tags=tags or saved_dut_info.tags,
         )
     ).run()
-
-
-@cli_app.command("visual-config", help="Customize bugit's appearance")
-def configure_visuals(
-    theme: Annotated[
-        ThemeName,
-        typer.Option("-t", "--theme"),
-    ],
-):
-    sudo_devmode_check()
-    ensure_all_directories_exist()
-    with open(VISUAL_CONFIG_DIR / "visual-config.json", "w") as f:
-        f.write(VisualConfig(theme=theme).model_dump_json())
 
 
 if __name__ == "__main__":
