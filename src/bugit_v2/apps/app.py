@@ -187,7 +187,6 @@ class BugitApp(App[None]):
         self.call_after_refresh(self.watch_state)
 
     def watch_theme(self, theme: str) -> None:
-        VISUAL_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         with open(VISUAL_CONFIG_DIR / "visual-config.json", "w") as f:
             f.write(VisualConfig(theme=theme).model_dump_json())
 
