@@ -4,7 +4,7 @@ This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [
 
 [![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/bugit)
 
-[Features](#features) | [Installation](#installation) | [Development](#development) | [Limitations](#limitations)
+**Start Here 🡺** [User Guide](https://github.com/canonical/bugit-v2/wiki) | [Features](#features) | [Installation](#installation) | [Development](#development) | [Limitations](#limitations)
 
 <img width="2000" height="2144" alt="image" src="https://github.com/user-attachments/assets/7901ef4a-7398-49dd-992d-dfefb448fe6a" />
 
