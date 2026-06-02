@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Final, Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from bugit_v2.checkbox_utils.checkbox_session import CheckboxSession
 from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
@@ -87,6 +87,7 @@ class BugReport:
     series: str | None = None  # only used in launchpad
     # selections
     logs_to_include: Sequence[LogName] = field(default_factory=list[LogName])
+    additional_files: Sequence[Path] = field(default_factory=list[Path])
     impacted_features: Sequence[str] = field(default_factory=list[str])
     impacted_vendors: Sequence[str] = field(default_factory=list[str])
     # for recovery only
@@ -119,11 +120,13 @@ class SerializableBugReport(BaseModel):
     series: str | None
     # selections
     logs_to_include: Sequence[LogName]
+    additional_files: Sequence[Path] = Field(default_factory=list[Path])
     impacted_features: Sequence[str]
     impacted_vendors: Sequence[str]
 
     @classmethod
     def from_bug_report(cls, r: BugReport) -> Self:
+        print('inside serialize', r)
         return cls(
             report_id=r.report_id,
             last_updated_timestamp=int(time.time()),
@@ -142,6 +145,7 @@ class SerializableBugReport(BaseModel):
             additional_tags=r.additional_tags,
             status=r.status,
             series=r.series,
+            additional_files=r.additional_files,
             logs_to_include=r.logs_to_include,
             impacted_features=r.impacted_features,
             impacted_vendors=r.impacted_vendors,
@@ -150,23 +154,25 @@ class SerializableBugReport(BaseModel):
     def to_bug_report(self) -> BugReport:
         # job_id conversion to NULL_JOB is handled separately
         return BugReport(
-            self.report_id,
-            self.title,
-            self.description,
-            self.project,
-            self.severity,
-            self.issue_file_time,
-            self.checkbox_session and CheckboxSession(self.checkbox_session),
-            self.checkbox_submission
+            report_id=self.report_id,
+            title=self.title,
+            description=self.description,
+            project=self.project,
+            severity=self.severity,
+            issue_file_time=self.issue_file_time,
+            checkbox_session=self.checkbox_session
+            and CheckboxSession(self.checkbox_session),
+            checkbox_submission=self.checkbox_submission
             and read_simple_submission(self.checkbox_submission),
-            self.job_id,
-            self.assignee,
-            self.platform_tags,
-            self.additional_tags,
-            self.status,
-            self.series,
-            self.logs_to_include,
-            self.impacted_features,
-            self.impacted_vendors,
-            "recovery",
+            job_id=self.job_id,
+            assignee=self.assignee,
+            platform_tags=self.platform_tags,
+            additional_tags=self.additional_tags,
+            status=self.status,
+            series=self.series,
+            logs_to_include=self.logs_to_include,
+            additional_files=self.additional_files,
+            impacted_features=self.impacted_features,
+            impacted_vendors=self.impacted_vendors,
+            source="recovery",
         )

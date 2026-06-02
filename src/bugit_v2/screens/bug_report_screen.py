@@ -22,6 +22,7 @@ from textual.validation import ValidationResult, Validator
 from textual.widgets import (
     Button,
     Collapsible,
+    DirectoryTree,
     Footer,
     Input,
     Label,
@@ -596,7 +597,6 @@ class BugReportScreen(Screen[BugReport]):
 
     def on_unmount(self):
         for worker in self.workers:
-            print(worker.name)
             if worker.name in WorkerName and worker.state == WorkerState.RUNNING:
                 worker.cancel()
 
@@ -659,6 +659,7 @@ class BugReportScreen(Screen[BugReport]):
     @on(TextArea.Changed)
     @on(SelectionList.SelectedChanged)
     @on(RadioSet.Changed)
+    @on(FilePickerWidget.FilesUpdated)
     def trigger_autosave(self):
         def f():
             # these steps are only executed when the real autosave happens
@@ -670,13 +671,14 @@ class BugReportScreen(Screen[BugReport]):
                     report = SerializableBugReport.from_bug_report(
                         self._build_bug_report()
                     )
+                    print(report)
                     f.write(report.model_dump_json())
                 label.update("[green]Progress Saved")
             except Exception as e:
                 logger.error(repr(e))
                 label.update(f"[red]Autosave failed! {escape_markup(repr(e)[:20])}")
 
-        # run auto save 0.5 seconds after the user stops typing
+        # run auto save 1 second after the user stops typing
         self._debounce(lambda: self.run_worker(f, thread=True), 1)()
 
     @on(Button.Pressed, "#clear_log_selection")
@@ -905,6 +907,7 @@ class BugReportScreen(Screen[BugReport]):
                 ).selected
                 + hidden_collectors
             ),
+            additional_files=self.query_exactly_one(FilePickerWidget).chosen_files,
             source=self.existing_report and self.existing_report.source or "editor",
         )
 
@@ -978,6 +981,8 @@ class BugReportScreen(Screen[BugReport]):
                             elem.select(elem.get_option(v))
                         except OptionDoesNotExist:
                             logger.warning(f"Ignoring option: {v}")
+                case FilePickerWidget():
+                    elem.restore_selection(self.existing_report.additional_files)
                 case _:
                     pass
 
