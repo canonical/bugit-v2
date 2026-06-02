@@ -96,6 +96,7 @@ class BugReportElemId(enum.StrEnum):
     LP_STATUS = "status"
     IMPACTED_FEATURES = "impacted_features"
     IMPACTED_VENDORS = "impacted_vendors"
+    ADDITIONAL_FILES = "additional_files"
 
 
 class ValidSpaceSeparatedTags(Validator):
@@ -265,6 +266,10 @@ class BugReportScreen(Screen[BugReport]):
             BugReportElemId.LP_STATUS: ("[b]Bug status on Launchpad", ""),
             BugReportElemId.IMPACTED_FEATURES: ("[b]Impacted Features", ""),
             BugReportElemId.IMPACTED_VENDORS: ("[b]Impacted Vendors", ""),
+            BugReportElemId.ADDITIONAL_FILES: (
+                "[b]Additional files to attach",
+                "Any file from the system",
+            ),
         }
 
         self.initial_report = {
@@ -435,9 +440,7 @@ class BugReportScreen(Screen[BugReport]):
                                     collectors,
                                     key=lambda a: (
                                         # prioritize collect_by_default ones
-                                        0
-                                        if a.collect_by_default
-                                        else 1
+                                        0 if a.collect_by_default else 1
                                     ),
                                 )
                             ),
@@ -453,7 +456,9 @@ class BugReportScreen(Screen[BugReport]):
                                 id="clear_log_selection",
                             )
                         )
-                        yield FilePickerWidget(classes="default_box")
+                        yield FilePickerWidget(
+                            classes="default_box", id=BugReportElemId.ADDITIONAL_FILES
+                        )
 
             if (
                 self.session is not NullSelection.NO_SESSION
@@ -493,7 +498,9 @@ class BugReportScreen(Screen[BugReport]):
                     for status in BUG_STATUSES
                 ),
                 id="status",
-                classes=("default_box" if self.app_args.submitter == "lp" else "hidden"),
+                classes=(
+                    "default_box" if self.app_args.submitter == "lp" else "hidden"
+                ),
             )
 
             yield SelectionWithPreview(
@@ -697,9 +704,9 @@ class BugReportScreen(Screen[BugReport]):
             btn.label = "Submit Bug Report"
 
     def _standard_info_worker_callback(self, event: Worker.StateChanged):
-        assert (
-            event.worker.is_finished
-        ), "Standard info callback invoked but the worker has not finished"
+        assert event.worker.is_finished, (
+            "Standard info callback invoked but the worker has not finished"
+        )
 
         textarea = self.query_exactly_one(
             f"#{BugReportElemId.DESCRIPTION}", DescriptionEditor
@@ -782,9 +789,9 @@ class BugReportScreen(Screen[BugReport]):
 
     def _get_cert_status_worker_callback(self, event: Worker.StateChanged):
         assert self.job_id is not NullSelection.NO_JOB
-        assert (
-            event.worker.is_finished
-        ), "Cert status callback invoked but the worker has not finished"
+        assert event.worker.is_finished, (
+            "Cert status callback invoked but the worker has not finished"
+        )
 
         cert_status_box = self.query_exactly_one("#cert_status_box", Label)
 
@@ -804,9 +811,9 @@ class BugReportScreen(Screen[BugReport]):
 
     def _get_submission_cert_status_worker_callback(self, event: Worker.StateChanged):
         assert self.job_id is not NullSelection.NO_JOB
-        assert (
-            event.worker.is_finished
-        ), "Submission cert status callback invoked but the worker has not finished"
+        assert event.worker.is_finished, (
+            "Submission cert status callback invoked but the worker has not finished"
+        )
 
         if event.worker.state == WorkerState.SUCCESS:
             assert event.worker.result in CERT_STATUSES
@@ -897,21 +904,21 @@ class BugReportScreen(Screen[BugReport]):
 
     def _prefill_with_app_args(self):
         if self.app_args.assignee:
-            self.query_exactly_one(f"#{BugReportElemId.ASSIGNEE}", Input).value = (
-                self.app_args.assignee
-            )
+            self.query_exactly_one(
+                f"#{BugReportElemId.ASSIGNEE}", Input
+            ).value = self.app_args.assignee
         if self.app_args.project:
-            self.query_exactly_one(f"#{BugReportElemId.PROJECT}", Input).value = (
-                self.app_args.project
-            )
+            self.query_exactly_one(
+                f"#{BugReportElemId.PROJECT}", Input
+            ).value = self.app_args.project
         if len(self.app_args.platform_tags) > 0:
-            self.query_exactly_one(f"#{BugReportElemId.PLATFORM_TAGS}", Input).value = (
-                " ".join(self.app_args.platform_tags)
-            )
+            self.query_exactly_one(
+                f"#{BugReportElemId.PLATFORM_TAGS}", Input
+            ).value = " ".join(self.app_args.platform_tags)
         if len(self.app_args.tags) > 0:
-            self.query_exactly_one(f"#{BugReportElemId.ADDITIONAL_TAGS}", Input).value = (
-                " ".join(self.app_args.tags)
-            )
+            self.query_exactly_one(
+                f"#{BugReportElemId.ADDITIONAL_TAGS}", Input
+            ).value = " ".join(self.app_args.tags)
 
     def _restore_existing_report(self):
         if not self.existing_report:
@@ -942,7 +949,10 @@ class BugReportScreen(Screen[BugReport]):
                 case RadioSet():
                     selected_name = self.existing_report.get_with_type(elem_id, str)
                     for child in elem.children:
-                        if isinstance(child, RadioButton) and child.name == selected_name:
+                        if (
+                            isinstance(child, RadioButton)
+                            and child.name == selected_name
+                        ):
                             child.action_toggle_button()
                 case SelectionWithPreview():
                     value = cast(
