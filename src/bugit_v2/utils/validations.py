@@ -80,3 +80,13 @@ def ensure_all_directories_exist() -> None:
         DISK_CACHE_DIR,
     ):
         os.makedirs(directory, exist_ok=True)
+
+
+def is_strictly_regular_file(path: Path) -> bool:
+    return (
+        path.is_file() 
+        and not path.is_socket() 
+        and not path.is_fifo() 
+        and not path.is_char_device() 
+        and not path.is_block_device()
+    )

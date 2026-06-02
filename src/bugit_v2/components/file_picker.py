@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Sequence, Iterable
 from pathlib import Path
 from typing import final, override
 from rich.console import RenderableType
@@ -14,6 +14,15 @@ from textual.widgets.button import ButtonVariant
 
 from bugit_v2.utils import is_snap
 from bugit_v2.utils.constants import HOST_FS
+from bugit_v2.utils.validations import is_strictly_regular_file
+
+
+class NoSpecialFileDirectoryTree(DirectoryTree):
+    @override
+    def filter_paths(self, paths: Iterable[Path]) -> Iterable[Path]:
+        return [
+            path for path in paths if path.is_dir() or is_strictly_regular_file(path)
+        ]
 
 
 class FilePickerModal(ModalScreen[Path | None]):
@@ -33,7 +42,7 @@ class FilePickerModal(ModalScreen[Path | None]):
 
     @override
     def compose(self) -> ComposeResult:
-        yield DirectoryTree(self.discovery_root)
+        yield NoSpecialFileDirectoryTree(self.discovery_root)
         yield Button("Close", flat=True, id="close")
 
     @on(DirectoryTree.FileSelected)
@@ -91,6 +100,7 @@ class FilePickerWidget(Widget):
     Clicking the add button will show a full screen file FilePickerModal
     """
 
+    @final
     class FilesUpdated(Message):
         def __init__(self, files: list[Path]) -> None:
             super().__init__()
