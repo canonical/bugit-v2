@@ -243,31 +243,31 @@ class BugReportScreen(Screen[BugReport]):
 
         self.elem_id_to_border_title = {
             BugReportElemId.TITLE: (
-                "[b]Bug Title",
+                "Bug Title",
                 f"This is the title in {'Jira' if app_args.submitter == 'jira' else 'Launchpad'}",
             ),
             BugReportElemId.DESCRIPTION: (
-                "[b]Bug Description",
+                "Bug Description",
                 "Include all the details :)",
             ),
             BugReportElemId.ISSUE_FILE_TIME: (
-                "[b]When was this issue filed?",
+                "When was this issue filed?",
                 "",
             ),
-            BugReportElemId.PLATFORM_TAGS: ("[b]Platform Tags", ""),
-            BugReportElemId.ASSIGNEE: ("[b]Assignee", ""),
-            BugReportElemId.SEVERITY: ("[b]How bad is it?", ""),
-            BugReportElemId.PROJECT: ("[b]Project Name", ""),
-            BugReportElemId.ADDITIONAL_TAGS: ("[b]Additional Tags", ""),
+            BugReportElemId.PLATFORM_TAGS: ("Platform Tags", ""),
+            BugReportElemId.ASSIGNEE: ("Assignee", ""),
+            BugReportElemId.SEVERITY: ("How bad is it?", ""),
+            BugReportElemId.PROJECT: ("Project Name", ""),
+            BugReportElemId.ADDITIONAL_TAGS: ("Additional Tags", ""),
             BugReportElemId.LOGS_TO_INCLUDE: (
-                "[b]Select some logs to include",
+                "Select some logs to include",
                 "Green = Selected",
             ),
-            BugReportElemId.LP_STATUS: ("[b]Bug status on Launchpad", ""),
-            BugReportElemId.IMPACTED_FEATURES: ("[b]Impacted Features", ""),
-            BugReportElemId.IMPACTED_VENDORS: ("[b]Impacted Vendors", ""),
+            BugReportElemId.LP_STATUS: ("Bug status on Launchpad", ""),
+            BugReportElemId.IMPACTED_FEATURES: ("Impacted Features", ""),
+            BugReportElemId.IMPACTED_VENDORS: ("Impacted Vendors", ""),
             BugReportElemId.ADDITIONAL_FILES: (
-                "[b]Additional files to attach",
+                "Additional files to attach",
                 "Any file from the system",
             ),
         }
@@ -526,9 +526,15 @@ class BugReportScreen(Screen[BugReport]):
 
     def on_mount(self):
         # this loop must happen
-        for elem_id, border_titles in self.elem_id_to_border_title.items():
+        for elem_id, (
+            border_title,
+            border_subtitle,
+        ) in self.elem_id_to_border_title.items():
             elem = self.query_exactly_one(f"#{elem_id}")
-            elem.border_title, elem.border_subtitle = border_titles
+            elem.border_title, elem.border_subtitle = (
+                f"[b]{border_title}[/]",
+                border_subtitle,
+            )
         # must launch the worker
         self.run_worker(
             get_standard_info,
