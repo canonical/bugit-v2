@@ -188,7 +188,7 @@ class FilePickerWidget(Widget):
                 HorizontalGroup(
                     label,
                     CompactButton(
-                        "Un",
+                        "Deselect",
                         variant="error",
                         classes="delete_selection",
                         name=str(file),
@@ -196,7 +196,6 @@ class FilePickerWidget(Widget):
                 )
             )
         scroll.mount_all(groups)
-        
 
 
 class DirectoryTreeApp(App[Path]):
