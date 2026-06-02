@@ -46,6 +46,7 @@ from bugit_v2.checkbox_utils.models import (
 )
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.description_editor import DescriptionEditor
+from bugit_v2.components.file_picker import FilePickerWidget
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.components.selection_with_preview import SelectionWithPreview
 from bugit_v2.dut_utils.info_getters import get_standard_info
@@ -452,6 +453,7 @@ class BugReportScreen(Screen[BugReport]):
                                 id="clear_log_selection",
                             )
                         )
+                        yield FilePickerWidget(classes="default_box")
 
             if (
                 self.session is not NullSelection.NO_SESSION
