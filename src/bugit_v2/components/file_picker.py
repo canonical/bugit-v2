@@ -185,6 +185,16 @@ class FilePickerWidget(Widget):
 
     def restore_selection(self, files: Sequence[Path]):
         self._chosen_files = set(files)
+
+        for file in files:
+            if not file.exists():
+                self.app.notify(
+                    "It existed during the last autosave, but not anymore",
+                    title=f"{file} was deselected",
+                    severity="warning",
+                )
+                self._chosen_files.remove(file)
+
         self._redraw_file_list()
 
     def _redraw_file_list(self):
