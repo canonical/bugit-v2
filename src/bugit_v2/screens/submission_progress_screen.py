@@ -308,16 +308,16 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             finally:
                 progress_bar.advance()
 
-        for file_name in self.attachment_dir.iterdir():
-            self.upload_workers[str(file_name)] = self.run_worker(
+        for file in self.attachment_dir.iterdir():
+            self.upload_workers[str(file)] = self.run_worker(
                 # closure workaround
                 # https://stackoverflow.com/a/1107260
                 # bind the value early
-                lambda f=file_name: upload_one(f),
+                lambda f=file: upload_one(f),
                 thread=True,  # not async
                 exit_on_error=False,  # hold onto the err, don't crash
             )
-            self._log_with_time(f"Uploading: {file_name.stem}")
+            self._log_with_time(f"Uploading: {file.name}")
 
     def start_sequential_attachment_upload(self) -> None:
         assert self.log_widget
@@ -333,7 +333,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                         )
                         continue
 
-                    self._log_with_time(f"Uploading: {f}")
+                    self._log_with_time(f"Uploading: {f.name}")
                     rv = self.submitter.upload_attachment(f)
 
                     if rv and rv.strip():
