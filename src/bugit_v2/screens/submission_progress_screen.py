@@ -200,7 +200,9 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     target_file_name = file.stem
                 else:
                     # something under root, include the entire path and slugify
-                    target_file_name = slugify(str(file)) + file.suffix
+                    target_file_name = (
+                        slugify(str(file.parent)) + "_" + file.stem + file.suffix
+                    )
                 shutil.copy(file, self.attachment_dir / target_file_name)
             except Exception as e:
                 self._log_with_time(f"[red]Failed to copy {file}: {e}")
