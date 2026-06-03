@@ -391,9 +391,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         running_collectors = [
             w for w in self.attachment_workers.values() if w.is_running
         ]
-        num_attachments = sum(1 for _ in self.attachment_dir.iterdir()) + len(
-            self.bug_report.additional_files
-        )
+        num_attachments = sum(1 for _ in self.attachment_dir.iterdir())
         if len(running_collectors) > 0:
             self._log_with_time(
                 f"[blue]Finished bug creation. Waiting for {len(running_collectors)} log collector(s) to finish"
@@ -410,9 +408,14 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                         f" - {display_name}",
                     )
         else:
-            self._log_with_time(
-                f"[blue]Finished bug creation, uploading {num_attachments} attachment(s)..."
-            )
+            if num_attachments > 0:
+                self._log_with_time(
+                    f"[blue]Finished bug creation, uploading {num_attachments} attachment(s)..."
+                )
+            else:
+                self._log_with_time(
+                    "[blue]Finished bug creation, no attachments to upload"
+                )
 
     def is_finished(self) -> bool:
         """
