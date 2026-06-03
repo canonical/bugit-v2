@@ -27,7 +27,6 @@ from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
 from bugit_v2.models.bug_report import BugReport, LogName
 from bugit_v2.utils import is_prod, is_snap, slugify
 from bugit_v2.utils.constants import HOST_FS
-from bugit_v2.utils.validations import is_strictly_regular_file
 
 logger = logging.getLogger(__name__)
 
@@ -257,9 +256,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             def check_if_worker_is_pending(name: LogName):
                 if self.attachment_workers[name].is_running:
                     msg = LOG_NAME_TO_COLLECTOR[name].display_name + " is still running"
-                    if (
-                        t := LOG_NAME_TO_COLLECTOR[name].advertised_timeout
-                    ) is not None:
+                    if (t := LOG_NAME_TO_COLLECTOR[name].advertised_timeout) is not None:
                         msg += f" (timeout: {t}s)"
                     msg += "..."
                     self._log_with_time(msg)
@@ -297,18 +294,14 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     )
                     return
 
-                if not is_strictly_regular_file(f):
+                if not f.is_file():
                     raise RuntimeError(f"{f} is not a regular file during submission")
 
-                rv = self.submitter.upload_attachment(
-                    f, slugify(str(f.stem)) + f.suffix
-                )
+                rv = self.submitter.upload_attachment(f, slugify(str(f.stem)) + f.suffix)
 
                 if rv and rv.strip():
                     # only show non-empty, non-null messages
-                    self._log_with_time(
-                        f"[green]OK[/] [b]Uploaded {f}[/]: {rv.strip()}"
-                    )
+                    self._log_with_time(f"[green]OK[/] [b]Uploaded {f}[/]: {rv.strip()}")
                 else:
                     self._log_with_time(f"[green]OK[/] [b]Uploaded {f}[/b]")
             except Exception as e:

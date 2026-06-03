@@ -1,13 +1,14 @@
-from collections.abc import Sequence, Iterable
 import os
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import final, override
+
 from rich.console import RenderableType
 from textual import on, work
 from textual.app import App, ComposeResult
-from textual.message import Message
 from textual.containers import HorizontalGroup, VerticalScroll
 from textual.content import ContentText
+from textual.message import Message
 from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import Button, DirectoryTree, Label
@@ -15,15 +16,12 @@ from textual.widgets.button import ButtonVariant
 
 from bugit_v2.utils import is_snap
 from bugit_v2.utils.constants import HOST_FS, MAX_ADDITIONAL_FILE_SIZE
-from bugit_v2.utils.validations import is_strictly_regular_file
 
 
 class NoSpecialFileDirectoryTree(DirectoryTree):
     @override
     def filter_paths(self, paths: Iterable[Path]) -> Iterable[Path]:
-        return [
-            path for path in paths if path.is_dir() or is_strictly_regular_file(path)
-        ]
+        return [path for path in paths if path.is_dir() or path.is_file()]
 
 
 class FilePickerModal(ModalScreen[Path | None]):
@@ -52,7 +50,7 @@ class FilePickerModal(ModalScreen[Path | None]):
             self.app.notify(
                 f"File size = {st_size // 10**6}Mb. It might fail to upload",
                 title=f"This file is over {MAX_ADDITIONAL_FILE_SIZE // 10**6}Mb",
-                severity='error'
+                severity="error",
             )
         self.dismiss(e.path)
 
