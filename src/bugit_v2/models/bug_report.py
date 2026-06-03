@@ -126,7 +126,6 @@ class SerializableBugReport(BaseModel):
 
     @classmethod
     def from_bug_report(cls, r: BugReport) -> Self:
-        print('inside serialize', r)
         return cls(
             report_id=r.report_id,
             last_updated_timestamp=int(time.time()),

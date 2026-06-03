@@ -671,7 +671,6 @@ class BugReportScreen(Screen[BugReport]):
                     report = SerializableBugReport.from_bug_report(
                         self._build_bug_report()
                     )
-                    print(report)
                     f.write(report.model_dump_json())
                 label.update("[green]Progress Saved")
             except Exception as e:
