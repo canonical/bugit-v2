@@ -1,15 +1,19 @@
-from collections.abc import Generator
 import os
-from pathlib import Path
 import shutil
+from collections.abc import Generator
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import final, override
+
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
     BugReportSubmitter,
 )
-from bugit_v2.models.bug_report import SEVERITIES, BugReport, SerializableBugReport
-
+from bugit_v2.models.bug_report import (
+    SEVERITIES,
+    BugReport,
+    SerializableBugReport,
+)
 
 SERIALIZED_REPORT_NAME = "bug-report.json"
 
@@ -83,8 +87,16 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
         self.archive_name = f"bugit-bug-report-{bug_report.report_id}"
 
     @override
-    def upload_attachment(self, attachment_file: Path) -> str | None:
-        shutil.copy(attachment_file, Path(self.working_dir.name) / self.WRAPPER_DIR)
+    def upload_attachment(
+        self, attachment_file: Path, filename: str | None = None
+    ) -> str | None:
+        if filename:
+            shutil.copy(
+                attachment_file,
+                Path(self.working_dir.name) / self.WRAPPER_DIR / filename,
+            )
+        else:
+            shutil.copy(attachment_file, Path(self.working_dir.name) / self.WRAPPER_DIR)
 
     @override
     def bug_exists(self, bug_id: str) -> bool:

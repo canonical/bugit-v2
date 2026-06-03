@@ -46,6 +46,7 @@ from bugit_v2.checkbox_utils.models import (
 )
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.description_editor import DescriptionEditor
+from bugit_v2.components.file_picker import FilePickerWidget
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.components.selection_with_preview import SelectionWithPreview
 from bugit_v2.dut_utils.info_getters import get_standard_info
@@ -95,6 +96,7 @@ class BugReportElemId(enum.StrEnum):
     LP_STATUS = "status"
     IMPACTED_FEATURES = "impacted_features"
     IMPACTED_VENDORS = "impacted_vendors"
+    ADDITIONAL_FILES = "additional_files"
 
 
 class ValidSpaceSeparatedTags(Validator):
@@ -241,29 +243,33 @@ class BugReportScreen(Screen[BugReport]):
 
         self.elem_id_to_border_title = {
             BugReportElemId.TITLE: (
-                "[b]Bug Title",
+                "Bug Title",
                 f"This is the title in {'Jira' if app_args.submitter == 'jira' else 'Launchpad'}",
             ),
             BugReportElemId.DESCRIPTION: (
-                "[b]Bug Description",
+                "Bug Description",
                 "Include all the details :)",
             ),
             BugReportElemId.ISSUE_FILE_TIME: (
-                "[b]When was this issue filed?",
+                "When was this issue filed?",
                 "",
             ),
-            BugReportElemId.PLATFORM_TAGS: ("[b]Platform Tags", ""),
-            BugReportElemId.ASSIGNEE: ("[b]Assignee", ""),
-            BugReportElemId.SEVERITY: ("[b]How bad is it?", ""),
-            BugReportElemId.PROJECT: ("[b]Project Name", ""),
-            BugReportElemId.ADDITIONAL_TAGS: ("[b]Additional Tags", ""),
+            BugReportElemId.PLATFORM_TAGS: ("Platform Tags", ""),
+            BugReportElemId.ASSIGNEE: ("Assignee", ""),
+            BugReportElemId.SEVERITY: ("How bad is it?", ""),
+            BugReportElemId.PROJECT: ("Project Name", ""),
+            BugReportElemId.ADDITIONAL_TAGS: ("Additional Tags", ""),
             BugReportElemId.LOGS_TO_INCLUDE: (
-                "[b]Select some logs to include",
+                "Select some logs to include",
                 "Green = Selected",
             ),
-            BugReportElemId.LP_STATUS: ("[b]Bug status on Launchpad", ""),
-            BugReportElemId.IMPACTED_FEATURES: ("[b]Impacted Features", ""),
-            BugReportElemId.IMPACTED_VENDORS: ("[b]Impacted Vendors", ""),
+            BugReportElemId.LP_STATUS: ("Bug status on Launchpad", ""),
+            BugReportElemId.IMPACTED_FEATURES: ("Impacted Features", ""),
+            BugReportElemId.IMPACTED_VENDORS: ("Impacted Vendors", ""),
+            BugReportElemId.ADDITIONAL_FILES: (
+                "Additional files to attach",
+                "Any file from the system",
+            ),
         }
 
         self.initial_report = {
@@ -452,6 +458,9 @@ class BugReportScreen(Screen[BugReport]):
                                 id="clear_log_selection",
                             )
                         )
+                        yield FilePickerWidget(
+                            classes="default_box", id=BugReportElemId.ADDITIONAL_FILES
+                        )
 
             if (
                 self.session is not NullSelection.NO_SESSION
@@ -517,9 +526,15 @@ class BugReportScreen(Screen[BugReport]):
 
     def on_mount(self):
         # this loop must happen
-        for elem_id, border_titles in self.elem_id_to_border_title.items():
+        for elem_id, (
+            border_title,
+            border_subtitle,
+        ) in self.elem_id_to_border_title.items():
             elem = self.query_exactly_one(f"#{elem_id}")
-            elem.border_title, elem.border_subtitle = border_titles
+            elem.border_title, elem.border_subtitle = (
+                f"[b]{border_title}[/]",
+                border_subtitle,
+            )
         # must launch the worker
         self.run_worker(
             get_standard_info,
@@ -581,7 +596,6 @@ class BugReportScreen(Screen[BugReport]):
 
     def on_unmount(self):
         for worker in self.workers:
-            print(worker.name)
             if worker.name in WorkerName and worker.state == WorkerState.RUNNING:
                 worker.cancel()
 
@@ -644,6 +658,7 @@ class BugReportScreen(Screen[BugReport]):
     @on(TextArea.Changed)
     @on(SelectionList.SelectedChanged)
     @on(RadioSet.Changed)
+    @on(FilePickerWidget.FilesUpdated)
     def trigger_autosave(self):
         def f():
             # these steps are only executed when the real autosave happens
@@ -661,7 +676,7 @@ class BugReportScreen(Screen[BugReport]):
                 logger.error(repr(e))
                 label.update(f"[red]Autosave failed! {escape_markup(repr(e)[:20])}")
 
-        # run auto save 0.5 seconds after the user stops typing
+        # run auto save 1 second after the user stops typing
         self._debounce(lambda: self.run_worker(f, thread=True), 1)()
 
     @on(Button.Pressed, "#clear_log_selection")
@@ -890,6 +905,7 @@ class BugReportScreen(Screen[BugReport]):
                 ).selected
                 + hidden_collectors
             ),
+            additional_files=self.query_exactly_one(FilePickerWidget).chosen_files,
             source=self.existing_report and self.existing_report.source or "editor",
         )
 
@@ -907,9 +923,9 @@ class BugReportScreen(Screen[BugReport]):
                 " ".join(self.app_args.platform_tags)
             )
         if len(self.app_args.tags) > 0:
-            self.query_exactly_one(f"#{BugReportElemId.ADDITIONAL_TAGS}", Input).value = (
-                " ".join(self.app_args.tags)
-            )
+            self.query_exactly_one(
+                f"#{BugReportElemId.ADDITIONAL_TAGS}", Input
+            ).value = " ".join(self.app_args.tags)
 
     def _restore_existing_report(self):
         if not self.existing_report:
@@ -940,7 +956,10 @@ class BugReportScreen(Screen[BugReport]):
                 case RadioSet():
                     selected_name = self.existing_report.get_with_type(elem_id, str)
                     for child in elem.children:
-                        if isinstance(child, RadioButton) and child.name == selected_name:
+                        if (
+                            isinstance(child, RadioButton)
+                            and child.name == selected_name
+                        ):
                             child.action_toggle_button()
                 case SelectionWithPreview():
                     value = cast(
@@ -960,6 +979,8 @@ class BugReportScreen(Screen[BugReport]):
                             elem.select(elem.get_option(v))
                         except OptionDoesNotExist:
                             logger.warning(f"Ignoring option: {v}")
+                case FilePickerWidget():
+                    elem.restore_selection(self.existing_report.additional_files)
                 case _:
                     pass
 

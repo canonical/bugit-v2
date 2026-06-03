@@ -76,14 +76,15 @@ class BugReportSubmitter[TAuth](abc.ABC):
         pass
 
     @abc.abstractmethod
-    def upload_attachment(self, attachment_file: Path) -> str | None:
+    def upload_attachment(
+        self, attachment_file: Path, filename: str | None = None
+    ) -> str | None:
         """Uploads a single attachment file
 
-        :param attachment_dir: directory with ALL the files to upload.
-                               The caller is responsible for collecting and
-                               putting the desired files in this directory
-        :yield: Intermediate messages or errors. Caller can decide whether to
-                stop on error
+        :param attachment_file: path to the file that we want to upload
+        :param filename: if specified, this will be the filename that
+                         appears in the target (i.e. Jira/LP/Local tar)
+        :return: An optional success message
         """
         pass
 

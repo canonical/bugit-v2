@@ -143,7 +143,7 @@ class RecoverFromAutoSaveScreen(Screen[SerializableBugReport | None]):
                         )
 
                         yield Button(
-                            "⌫",
+                            "Delete",
                             name=f"delete:{filename}",
                             variant="error",
                             flat=True,

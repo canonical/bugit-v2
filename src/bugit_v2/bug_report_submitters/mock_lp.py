@@ -186,7 +186,9 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
         return None
 
     @override
-    def upload_attachment(self, attachment_file: Path) -> str | None:
+    def upload_attachment(
+        self, attachment_file: Path, filename: str | None = None
+    ) -> str | None:
         return super().upload_attachment(attachment_file)
 
     @override

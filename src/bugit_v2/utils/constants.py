@@ -93,11 +93,15 @@ DUT_INFO_DIR = (
     / "bugit-v2-dut-info"
 )
 HOST_FS = Path("/var/lib/snapd/hostfs")
-MAX_JOB_OUTPUT_LEN = 3000
 DISK_CACHE_DIR = (
     Path(os.getenv("SNAP_COMMON", str(Path().home().absolute() / ".cache")))
     / "bugit-v2-persistent-cache"
 )
+
+MAX_JOB_OUTPUT_LEN = 3000
+MAX_ADDITIONAL_FILE_SIZE = (
+    50 * 10**6  # 50mb
+)  # prevents the user from choosing things like swap.img
 
 
 class NullSelection(enum.Enum):
