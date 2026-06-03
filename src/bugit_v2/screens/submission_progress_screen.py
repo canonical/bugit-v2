@@ -25,7 +25,9 @@ from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
 from bugit_v2.models.bug_report import BugReport, LogName
-from bugit_v2.utils import is_prod, is_snap
+from bugit_v2.utils import is_prod, is_snap, slugify
+from bugit_v2.utils.constants import HOST_FS
+from bugit_v2.utils.validations import is_strictly_regular_file
 
 logger = logging.getLogger(__name__)
 
@@ -184,10 +186,26 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         """
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
 
+        # the additional files are also technically "logs"
+        # run the workaround in this function, not the uploaders
+        for file in self.bug_report.additional_files:
+            # workaround, if sysfs nodes are selected and we don't copy
+            # uploads will hang forever
+            # so we must copy them and "finish" writing the file
+            try:
+                if file.is_relative_to(HOST_FS / "home"):
+                    # from DUT's home, just use the actual name
+                    target_file_name = file.stem
+                else:
+                    # something under root, include the entire path and slugify
+                    target_file_name = slugify(str(file)) + file.suffix
+                shutil.copy(file, self.attachment_dir / target_file_name)
+            except Exception as e:
+                self._log_with_time(f"[red]Failed to copy {file}: {e}")
+
         # get the log collectors running first
         # all log collectors are allowed to fail. If they do, write a message
         # to the screen to tell the user how to get the logs manually
-
         for log_name in self.bug_report.logs_to_include:
 
             async def run_collect(log: LogName):
@@ -266,36 +284,36 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     def start_parallel_attachment_upload(self) -> None:
         assert self.log_widget
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
-        for file_name in [
-            *self.attachment_dir.iterdir(),
-            *self.bug_report.additional_files,
-        ]:
 
-            def upload_one(f: Path):
-                try:
-                    if f.stat().st_size == 0:
-                        self._log_with_time(
-                            f"[orange_red1]WARN[/] {f} is an empty file. Skipping"
-                        )
-                        return
-
-                    rv = self.submitter.upload_attachment(f)
-
-                    if rv and rv.strip():
-                        # only show non-empty, non-null messages
-                        self._log_with_time(
-                            f"[green]OK[/] [b]Uploaded {f}[/]: {rv.strip()}"
-                        )
-                    else:
-                        self._log_with_time(f"[green]OK[/] [b]Uploaded {f}[/b]")
-                except Exception as e:
+        def upload_one(f: Path):
+            try:
+                if f.stat().st_size == 0:
                     self._log_with_time(
-                        f"[red]FAIL[/red] failed to upload {f}: {repr(e)}"
+                        f"[orange_red1]WARN[/] {f} is an empty file. Skipping"
                     )
-                    raise e  # mark the worker as failed
-                finally:
-                    progress_bar.advance()
+                    return
 
+                if not is_strictly_regular_file(f):
+                    raise RuntimeError(f"{f} is not a regular file during submission")
+
+                rv = self.submitter.upload_attachment(
+                    f, slugify(str(f.stem)) + f.suffix
+                )
+
+                if rv and rv.strip():
+                    # only show non-empty, non-null messages
+                    self._log_with_time(
+                        f"[green]OK[/] [b]Uploaded {f}[/]: {rv.strip()}"
+                    )
+                else:
+                    self._log_with_time(f"[green]OK[/] [b]Uploaded {f}[/b]")
+            except Exception as e:
+                self._log_with_time(f"[red]FAIL[/red] failed to upload {f}: {repr(e)}")
+                raise e  # mark the worker as failed
+            finally:
+                progress_bar.advance()
+
+        for file_name in self.attachment_dir.iterdir():
             self.upload_workers[str(file_name)] = self.run_worker(
                 # closure workaround
                 # https://stackoverflow.com/a/1107260
@@ -304,8 +322,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 thread=True,  # not async
                 exit_on_error=False,  # hold onto the err, don't crash
             )
-
-            self._log_with_time(f"Uploading: {file_name}")
+            self._log_with_time(f"Uploading: {file_name.stem}")
 
     def start_sequential_attachment_upload(self) -> None:
         assert self.log_widget
@@ -313,10 +330,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
         def upload_all():
             failed_attachments: list[str] = []
-            for f in [
-                *self.attachment_dir.iterdir(),
-                *self.bug_report.additional_files,
-            ]:
+            for f in self.attachment_dir.iterdir():
                 try:
                     if f.stat().st_size == 0:
                         self._log_with_time(
