@@ -193,7 +193,9 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             # uploads will hang forever
             # so we must copy them and "finish" writing the file
             try:
-                if file.is_relative_to(HOST_FS / "home"):
+                if (is_snap() and file.is_relative_to(HOST_FS / "home")) or (
+                    not is_snap() and file.is_relative_to("/home")
+                ):
                     # from DUT's home, just use the actual name
                     target_file_name = file.stem
                 else:
