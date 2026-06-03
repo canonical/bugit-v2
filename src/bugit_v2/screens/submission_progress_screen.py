@@ -197,7 +197,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     not is_snap() and file.is_relative_to("/home")
                 ):
                     # from DUT's home, just use the actual name
-                    target_file_name = file.stem
+                    target_file_name = file.stem + file.suffix
                 else:
                     # something under root, include the entire path and slugify
                     target_file_name = (
