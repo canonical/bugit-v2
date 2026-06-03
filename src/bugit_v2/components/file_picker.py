@@ -111,7 +111,7 @@ class FilePickerWidget(Widget):
             super().__init__()
             self.files = files
 
-    _chosen_files = set[Path]()
+    _chosen_files: set[Path]
 
     DEFAULT_CSS = """
     FilePickerWidget {
@@ -148,6 +148,7 @@ class FilePickerWidget(Widget):
             disabled=disabled,
             markup=markup,
         )
+        self._chosen_files = set()
         if not initial_files:
             return
         for file in initial_files:
