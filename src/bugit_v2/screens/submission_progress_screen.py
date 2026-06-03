@@ -196,12 +196,10 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     not is_snap() and file.is_relative_to("/home")
                 ):
                     # from DUT's home, just use the actual name
-                    target_file_name = file.stem + file.suffix
+                    target_file_name = file.name
                 else:
                     # something under root, include the entire path and slugify
-                    target_file_name = (
-                        slugify(str(file.parent)) + "_" + file.stem + file.suffix
-                    )
+                    target_file_name = slugify(str(file.parent)) + "_" + file.name
                 shutil.copy(file, self.attachment_dir / target_file_name)
             except Exception as e:
                 self._log_with_time(f"[red]Failed to copy {file}: {e}")
