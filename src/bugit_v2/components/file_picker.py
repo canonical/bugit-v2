@@ -26,17 +26,20 @@ class NoSpecialFileDirectoryTree(DirectoryTree):
 
 class FilePickerModal(ModalScreen[Path | None]):
     discovery_root: Path
+    max_allowed_size: int  # in bytes
 
     def __init__(
         self,
         discovery_root: Path,
+        max_allowed_size: int,
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
     ) -> None:
+        self.max_allowed_size = max_allowed_size
+        self.discovery_root = discovery_root
         if not discovery_root.exists():
             raise FileNotFoundError(f"{discovery_root} doesn't exist")
-        self.discovery_root = discovery_root
         super().__init__(name, id, classes)
 
     @override
@@ -50,13 +53,13 @@ class FilePickerModal(ModalScreen[Path | None]):
             st_size = os.stat(e.path).st_size
         except OSError as exc:
             self.app.notify(
-                f"Unable to read file metadata for {e.path}: {exc}",
-                title="File selection failed",
+                f"Unable to read the metadata for {e.path}: {exc}",
+                title="Failed to select file",
                 severity="error",
             )
             return
 
-        if st_size > MAX_ADDITIONAL_FILE_SIZE:
+        if st_size > self.max_allowed_size:
             self.app.notify(
                 f"File size = {st_size // 10**6}Mb. Please choose a smaller file.",
                 title=f"This file is over {MAX_ADDITIONAL_FILE_SIZE // 10**6}Mb",
@@ -124,6 +127,7 @@ class FilePickerWidget(Widget):
             self.files = files
 
     _chosen_files: set[Path]
+    _max_allowed_size: int
 
     DEFAULT_CSS = """
     FilePickerWidget {
@@ -146,6 +150,7 @@ class FilePickerWidget(Widget):
     def __init__(
         self,
         initial_files: Sequence[Path] | None = None,
+        max_allowed_size: int = MAX_ADDITIONAL_FILE_SIZE,
         # ---
         name: str | None = None,
         id: str | None = None,
@@ -161,6 +166,7 @@ class FilePickerWidget(Widget):
             markup=markup,
         )
         self._chosen_files = set()
+        self._max_allowed_size = max_allowed_size
         if not initial_files:
             return
         for file in initial_files:
@@ -176,7 +182,7 @@ class FilePickerWidget(Widget):
     @on(Button.Pressed, "#pick_files")
     async def open_file_picker(self, _):
         selection = await self.app.push_screen_wait(
-            FilePickerModal(HOST_FS if is_snap() else Path("/"))
+            FilePickerModal(HOST_FS if is_snap() else Path("/"), self._max_allowed_size)
         )
         if selection is None:
             return
