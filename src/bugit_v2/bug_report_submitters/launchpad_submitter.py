@@ -402,7 +402,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
         yield AdvanceMessage(f"Bug URL is: {self.bug_url}")
 
     @override
-    def upload_attachment(self, attachment_file: Path) -> str | None:
+    def upload_attachment(self, attachment_file: Path, filename: str | None = None) -> str | None:
         assert self.lp_bug_object, "No launchpad bug has been created or fetched"
         with open(attachment_file, "rb") as f:
             # this might explode on low memory systems

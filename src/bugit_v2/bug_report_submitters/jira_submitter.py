@@ -95,9 +95,9 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
             yield Center(Button("Continue", id="continue_button", disabled=True))
 
     def on_mount(self):
-        self.query_exactly_one("#top_level_container").border_title = (
-            "Jira Authentication"
-        )
+        self.query_exactly_one(
+            "#top_level_container"
+        ).border_title = "Jira Authentication"
 
         email_input = self.query_exactly_one("#email")
         email_input.border_title = "Email"
@@ -317,12 +317,14 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
             return None
 
     @override
-    def upload_attachment(self, attachment_file: Path) -> None:
+    def upload_attachment(
+        self, attachment_file: Path, filename: str | None = None
+    ) -> None:
         assert self.jira
         assert self.issue
         # .add_attachment has a decorator that confuses the typechecker
         # go to its definition to see the expected arguments
-        self.jira.add_attachment(self.issue.id, str(attachment_file))
+        self.jira.add_attachment(self.issue.id, str(attachment_file), filename)
 
     @property
     @override

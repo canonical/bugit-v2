@@ -83,7 +83,7 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
         self.archive_name = f"bugit-bug-report-{bug_report.report_id}"
 
     @override
-    def upload_attachment(self, attachment_file: Path) -> str | None:
+    def upload_attachment(self, attachment_file: Path, filename: str | None = None) -> str | None:
         shutil.copy(attachment_file, Path(self.working_dir.name) / self.WRAPPER_DIR)
 
     @override
