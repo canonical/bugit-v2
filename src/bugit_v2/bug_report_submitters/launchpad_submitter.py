@@ -21,10 +21,7 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
     BugReportSubmitter,
 )
-from bugit_v2.models.bug_report import (
-    BugReport,
-    pretty_issue_file_times,
-)
+from bugit_v2.models.bug_report import BugReport, pretty_issue_file_times
 from bugit_v2.utils import is_prod
 
 LP_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
@@ -402,14 +399,16 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
         yield AdvanceMessage(f"Bug URL is: {self.bug_url}")
 
     @override
-    def upload_attachment(self, attachment_file: Path, filename: str | None = None) -> str | None:
+    def upload_attachment(
+        self, attachment_file: Path, filename: str | None = None
+    ) -> str | None:
         assert self.lp_bug_object, "No launchpad bug has been created or fetched"
         with open(attachment_file, "rb") as f:
             # this might explode on low memory systems
             # but idk how to work around it
             self.lp_bug_object.addAttachment(
                 comment="Automatically attached by bugit-v2",
-                filename=attachment_file.name,
+                filename=filename or attachment_file.name,
                 data=f.read(),
             )
 
