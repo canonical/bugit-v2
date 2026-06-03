@@ -46,12 +46,24 @@ class FilePickerModal(ModalScreen[Path | None]):
 
     @on(DirectoryTree.FileSelected)
     def finish_selection(self, e: DirectoryTree.FileSelected):
-        if (st_size := os.stat(e.path).st_size) > MAX_ADDITIONAL_FILE_SIZE:
+        try:
+            st_size = os.stat(e.path).st_size
+        except OSError as exc:
             self.app.notify(
-                f"File size = {st_size // 10**6}Mb. It might fail to upload",
+                f"Unable to read file metadata for {e.path}: {exc}",
+                title="File selection failed",
+                severity="error",
+            )
+            return
+
+        if st_size > MAX_ADDITIONAL_FILE_SIZE:
+            self.app.notify(
+                f"File size = {st_size // 10**6}Mb. Please choose a smaller file.",
                 title=f"This file is over {MAX_ADDITIONAL_FILE_SIZE // 10**6}Mb",
                 severity="error",
             )
+            return
+
         self.dismiss(e.path)
 
     @on(Button.Pressed, "#close")
