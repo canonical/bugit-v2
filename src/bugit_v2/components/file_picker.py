@@ -1,4 +1,5 @@
 from collections.abc import Sequence, Iterable
+import os
 from pathlib import Path
 from typing import final, override
 from rich.console import RenderableType
@@ -13,7 +14,7 @@ from textual.widgets import Button, DirectoryTree, Label
 from textual.widgets.button import ButtonVariant
 
 from bugit_v2.utils import is_snap
-from bugit_v2.utils.constants import HOST_FS
+from bugit_v2.utils.constants import HOST_FS, MAX_ADDITIONAL_FILE_SIZE
 from bugit_v2.utils.validations import is_strictly_regular_file
 
 
@@ -47,6 +48,12 @@ class FilePickerModal(ModalScreen[Path | None]):
 
     @on(DirectoryTree.FileSelected)
     def finish_selection(self, e: DirectoryTree.FileSelected):
+        if (st_size := os.stat(e.path).st_size) > MAX_ADDITIONAL_FILE_SIZE:
+            self.app.notify(
+                f"File size = {st_size // 10**6}Mb. It might fail to upload",
+                title=f"This file is over {MAX_ADDITIONAL_FILE_SIZE // 10**6}Mb",
+                severity='error'
+            )
         self.dismiss(e.path)
 
     @on(Button.Pressed, "#close")
@@ -106,7 +113,7 @@ class FilePickerWidget(Widget):
             super().__init__()
             self.files = files
 
-    _chosen_files = set[Path]([])
+    _chosen_files = set[Path]()
 
     DEFAULT_CSS = """
     FilePickerWidget {
