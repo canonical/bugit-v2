@@ -24,9 +24,20 @@ class NoSpecialFileDirectoryTree(DirectoryTree):
         return [path for path in paths if path.is_dir() or path.is_file()]
 
 
+@final
 class FilePickerModal(ModalScreen[Path | None]):
     discovery_root: Path
     max_allowed_size: int  # in bytes
+
+    DEFAULT_CSS = """
+    FilePickerModal {
+        background: $background 100%;
+    }
+    FilePickerModal #close {
+        width: 100%;
+        border: none;
+    }
+    """
 
     def __init__(
         self,
@@ -44,8 +55,9 @@ class FilePickerModal(ModalScreen[Path | None]):
 
     @override
     def compose(self) -> ComposeResult:
+        yield Label("[b][$primary]Only regular files are shown")
         yield NoSpecialFileDirectoryTree(self.discovery_root)
-        yield Button("Close", flat=True, id="close")
+        yield Button("Close", id="close", compact=True, variant="warning")
 
     @on(DirectoryTree.FileSelected)
     def finish_selection(self, e: DirectoryTree.FileSelected):
@@ -145,6 +157,13 @@ class FilePickerWidget(Widget):
     FilePickerWidget .filename_label {
         margin-right: 1;
     }
+    FilePickerWidget #pick_files_row {
+        height: auto;
+        align: right middle;
+    }
+    FilePickerWidget #pick_files_row.has-files {
+        margin-top: 1;
+    }
     """
 
     def __init__(
@@ -176,7 +195,10 @@ class FilePickerWidget(Widget):
     @override
     def compose(self) -> ComposeResult:
         yield VerticalScroll(id="file_list_scroll", classes="ha")
-        yield Button("Pick Files", id="pick_files", compact=True)
+        with HorizontalGroup(id="pick_files_row"):
+            yield Button(
+                "Pick Files", id="pick_files", compact=True, classes="editor_button"
+            )
 
     @work
     @on(Button.Pressed, "#pick_files")
@@ -231,15 +253,19 @@ class FilePickerWidget(Widget):
             groups.append(
                 HorizontalGroup(
                     label,
-                    CompactButton(
+                    Button(
                         "Deselect",
                         variant="error",
+                        compact=True,
                         classes="delete_selection",
                         name=str(file),
                     ),
                 )
             )
         scroll.mount_all(groups)
+        self.query_exactly_one("#pick_files_row").set_class(
+            len(self._chosen_files) > 0, "has-files"
+        )
 
 
 class DirectoryTreeApp(App[Path]):
