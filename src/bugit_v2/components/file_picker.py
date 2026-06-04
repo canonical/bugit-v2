@@ -52,7 +52,7 @@ class FilePickerModal(ModalScreen[Path | None]):
 
     @override
     def compose(self) -> ComposeResult:
-        yield Label("[b][$primary]Only regular files are shown")
+        yield Label("[b][$primary]Only regular files can be selected")
         yield NoSpecialFileDirectoryTree(self.discovery_root)
         yield Button("Close", id="close", compact=True, variant="warning")
 
