@@ -3,16 +3,13 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import final, override
 
-from rich.console import RenderableType
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.containers import HorizontalGroup, VerticalScroll
-from textual.content import ContentText
 from textual.message import Message
 from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import Button, DirectoryTree, Label
-from textual.widgets.button import ButtonVariant
 
 from bugit_v2.utils import is_snap
 from bugit_v2.utils.constants import HOST_FS, MAX_ADDITIONAL_FILE_SIZE
@@ -84,46 +81,6 @@ class FilePickerModal(ModalScreen[Path | None]):
     @on(Button.Pressed, "#close")
     def exit_without_selection(self, _):
         self.dismiss(None)
-
-
-@final
-class CompactButton(Button):
-    DEFAULT_CSS = """
-    CompactButton {
-        width: auto;
-        height: auto;
-        min-width: 1;
-        min-height: 1;
-        padding: 0;
-        border: none;
-    }
-    """
-
-    def __init__(
-        self,
-        label: ContentText | None = None,
-        variant: ButtonVariant = "default",
-        *,
-        name: str | None = None,
-        id: str | None = None,
-        classes: str | None = None,
-        disabled: bool = False,
-        tooltip: RenderableType | None = None,
-        action: str | None = None,
-        flat: bool = False,
-    ):
-        super().__init__(
-            label,
-            variant,
-            name=name,
-            id=id,
-            classes=classes,
-            disabled=disabled,
-            tooltip=tooltip,
-            action=action,
-            compact=True,
-            flat=flat,
-        )
 
 
 @final
