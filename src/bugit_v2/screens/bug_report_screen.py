@@ -458,9 +458,9 @@ class BugReportScreen(Screen[BugReport]):
                                 id="clear_log_selection",
                             )
                         )
-                        yield FilePickerWidget(
-                            classes="default_box", id=BugReportElemId.ADDITIONAL_FILES
-                        )
+                    yield FilePickerWidget(
+                        classes="default_box", id=BugReportElemId.ADDITIONAL_FILES
+                    )
 
             if (
                 self.session is not NullSelection.NO_SESSION
