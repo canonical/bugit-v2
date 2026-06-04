@@ -9,7 +9,10 @@ from textual.screen import Screen
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
 )
-from bugit_v2.checkbox_utils.checkbox_session import CheckboxSession
+from bugit_v2.checkbox_utils.checkbox_session import (
+    AbstractCheckboxSession,
+    CheckboxSession,
+)
 from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.models.app_args import AppArgs
 from bugit_v2.models.bug_report import BugReport, SerializableBugReport
@@ -140,7 +143,6 @@ class RecoverFromAutosaveState(AppState):
 
 
 class SessionSelectionState(AppState):
-
     @override
     def assertions(self) -> None:
         assert self.context.session in (
@@ -169,6 +171,8 @@ class SessionSelectionState(AppState):
                 self.context.session = NullSelection.NO_SESSION
                 return ReportEditorState(self.context)
             case Path():
+                # switch CheckboxSession implementations here
+                # by constructing a different concrete class
                 self.context.session = CheckboxSession(screen_result)
                 return JobSelectionState(self.context)
             case _:
@@ -182,10 +186,9 @@ class SessionSelectionState(AppState):
 
 
 class JobSelectionState(AppState):
-
     @override
     def assertions(self) -> None:
-        assert isinstance(self.context.session, CheckboxSession) or isinstance(
+        assert isinstance(self.context.session, AbstractCheckboxSession) or isinstance(
             self.context.checkbox_submission, SimpleCheckboxSubmission
         ), "No source to choose jobs from"
         assert (
@@ -214,6 +217,7 @@ class JobSelectionState(AppState):
 
     @override
     def get_screen_constructor(self):
+        JOB_STATUS_FILTER = ("fail", "crash", "undecided")
         match (
             self.context.session,
             self.context.checkbox_submission,
@@ -223,7 +227,7 @@ class JobSelectionState(AppState):
                 NullSelection.NO_CHECKBOX_SUBMISSION,
             ):
                 return lambda: JobSelectionScreen(
-                    session.get_run_jobs(),
+                    session.list_jobs(JOB_STATUS_FILTER),
                     str(session.session_path),
                     session.testplan_id,
                 )
@@ -235,7 +239,7 @@ class JobSelectionState(AppState):
                     [
                         r.full_id
                         for r in submission.base.results
-                        if r.outcome in ("fail", "crash")
+                        if r.outcome in JOB_STATUS_FILTER
                     ],
                     str(submission.submission_path),
                     submission.base.testplan_id,
