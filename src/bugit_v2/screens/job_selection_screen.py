@@ -70,8 +70,6 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
             RadioButton(
                 "No Job (skip to editor)",
                 name="bugit_no_job",
-                # tooltip != None is used to check if this special
-                # button is clicked, do not remove
                 tooltip="Choose this to skip to editor with the session data",
             ),
             *(RadioButton(job_id, name=job_id) for job_id in self.job_id_options),
