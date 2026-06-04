@@ -68,18 +68,15 @@ class CheckboxSession:
             raise FileNotFoundError(f"Session file not found in '{session_path}'.")
         self.session_json = self.get_session_json()
 
-        if self.session_json["session"]["metadata"]["app_blob"]:
-            app_blob = json.loads(
-                base64.b64decode(self.session_json["session"]["metadata"]["app_blob"])
+        app_blob = json.loads(
+            base64.b64decode(self.session_json["session"]["metadata"]["app_blob"])
+        )
+        try:
+            self.testplan_id = app_blob["testplan_id"]
+        except KeyError as e:
+            raise KeyError(
+                f"{self} is missing field(s): {', '.join(e.args)}.",
             )
-            try:
-                self.testplan_id = app_blob["testplan_id"]
-            except KeyError as e:
-                raise KeyError(
-                    f"{self} is missing field(s): {', '.join(e.args)}.",
-                )
-        else:
-            logger.error(f"{self} does not contain valid information.")
         self.failed_jobs = self.get_run_jobs()
 
     @override

@@ -18,6 +18,7 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
 
     job_id_options: Final[Sequence[str]]
     selected_job: str | None
+    test_plan: str
 
     CSS = """
     JobSelectionScreen {
@@ -34,6 +35,7 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
         self,
         job_id_options: Sequence[str],
         job_id_source_name: str,
+        test_plan: str,
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
@@ -44,10 +46,13 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
         :param job_id_source_name:
             Arbitrary string, name of where the IDs came from
             Only used in the screen's title
+        :param test_plan:
+            Name of the test plan, only used in the title
         """
         self.job_id_options = job_id_options
         self.selected_job = None
         self.job_id_source_name = job_id_source_name
+        self.test_plan = test_plan
         super().__init__(name, id, classes)
 
     @override
@@ -59,13 +64,12 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
                     f"[bold][$primary]Select a job in [$secondary] {self.job_id_source_name}"
                 )
             )
+            yield Label((f"[bold][$primary]Test Plan: [$secondary]{self.test_plan}"))
 
         yield RadioSet(
             RadioButton(
                 "No Job (skip to editor)",
                 name="bugit_no_job",
-                # tooltip != None is used to check if this special
-                # button is clicked, do not remove
                 tooltip="Choose this to skip to editor with the session data",
             ),
             *(RadioButton(job_id, name=job_id) for job_id in self.job_id_options),
