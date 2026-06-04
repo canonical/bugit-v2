@@ -12,10 +12,7 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 from bugit_v2.checkbox_utils.checkbox_session import CheckboxSession
 from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.models.app_args import AppArgs
-from bugit_v2.models.bug_report import (
-    BugReport,
-    SerializableBugReport,
-)
+from bugit_v2.models.bug_report import BugReport, SerializableBugReport
 from bugit_v2.screens.bug_report_screen import BugReportScreen
 from bugit_v2.screens.job_selection_screen import JobSelectionScreen
 from bugit_v2.screens.recover_from_autosave_screen import (
@@ -228,6 +225,7 @@ class JobSelectionState(AppState):
                 return lambda: JobSelectionScreen(
                     session.get_run_jobs(),
                     str(session.session_path),
+                    session.testplan_id,
                 )
             case (
                 NullSelection.NO_SESSION,
@@ -240,6 +238,7 @@ class JobSelectionState(AppState):
                         if r.outcome in ("fail", "crash")
                     ],
                     str(submission.submission_path),
+                    submission.base.testplan_id,
                 )
             case _:
                 raise RuntimeError(
