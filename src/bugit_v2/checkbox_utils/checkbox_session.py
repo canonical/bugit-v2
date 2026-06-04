@@ -115,12 +115,6 @@ class CheckboxSessionInMemory(AbstractCheckboxSession):
     def __repr__(self):
         return f"<Session {self.session_path}>"
 
-    def get_session_json(self):
-        with gzip.open(self.session_path / "session") as arc:
-            session_json = json.load(arc)
-
-        return session_json
-
     @override
     def get_job_output(self, job_id: str) -> JobOutput | None:
         """
@@ -213,7 +207,7 @@ class CheckboxSessionIterative(AbstractCheckboxSession):
             for app_blob_b64 in ijson.items(arc, "session.metadata.app_blob"):
                 app_blob = json.loads(base64.b64decode(app_blob_b64))
                 try:
-                    return app_blob["testplan_id"]
+                    return str(app_blob["testplan_id"])
                 except KeyError as e:
                     raise KeyError(f"{self} is missing field(s): {', '.join(e.args)}.")
         raise KeyError(f"{self} does not contain 'session.metadata.app_blob'.")
@@ -265,7 +259,7 @@ class CheckboxSessionIterative(AbstractCheckboxSession):
                 return None
 
             io_log_filename: str | None = last.get("io_log_filename")
-            comments = str(last.get("comments", ""))
+            comments = str(last.get("comments", "") or "")
 
             if io_log_filename:
                 stdout_filename = io_log_filename.replace("record.gz", "stdout")
