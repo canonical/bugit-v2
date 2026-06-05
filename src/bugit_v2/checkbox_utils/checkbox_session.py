@@ -91,7 +91,7 @@ class AbstractCheckboxSession(abc.ABC):
 
 
 @final
-class CheckboxSessionInMemory(AbstractCheckboxSession):
+class InMemoryCheckboxSession(AbstractCheckboxSession):
     def __init__(self, session_path: Path):
         self._session_path = session_path
 
@@ -188,7 +188,7 @@ class CheckboxSessionInMemory(AbstractCheckboxSession):
 
 
 @final
-class CheckboxSessionIterative(AbstractCheckboxSession):
+class IterativeCheckboxSession(AbstractCheckboxSession):
     """
     A Checkbox session
     """
@@ -288,4 +288,4 @@ class CheckboxSessionIterative(AbstractCheckboxSession):
         return self._testplan_id
 
 
-CheckboxSession = CheckboxSessionIterative
+CheckboxSession = IterativeCheckboxSession
