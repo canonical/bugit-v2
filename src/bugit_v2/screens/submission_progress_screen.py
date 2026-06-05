@@ -299,9 +299,11 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
                 if rv and rv.strip():
                     # only show non-empty, non-null messages
-                    self._log_with_time(f"[green]OK[/] [b]Uploaded {f}[/]: {rv.strip()}")
+                    self._log_with_time(
+                        f"[green]OK[/] [b]Uploaded {f.name}[/]: {rv.strip()}"
+                    )
                 else:
-                    self._log_with_time(f"[green]OK[/] [b]Uploaded {f}[/b]")
+                    self._log_with_time(f"[green]OK[/] [b]Uploaded {f.name}[/b]")
             except Exception as e:
                 self._log_with_time(f"[red]FAIL[/red] failed to upload {f}: {repr(e)}")
                 raise e  # mark the worker as failed
@@ -339,10 +341,10 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     if rv and rv.strip():
                         # only show non-empty, non-null messages
                         self._log_with_time(
-                            f"[green]OK[/] [b]Uploaded {f}[/]: {rv.strip()}"
+                            f"[green]OK[/] [b]Uploaded {f.name}[/]: {rv.strip()}"
                         )
                     else:
-                        self._log_with_time(f"[green]OK[/] [b]Uploaded {f}[/b]")
+                        self._log_with_time(f"[green]OK[/] [b]Uploaded {f.name}[/b]")
                 except Exception as e:
                     failed_attachments.append(f.name)
                     self._log_with_time(
