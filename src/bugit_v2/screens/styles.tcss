@@ -139,7 +139,7 @@
 }
 
 .default_box {
-    border: round $boost 500%;
+    border: round #bcbcbc;
     padding: 0;
     background: white 0%;
 }
