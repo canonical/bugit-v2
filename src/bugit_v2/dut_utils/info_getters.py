@@ -153,6 +153,7 @@ async def get_standard_info(
             standard_info["Embedded Controller Version"] = ec_version
 
     await asyncio.gather(
+        cpu(),
         dmi(),
         lspci(),
         ec(),
