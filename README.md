@@ -142,7 +142,7 @@ Dependencies are managed by uv. You can install uv by `pipx install uv` or use t
 ```bash
 git clone git@github.com:canonical/bugit-v2.git
 cd bugit-v2
-uv sync --python 3.10 # will download another python if sys python != 3.10
+uv sync --python 3.12 # will download another python if sys python != 3.12
 source .venv/bin/activate
 python3 src/bugit_v2/app.py
 ```
