@@ -1,14 +1,14 @@
-# <img width="64" height="64" alt="image" src="https://github.com/user-attachments/assets/12c84f78-176e-498b-b52d-48e8c9712309" /> Bugit V2
+# <img width="64" height="64" alt="image" src="https://github.com/user-attachments/assets/12c84f78-176e-498b-b52d-48e8c9712309" /> Bugit V2 
 
-This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [textual](https://textual.textualize.io/) library.
-
-[![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/bugit)
-
+<div align=center>
+  
 **Start Here 🡺** [User Guide](https://github.com/canonical/bugit-v2/wiki) | [Features](#features) | [Installation](#installation) | [Development](#development) | [Limitations](#limitations)
 
-<img width="2000" height="2144" alt="image" src="https://github.com/user-attachments/assets/7901ef4a-7398-49dd-992d-dfefb448fe6a" />
+</div>
 
 ## Features
+
+This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [textual](https://textual.textualize.io/) library.
 
 - Complete mouse support provided by textual. Now you can click, drag and scroll like a real app!
 - "Real" text editor. The bug description box is now a full-fledged editor that allows familiar keyboard shortcuts like Ctrl+C Ctrl+V Ctrl+Z Ctrl+Shift+Z, etc. To see all the bindings, click the `^p palette` button or use Control+P to bring up the command palette and click Help
@@ -23,13 +23,21 @@ To see more about textual itself, [check out their docs](https://textual.textual
 
 #### Snap store
 
+[![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/bugit)
+
 Use the edge channel for the latest commit on the main branch
-`sudo snap install bugit --edge --devmode`
+
+```sh
+sudo snap install bugit --edge --devmode
+```
 
 Or use the beta channel for point version releases
-`sudo snap install bugit --beta --devmode`
 
-The `stable` channel is reserved for the original bugit at the moment
+```sh
+sudo snap install bugit --beta --devmode
+```
+
+The `stable` channel is reserved for the original bugit at the moment.
 
 Run the app with `sudo bugit.bugit-v2 jira` or `sudo bugit.bugit-v2 lp`
 
@@ -49,7 +57,7 @@ To uninstall, `sudo snap remove bugit`
 
 Install pipx first:
 
-```
+```bash
 sudo apt install pipx
 ```
 
