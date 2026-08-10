@@ -348,7 +348,7 @@ real_collectors: Sequence[LogCollector] = (
     LogCollector(
         "sosreport",
         sosreport,
-        "SOS Report",
+        "SOS Report (long runtime)",
         not host_is_ubuntu_core(),  # sosreport doesn't run on core
         "sudo sos report --batch --tmp-dir ~",
         advertised_timeout=COMMAND_TIMEOUT,
