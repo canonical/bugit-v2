@@ -15,14 +15,14 @@ license: GPL-3.0+
 
 platforms:
   amd64:
-    build-on: [ amd64 ]
-    build-for: [ amd64 ]
+    build-on: [amd64]
+    build-for: [amd64]
   arm64:
-    build-on: [ arm64 ]
-    build-for: [ arm64 ]
+    build-on: [arm64]
+    build-for: [arm64]
   armhf:
-    build-on: [ armhf ]
-    build-for: [ armhf ]
+    build-on: [armhf]
+    build-for: [armhf]
 
 environment:
   # required for proper color display
