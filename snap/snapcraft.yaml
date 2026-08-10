@@ -44,6 +44,8 @@ environment:
   JIRA_SERVER: https://warthogs.atlassian.net
   # optional, lets apt installed python apps find their libraries
   PYTHONPATH: "$PYTHONPATH:$SNAP/usr/lib/python3/dist-packages"
+  # prevent lstopo from hanging on 26.04
+  HWLOC_COMPONENTS: "-gl"
 
 layout:
   # this combined with the 'cp' in the install hook
