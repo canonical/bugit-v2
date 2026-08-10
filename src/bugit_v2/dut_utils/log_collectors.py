@@ -16,7 +16,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-
 from bugit_v2.models.bug_report import BugReport, LogName
 from bugit_v2.utils import host_is_ubuntu_core, is_snap
 from bugit_v2.utils.async_subprocess import asp_check_call, asp_check_output
@@ -238,6 +237,27 @@ async def oem_getlogs(target_dir: Path, _: BugReport):
     await asp_check_output(["oem-getlogs"], cwd=target_dir)
 
 
+async def sosreport(target_dir: Path, _: BugReport):
+    if host_is_ubuntu_core():
+        raise RuntimeError("SOS Report cannot run on ubuntu core")
+    assert target_dir.exists(), f"Target directory {target_dir} does not exist"
+    await asp_check_call(
+        [
+            "nsenter",
+            "--target",
+            "1",
+            "--mount",
+            "--",
+            "/snap/bin/sosreport.sos",
+            "report",
+            "--batch",
+            "--tmp-dir",
+            str(target_dir),
+        ],
+        timeout=COMMAND_TIMEOUT,
+    )
+
+
 async def slow(target_dir: Path, bug_report: BugReport, secs: int):
     await asp_check_call(["sleep", "10"])
 
@@ -327,6 +347,15 @@ real_collectors: Sequence[LogCollector] = (
         "sudo -E oem-getlogs",
         advertised_timeout=COMMAND_TIMEOUT,
     ),
+    LogCollector(
+        "sosreport",
+        sosreport,
+        "SOS Report (long runtime)",
+        not host_is_ubuntu_core(),  # sosreport doesn't run on core
+        "sudo sos report --batch --tmp-dir ~",
+        advertised_timeout=COMMAND_TIMEOUT,
+    ),
+    # hidden collectors
     LogCollector(
         # only invoked when job outputs are too long
         "long-job-outputs",

@@ -1,5 +1,6 @@
 import enum
 import logging
+import os
 import shutil
 import time
 from pathlib import Path
@@ -99,7 +100,12 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         if attachment_dir and attachment_dir.exists() and attachment_dir.is_dir():
             self.attachment_dir = attachment_dir
         else:
-            self.attachment_dir = Path(mkdtemp()).expanduser().absolute()
+            try:
+                prefix = Path(os.environ["SNAP_COMMON"]) / "tmp"
+                prefix.mkdir(exist_ok=True)
+            except KeyError:
+                prefix = Path("/var/tmp")
+            self.attachment_dir = Path(mkdtemp(dir=prefix)).expanduser().absolute()
 
         self.attachment_workers = {}
         self.attachment_worker_checker_timers = {}
@@ -243,6 +249,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                             ]
                         )
                     )
+                    logger.error(repr(e))
                     if collector.manual_collection_command:
                         self._log_with_time(
                             f"You can rerun [blue]{collector.display_name}[/] "

@@ -15,14 +15,14 @@ license: GPL-3.0+
 
 platforms:
   amd64:
-    build-on: [ amd64 ]
-    build-for: [ amd64 ]
+    build-on: [amd64]
+    build-for: [amd64]
   arm64:
-    build-on: [ arm64 ]
-    build-for: [ arm64 ]
+    build-on: [arm64]
+    build-for: [arm64]
   armhf:
-    build-on: [ armhf ]
-    build-for: [ armhf ]
+    build-on: [armhf]
+    build-for: [armhf]
 
 environment:
   # required for proper color display
@@ -46,8 +46,6 @@ environment:
   PYTHONPATH: "$PYTHONPATH:$SNAP/usr/lib/python3/dist-packages"
 
 layout:
-  /etc/sos.conf:
-    bind-file: $SNAP/etc/sos.conf
   # this combined with the 'cp' in the install hook
   # overrides platform.freedesktop_os_release()
   # also keep it in SNAP_COMMON to prevent it from being deleted during refresh
@@ -82,6 +80,11 @@ apps:
 
   oem-getlogs:
     command: usr/bin/oem-getlogs
+
+  sos:
+    # workaround: pull in the classic snap at install time
+    # and check if it exists when called
+    command: run_sos.sh
 
 parts:
   launcher:
@@ -118,4 +121,4 @@ parts:
   apport:
     plugin: nil
     stage-packages:
-      - apport
+      - apport # provides "oem-getlogs"
