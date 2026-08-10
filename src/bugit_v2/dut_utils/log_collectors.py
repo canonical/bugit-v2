@@ -251,7 +251,8 @@ async def sosreport(target_dir: Path, _: BugReport):
             "--batch",
             "--tmp-dir",
             str(target_dir),
-        ]
+        ],
+        timeout=COMMAND_TIMEOUT,
     )
 
 
@@ -348,7 +349,7 @@ real_collectors: Sequence[LogCollector] = (
         "sosreport",
         sosreport,
         "SOS Report",
-        True,
+        not host_is_ubuntu_core(),  # sosreport doesn't run on core
         "sudo sos report --batch --tmp-dir ~",
         advertised_timeout=COMMAND_TIMEOUT,
     ),
