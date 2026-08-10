@@ -238,6 +238,8 @@ async def oem_getlogs(target_dir: Path, _: BugReport):
 
 
 async def sosreport(target_dir: Path, _: BugReport):
+    if host_is_ubuntu_core():
+        raise RuntimeError("SOS Report cannot run on ubuntu core")
     assert target_dir.exists(), f"Target directory {target_dir} does not exist"
     await asp_check_call(
         [
