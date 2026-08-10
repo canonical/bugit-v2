@@ -82,17 +82,8 @@ apps:
     command: usr/bin/oem-getlogs
 
   sos:
-    # Rather than vendoring sos report (and fighting to expose enough of the
-    # host - packages, configs, hardware tools - through 'layout' for it to
-    # behave the same as running it directly), delegate to Canonical's
-    # official 'sosreport' snap, which is published with
-    # 'confinement: classic'. A classic-confined snap runs completely
-    # unconfined: no private mount namespace remap, no AppArmor/seccomp -
-    # it sees the exact same filesystem a directly-run 'sos report' would.
-    # bugit only needs 'devmode' to be able to install/run it (installing
-    # a classic snap requires the installing process to be unconfined or
-    # devmode; running the classic snap itself is unaffected by bugit's own
-    # confinement since snapd launches it in its own confinement context).
+    # workaround: pull in the classic snap at install time
+    # and check if it exists when called
     command: run_sos.sh
 
 parts:
