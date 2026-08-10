@@ -243,6 +243,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                             ]
                         )
                     )
+                    logger.error(repr(e))
                     if collector.manual_collection_command:
                         self._log_with_time(
                             f"You can rerun [blue]{collector.display_name}[/] "
