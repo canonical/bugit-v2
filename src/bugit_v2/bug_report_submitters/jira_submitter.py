@@ -54,12 +54,12 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
     }
 
     JiraAuthModal Input {
-        border: round #bcbcbc 700%;
+        border: round $secondary-muted;
         background: $background 100%;
     }
 
     JiraAuthModal Checkbox {
-        border: round #bcbcbc 700%;
+        border: round $secondary-muted;
         background: $background 100%;
     }
 
