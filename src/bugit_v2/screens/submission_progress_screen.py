@@ -659,7 +659,9 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         status_widget = self.query_exactly_one("#collector_status", Static)
 
         running_names: list[LogName] = [
-            name for name, worker in self.attachment_workers.items() if worker.is_running
+            name
+            for name, worker in self.attachment_workers.items()
+            if not worker.is_finished
         ]
 
         if not running_names:
