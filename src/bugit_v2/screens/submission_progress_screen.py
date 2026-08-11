@@ -101,6 +101,10 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         height: 1fr;
         border: round $primary;
     }
+
+    RichLog {
+        background: $background 0%;
+    }
     """
 
     CSS_PATH = "styles.tcss"
@@ -586,7 +590,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         yield SimpleHeader()
 
         with Center(classes="lrm1"):
-            with HorizontalGroup(classes="w100 center"):
+            with HorizontalGroup(classes="w100"):
                 yield Label("Submission Progress", classes="mr1")
                 yield ProgressBar(
                     total=self.submitter.steps
@@ -595,20 +599,23 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     show_eta=False,
                 )
             yield Static(id="collector_status", markup=True)
-            yield Label("Submission Activity", classes="mt1")
-            yield RichLog(
+            al = RichLog(
                 id="activity_log",
                 markup=True,
                 wrap=True,
-                max_lines=2000,
+                max_lines=100,
             )
-            yield Label("Collector Output", classes="mt1")
-            yield RichLog(
+            al.border_title = "Submitter Output"
+            yield al
+
+            sl = RichLog(
                 id="submission_logs",
                 markup=True,
                 wrap=True,
                 max_lines=5000,
             )
+            sl.border_title = "Log Collector Output"
+            yield sl
             with HorizontalGroup(classes="w100 right"):
                 yield Button(
                     "Give up",
