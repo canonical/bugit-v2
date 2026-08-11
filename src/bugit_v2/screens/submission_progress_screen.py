@@ -463,9 +463,6 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             self._log_with_time(
                 f"[blue]Finished bug creation. Waiting for {len(running_collectors)} log collector(s) to finish"
             )
-            self._log_with_time(
-                f"[blue]{num_attachments} attachment(s) will start to upload after they are done"
-            )
             for c in running_collectors:
                 if c.name in LOG_NAME_TO_COLLECTOR:
                     display_name = LOG_NAME_TO_COLLECTOR[
