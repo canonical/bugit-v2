@@ -15,18 +15,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from bugit_v2.models.bug_report import BugReport, LogName
-from bugit_v2.utils import host_is_ubuntu_core, is_snap
+from bugit_v2.utils import host_is_ubuntu_core
 from bugit_v2.utils.async_subprocess import asp_check_call, asp_check_output
 from bugit_v2.utils.constants import MAX_JOB_OUTPUT_LEN
 
 logger = logging.getLogger(__name__)
 
 COMMAND_TIMEOUT = 10 * 60  # 10 minutes
-NVIDIA_BUG_REPORT_PATH = Path(
-    "/var/lib/snapd/hostfs/usr/bin/nvidia-bug-report.sh"
-    if is_snap()
-    else "nvidia-bug-report.sh"
-)
 
 
 @dataclass(slots=True, frozen=True)
@@ -80,38 +75,18 @@ async def pack_checkbox_session(
 async def nvidia_bug_report(
     target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
 ) -> str:
-    if is_snap():
-        env = os.environ | {
-            "PATH": ":".join(
-                [
-                    "/var/lib/snapd/hostfs/usr/local/sbin",
-                    "/var/lib/snapd/hostfs/usr/local/bin",
-                    "/var/lib/snapd/hostfs/usr/sbin",
-                    "/var/lib/snapd/hostfs/usr/bin",
-                    "/var/lib/snapd/hostfs/sbin",
-                    "/var/lib/snapd/hostfs/bin",
-                ]
-            ),
-            "LD_LIBRARY_PATH": ":".join(
-                [
-                    # $ARCH is exported from bugit-v2/snap/local/scripts/env_wrapper.sh
-                    # the shell script is always called before bugit starts
-                    f"/var/lib/snapd/hostfs/lib/{os.environ['ARCH']}",
-                    f"/var/lib/snapd/hostfs/usr/lib/{os.environ['ARCH']}",
-                ]
-            ),
-        }
-    else:
-        env = os.environ
-
     return await asp_check_output(
         [
-            str(NVIDIA_BUG_REPORT_PATH),
+            "nsenter",
+            "--target",
+            "1",
+            "--mount",
+            "--",
+            "nvidia-bug-report.sh",
             "--extra-system-data",
             "--output-file",
             str(target_dir / "nvidia-bug-report.log.gz"),
         ],
-        env=env,
         on_line=on_output,
     )
 
