@@ -14,7 +14,7 @@ from textual.markup import escape as escape_markup
 from textual.reactive import var
 from textual.screen import Screen
 from textual.timer import Timer
-from textual.widgets import Button, Footer, Label, ProgressBar, RichLog
+from textual.widgets import Button, Footer, Label, ProgressBar, RichLog, Static
 from textual.worker import Worker, WorkerState
 from typing_extensions import override
 
@@ -62,6 +62,10 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     log_widget: RichLog | None = None  # late init in on_mount
     upload_attempted = False
 
+    # tracks when each log collector was launched so we can show elapsed time
+    collector_start_times: dict[LogName, float]
+    collector_status_timer: Timer | None = None
+
     submitter: Final[BugReportSubmitter[TAuth]]
     # handles the special case for bugit.submit
     # app mode is for bugit.submit
@@ -77,6 +81,13 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
     #menu_after_finish {
         display: none;
+    }
+
+    #collector_status {
+        display: none;
+        height: auto;
+        border: round $primary;
+        padding: 0 1;
     }
     """
 
@@ -110,7 +121,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         self.attachment_workers = {}
         self.attachment_worker_checker_timers = {}
         self.upload_workers = {}
-        self.progress_start_time = time.time()  # doesn't have to precise
+        self.collector_start_times = {}
+        self.progress_start_time = time.time()
 
         super().__init__(name, id, classes)
 
@@ -165,6 +177,10 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         # only collect logs when it's in the main app
         if self.mode == "screen":
             self.start_parallel_log_collection()
+            self.collector_status_timer = self.set_interval(
+                1, self._update_collector_status
+            )
+            self._update_collector_status()
 
         # auth ready, do the jira/lp steps
         self.bug_creation_worker = self.run_worker(
@@ -175,6 +191,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         )
 
     def on_unmount(self) -> None:
+        if self.collector_status_timer is not None:
+            self.collector_status_timer.stop()
         for key, worker in self.attachment_workers.items():
             if worker.is_running:
                 self._log_with_time(f"Unmount, cancelling collector [b]{key}[/]")
@@ -273,6 +291,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 name=log_name,
                 exit_on_error=False,  # hold onto the err, don't crash
             )
+            self.collector_start_times[log_name] = time.time()
             self.attachment_worker_checker_timers[log_name] = self.set_interval(
                 30, lambda n=log_name: check_if_worker_is_pending(n)
             )
@@ -519,6 +538,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         event.button.disabled = True
         event.button.label = "All collectors finished"
         event.button.styles.width = "auto"
+        self._update_collector_status()
 
     @override
     def compose(self) -> ComposeResult:
@@ -533,6 +553,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     id="progress",
                     show_eta=False,
                 )
+            yield Static(id="collector_status", markup=True)
             yield RichLog(
                 id="submission_logs",
                 markup=True,
@@ -570,6 +591,46 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                         yield Button("Quit", id="quit")
 
             yield Footer()
+
+    def _update_collector_status(self) -> None:
+        """Refreshes the live "collectors remaining" panel.
+
+        Runs on a 1s interval so users can see how many log collectors are
+        still running and how long each of them has been running for, even
+        during long stretches where no collector has produced any log output.
+        """
+        status_widget = self.query_exactly_one("#collector_status", Static)
+
+        running_names: list[LogName] = [
+            name for name, worker in self.attachment_workers.items() if worker.is_running
+        ]
+
+        if not running_names:
+            status_widget.update("")
+            status_widget.display = False
+            if self.collector_status_timer is not None:
+                self.collector_status_timer.stop()
+            return
+
+        status_widget.display = True
+        now = time.time()
+        lines = [
+            f"[b]{len(running_names)}[/b] log collector(s) still running:",
+        ]
+
+        for name in running_names:
+            collector = LOG_NAME_TO_COLLECTOR[name]
+            elapsed = now - self.collector_start_times.get(name, now)
+            timeout_suffix = (
+                f" / {collector.advertised_timeout}s timeout"
+                if collector.advertised_timeout is not None
+                else ""
+            )
+            lines.append(
+                f"  - {collector.display_name}: {elapsed:.0f}s elapsed{timeout_suffix}"
+            )
+
+        status_widget.update("\n".join(lines))
 
     def _log_with_time(self, msg: str):
         if self.log_widget is None:
