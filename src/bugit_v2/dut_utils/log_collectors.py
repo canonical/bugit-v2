@@ -6,15 +6,13 @@ here is that each log collectors is a (slow-running) function and is *independen
 from all other collectors.
 """
 
-import asyncio
 import importlib.resources
 import logging
 import os
 import shutil
-from collections.abc import Awaitable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 from bugit_v2.models.bug_report import BugReport, LogName
 from bugit_v2.utils import host_is_ubuntu_core, is_snap
@@ -37,8 +35,13 @@ class LogCollector:
     name: LogName
     # the function that actually collects the logs
     collect: Callable[
-        [Path, BugReport],
-        Awaitable[str | None],  # (target_dir: Path) -> optional result string
+        [Path, BugReport, Callable[[str], None] | None],
+        Awaitable[
+            str | None
+        ],  # (target_dir, bug_report, on_output) -> optional result string
+        # `on_output`, if not None, should be called with every line of stdout
+        # produced by any subprocess this collector spawns, as soon as it's
+        # available, so the UI can stream progress for long-running commands.
         # if returns None, a generic success message is logged to the screen
         # errors should be raised as regular exceptions
     ]
@@ -58,7 +61,9 @@ class LogCollector:
     hidden: bool = False
 
 
-async def pack_checkbox_session(target_dir: Path, bug_report: BugReport) -> str:
+async def pack_checkbox_session(
+    target_dir: Path, bug_report: BugReport, _on_output: Callable[[str], None] | None
+) -> str:
     assert (
         bug_report.checkbox_session is not None
     ), "Can't use this collector if there's no checkbox session"
@@ -72,7 +77,9 @@ async def pack_checkbox_session(target_dir: Path, bug_report: BugReport) -> str:
     return f"Added checkbox session to {target_dir}"
 
 
-async def nvidia_bug_report(target_dir: Path, _: BugReport) -> str:
+async def nvidia_bug_report(
+    target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
+) -> str:
     if is_snap():
         env = os.environ | {
             "PATH": ":".join(
@@ -105,10 +112,16 @@ async def nvidia_bug_report(target_dir: Path, _: BugReport) -> str:
             str(target_dir / "nvidia-bug-report.log.gz"),
         ],
         env=env,
+        on_line=on_output,
     )
 
 
-async def journal_logs(target_dir: Path, _: BugReport, num_days: int = 7) -> None:
+async def journal_logs(
+    target_dir: Path,
+    _: BugReport,
+    on_output: Callable[[str], None] | None,
+    num_days: int = 7,
+) -> None:
     filepath = target_dir / f"journalctl_{num_days}_days.log"
     with open(filepath, "w") as f:
         try:
@@ -116,8 +129,9 @@ async def journal_logs(target_dir: Path, _: BugReport, num_days: int = 7) -> Non
                 ["journalctl", "--since", f"{num_days} days ago"],
                 stdout=f,
                 timeout=COMMAND_TIMEOUT,
+                on_line=on_output,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise RuntimeError(
                 "Journalctl didn't finish dumping the logs in 600 seconds"
             )
@@ -140,46 +154,62 @@ async def journal_logs(target_dir: Path, _: BugReport, num_days: int = 7) -> Non
         )
 
 
-async def acpidump(target_dir: Path, _: BugReport) -> None:
+async def acpidump(
+    target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
+) -> None:
     await asp_check_call(
         [
             "acpidump",
             "-o",
             str(target_dir.absolute() / "acpidump.log"),
         ],
+        on_line=on_output,
     )
 
 
-async def dmesg_of_current_boot(target_dir: Path, _: BugReport) -> str:
+async def dmesg_of_current_boot(
+    target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
+) -> str:
     with open("/proc/sys/kernel/random/boot_id") as boot_id_file:
         boot_id = boot_id_file.read().strip().replace("-", "")
         with open(target_dir / f"dmesg-of-boot-{boot_id}.log", "w") as f:
             await asp_check_call(
-                ["journalctl", "--dmesg"], timeout=COMMAND_TIMEOUT, stdout=f
+                ["journalctl", "--dmesg"],
+                timeout=COMMAND_TIMEOUT,
+                stdout=f,
+                on_line=on_output,
             )
             return f"Saved dmesg logs of boot {boot_id} to {f.name}"
 
 
-async def snap_list(target_dir: Path, _: BugReport):
+async def snap_list(
+    target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
+):
     with open(target_dir / "snap_list.log", "w") as f:
         await asp_check_call(
             ["snap", "list", "--all"],
             stdout=f,
             timeout=COMMAND_TIMEOUT,
+            on_line=on_output,
         )
 
 
-async def snap_debug(target_dir: Path, _: BugReport):
+async def snap_debug(
+    target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
+):
     script_path = importlib.resources.files("bugit_v2.dut_utils") / "snap_debug.sh"
     with open(target_dir / "snap_debug.log", "w") as f:
         await asp_check_call(
             [str(script_path)],
             stdout=f,
             timeout=COMMAND_TIMEOUT,
+            on_line=on_output,
         )
 
 
-async def pack_checkbox_submission(target_dir: Path, bug_report: BugReport):
+async def pack_checkbox_submission(
+    target_dir: Path, bug_report: BugReport, _on_output: Callable[[str], None] | None
+):
     assert (
         bug_report.checkbox_submission is not None
     ), "Can't use this collector if there's no checkbox submission"
@@ -193,7 +223,9 @@ async def pack_checkbox_submission(target_dir: Path, bug_report: BugReport):
     return f"Added checkbox submission to {target_dir}"
 
 
-async def long_job_outputs(target_dir: Path, bug_report: BugReport):
+async def long_job_outputs(
+    target_dir: Path, bug_report: BugReport, _on_output: Callable[[str], None] | None
+):
     """
     Only used when the job's stdout is way too long for the description
     """
@@ -224,7 +256,9 @@ async def long_job_outputs(target_dir: Path, bug_report: BugReport):
         return f"Added job {','.join(added_keys)} to {target_dir}"
 
 
-async def oem_getlogs(target_dir: Path, _: BugReport):
+async def oem_getlogs(
+    target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
+):
     assert target_dir.exists(), f"Target directory {target_dir} does not exist"
     dump_coef_path = Path("/sys/module/snd_hda_codec/parameters/dump_coef")
     if dump_coef_path.exists():
@@ -234,10 +268,12 @@ async def oem_getlogs(target_dir: Path, _: BugReport):
                 logger.info(f"wrote 1 to {dump_coef_path}")
             except OSError:
                 pass
-    await asp_check_output(["oem-getlogs"], cwd=target_dir)
+    await asp_check_output(["oem-getlogs"], cwd=target_dir, on_line=on_output)
 
 
-async def sosreport(target_dir: Path, _: BugReport):
+async def sosreport(
+    target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
+):
     if host_is_ubuntu_core():
         raise RuntimeError("SOS Report cannot run on ubuntu core")
     assert target_dir.exists(), f"Target directory {target_dir} does not exist"
@@ -255,17 +291,23 @@ async def sosreport(target_dir: Path, _: BugReport):
             str(target_dir),
         ],
         timeout=COMMAND_TIMEOUT,
+        on_line=on_output,
     )
 
 
-async def slow(target_dir: Path, bug_report: BugReport, secs: int):
-    await asp_check_call(["sleep", "10"])
+async def slow(
+    target_dir: Path,
+    bug_report: BugReport,
+    on_output: Callable[[str], None] | None,
+    secs: int,
+):
+    await asp_check_call(["sleep", "10"], on_line=on_output)
 
 
 mock_collectors: Sequence[LogCollector] = (
-    LogCollector("slow2", lambda p, b: slow(p, b, 30), "Slow2"),
-    LogCollector("slow1", lambda p, b: slow(p, b, 10), "Slow1"),
-    LogCollector("fast1", lambda p, b: slow(p, b, 2), "Fast1"),
+    LogCollector("slow2", lambda p, b, o: slow(p, b, o, 30), "Slow2"),
+    LogCollector("slow1", lambda p, b, o: slow(p, b, o, 10), "Slow1"),
+    LogCollector("fast1", lambda p, b, o: slow(p, b, o, 2), "Fast1"),
 )
 
 
@@ -307,7 +349,9 @@ real_collectors: Sequence[LogCollector] = (
     ),
     LogCollector(
         "journalctl-7-days",
-        lambda target_dir, bug_report: journal_logs(target_dir, bug_report, 7),
+        lambda target_dir, bug_report, on_output: journal_logs(
+            target_dir, bug_report, on_output, 7
+        ),
         "Journal Logs of This Week",
         False,
         'journalctl --since="1 week ago"',
@@ -315,7 +359,9 @@ real_collectors: Sequence[LogCollector] = (
     ),
     LogCollector(
         "journalctl-3-days",
-        lambda target_dir, bug_report: journal_logs(target_dir, bug_report, 3),
+        lambda target_dir, bug_report, on_output: journal_logs(
+            target_dir, bug_report, on_output, 3
+        ),
         "Journal Logs of the Last 3 Days",
         False,
         'journalctl --since="3 days ago"',
