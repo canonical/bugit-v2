@@ -5,7 +5,7 @@ import shutil
 import time
 from pathlib import Path
 from tempfile import mkdtemp
-from typing import Final, Literal, final
+from typing import Final, Literal, final, override
 
 from textual import on, work
 from textual.app import ComposeResult
@@ -16,7 +16,6 @@ from textual.screen import Screen
 from textual.timer import Timer
 from textual.widgets import Button, Footer, Label, ProgressBar, RichLog, Static
 from textual.worker import Worker, WorkerState
-from typing_extensions import override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
@@ -59,11 +58,14 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     progress_start_time: float
 
     attachment_dir: Path
-    log_widget: RichLog | None = None  # late init in on_mount
+    log_widget: RichLog | None = None  # late init in on_mount, collector output only
+    activity_log_widget: RichLog | None = None  # late init in on_mount, everything else
     upload_attempted = False
 
     # tracks when each log collector was launched so we can show elapsed time
     collector_start_times: dict[LogName, float]
+    # tracks the most recent stdout line streamed from each running collector
+    collector_last_line: dict[LogName, str]
     collector_status_timer: Timer | None = None
 
     submitter: Final[BugReportSubmitter[TAuth]]
@@ -88,6 +90,16 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         height: auto;
         border: round $primary;
         padding: 0 1;
+    }
+
+    #activity_log {
+        height: 40%;
+        border: round $primary;
+    }
+
+    #submission_logs {
+        height: 1fr;
+        border: round $primary;
     }
     """
 
@@ -122,6 +134,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         self.attachment_worker_checker_timers = {}
         self.upload_workers = {}
         self.collector_start_times = {}
+        self.collector_last_line = {}
         self.progress_start_time = time.time()
 
         super().__init__(name, id, classes)
@@ -129,6 +142,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     @work
     async def on_mount(self) -> None:
         self.log_widget = self.query_exactly_one("#submission_logs", RichLog)
+        self.activity_log_widget = self.query_exactly_one("#activity_log", RichLog)
         self.query_exactly_one("#menu_after_finish").display = False
 
         if self.submitter.auth_modal:
@@ -195,7 +209,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             self.collector_status_timer.stop()
         for key, worker in self.attachment_workers.items():
             if worker.is_running:
-                self._log_with_time(f"Unmount, cancelling collector [b]{key}[/]")
+                self._log_collector(f"Unmount, cancelling collector [b]{key}[/]")
                 worker.cancel()
         for key, worker in self.upload_workers.items():
             if worker.is_running:
@@ -226,7 +240,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     target_file_name = slugify(str(file.parent)) + "_" + file.name
                 shutil.copy(file, self.attachment_dir / target_file_name)
             except Exception as e:
-                self._log_with_time(f"[red]Failed to copy {file}: {e}")
+                self._log_collector(f"[red]Failed to copy {file}: {e!r}")
 
         # get the log collectors running first
         # all log collectors are allowed to fail. If they do, write a message
@@ -235,11 +249,34 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
             async def run_collect(log: LogName):
                 collector = LOG_NAME_TO_COLLECTOR[log]
+                last_logged_at = 0.0
+                # chatty collectors (e.g. a week of journalctl, snap-debug)
+                # can emit tens of thousands of lines; throttle how often we
+                # write to the RichLog to avoid flooding the UI/memory, while
+                # still updating the status panel's "latest line" every time
+                min_log_interval = 0.2
+
+                def stream_line(line: str) -> None:
+                    nonlocal last_logged_at
+                    stripped = line.strip()
+                    if not stripped:
+                        return
+                    self.collector_last_line[log] = stripped
+                    now = time.time()
+                    if now - last_logged_at < min_log_interval:
+                        return
+                    last_logged_at = now
+                    self._log_collector(
+                        f"[grey58]{collector.display_name}[/] | {escape_markup(stripped)}"
+                    )
+
                 try:
-                    rv = await collector.collect(self.attachment_dir, self.bug_report)
+                    rv = await collector.collect(
+                        self.attachment_dir, self.bug_report, stream_line
+                    )
                     if rv and rv.strip():
                         # only show non-empty, non-null messages
-                        self._log_with_time(
+                        self._log_collector(
                             " ".join(
                                 [
                                     "[green]OK[/]",
@@ -249,7 +286,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                             )
                         )
                     else:
-                        self._log_with_time(
+                        self._log_collector(
                             " ".join(
                                 [
                                     "[green]OK[/]",
@@ -259,7 +296,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                             )
                         )
                 except Exception as e:
-                    self._log_with_time(
+                    self._log_collector(
                         " ".join(
                             [
                                 f"[red]FAIL[/red] {collector.display_name} failed:",
@@ -269,11 +306,12 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     )
                     logger.error(repr(e))
                     if collector.manual_collection_command:
-                        self._log_with_time(
+                        self._log_collector(
                             f"You can rerun [blue]{collector.display_name}[/] "
                             + f"with [blue]{collector.manual_collection_command}[/]"
                         )
                 finally:
+                    self.collector_last_line.pop(log, None)
                     progress_bar.advance()
 
             def check_if_worker_is_pending(name: LogName):
@@ -282,7 +320,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     if (t := LOG_NAME_TO_COLLECTOR[name].advertised_timeout) is not None:
                         msg += f" (timeout: {t}s)"
                     msg += "..."
-                    self._log_with_time(msg)
+                    self._log_collector(msg)
                 else:
                     self.attachment_worker_checker_timers[name].stop()
 
@@ -300,14 +338,14 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             msg = f"Launched collector: {display_name}"
             if (t := LOG_NAME_TO_COLLECTOR[log_name].advertised_timeout) is not None:
                 msg += f" (timeout: {t}s)"
-            self._log_with_time(msg)
+            self._log_collector(msg)
 
-        self._log_with_time(
+        self._log_collector(
             "[blue]Slow collectors will print a status report every 30 seconds"
         )
 
     def start_parallel_attachment_upload(self) -> None:
-        assert self.log_widget
+        assert self.activity_log_widget
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
 
         def upload_one(f: Path):
@@ -331,7 +369,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 else:
                     self._log_with_time(f"[green]OK[/] [b]Uploaded {f.name}[/b]")
             except Exception as e:
-                self._log_with_time(f"[red]FAIL[/red] failed to upload {f}: {repr(e)}")
+                self._log_with_time(f"[red]FAIL[/red] failed to upload {f}: {e!r}")
                 raise e  # mark the worker as failed
             finally:
                 progress_bar.advance()
@@ -348,7 +386,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             self._log_with_time(f"Uploading: {file.name}")
 
     def start_sequential_attachment_upload(self) -> None:
-        assert self.log_widget
+        assert self.activity_log_widget
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
 
         def upload_all():
@@ -373,9 +411,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                         self._log_with_time(f"[green]OK[/] [b]Uploaded {f.name}[/b]")
                 except Exception as e:
                     failed_attachments.append(f.name)
-                    self._log_with_time(
-                        f"[red]FAIL[/red] failed to upload {f}: {repr(e)}"
-                    )
+                    self._log_with_time(f"[red]FAIL[/red] failed to upload {f}: {e!r}")
                 finally:
                     progress_bar.advance()
 
@@ -394,7 +430,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
     def create_bug(self) -> None:
         """Do the entire bug creation sequence. This should be run in a worker"""
-        assert self.log_widget
+        assert self.activity_log_widget
 
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
         display_name = self.submitter.display_name or self.submitter.name
@@ -503,7 +539,12 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         if event.worker.state == WorkerState.CANCELLED:
-            self._log_with_time(f"[yellow]{event.worker.name} was cancelled[/]")
+            log = (
+                self._log_collector
+                if event.worker.name in self.attachment_workers
+                else self._log_with_time
+            )
+            log(f"[yellow]{event.worker.name} was cancelled[/]")
 
         if self.finished:
             # don't do the following callbacks if finished
@@ -529,7 +570,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     def cancel_all_unfinished_collectors(self, event: Button.Pressed):
         for key, worker in self.attachment_workers.items():
             if worker.is_running:
-                self._log_with_time(f"Cancelling collector [b]{key}[/]")
+                self._log_collector(f"Cancelling collector [b]{key}[/]")
                 worker.cancel()
                 self.attachment_worker_checker_timers[key].stop()
                 self.query_exactly_one("#progress", ProgressBar).advance()
@@ -554,10 +595,19 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     show_eta=False,
                 )
             yield Static(id="collector_status", markup=True)
+            yield Label("Submission Activity", classes="mt1")
+            yield RichLog(
+                id="activity_log",
+                markup=True,
+                wrap=True,
+                max_lines=2000,
+            )
+            yield Label("Collector Output", classes="mt1")
             yield RichLog(
                 id="submission_logs",
                 markup=True,
                 wrap=True,
+                max_lines=5000,
             )
             with HorizontalGroup(classes="w100 right"):
                 yield Button(
@@ -572,23 +622,18 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         with VerticalGroup(classes="db"):
             with VerticalGroup(classes="w100 ha center tbm1", id="menu_after_finish"):
                 yield Center(Label(classes="wa", id="finish_message"))
-                with Center():
-                    with HorizontalGroup(classes="wa center"):
-                        if self.mode == "screen":
-                            if self.bug_report.checkbox_session:
-                                yield Button(
-                                    "Select another session",
-                                    classes="mr1",
-                                    id="session",
-                                )
-                                yield Button(
-                                    "Select another job", classes="mr1", id="job"
-                                )
-                            if self.bug_report.checkbox_submission:
-                                yield Button(
-                                    "Select another job", classes="mr1", id="job"
-                                )
-                        yield Button("Quit", id="quit")
+                with Center(), HorizontalGroup(classes="wa center"):
+                    if self.mode == "screen":
+                        if self.bug_report.checkbox_session:
+                            yield Button(
+                                "Select another session",
+                                classes="mr1",
+                                id="session",
+                            )
+                            yield Button("Select another job", classes="mr1", id="job")
+                        if self.bug_report.checkbox_submission:
+                            yield Button("Select another job", classes="mr1", id="job")
+                    yield Button("Quit", id="quit")
 
             yield Footer()
 
@@ -626,20 +671,39 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 if collector.advertised_timeout is not None
                 else ""
             )
+            last_line = self.collector_last_line.get(name)
+            if last_line and len(last_line) > 80:
+                last_line = last_line[:77] + "..."
+            last_line_suffix = f" — {escape_markup(last_line)}" if last_line else ""
             lines.append(
-                f"  - {collector.display_name}: {elapsed:.0f}s elapsed{timeout_suffix}"
+                f"  - {collector.display_name}: {elapsed:.0f}s elapsed{timeout_suffix}{last_line_suffix}"
             )
 
         status_widget.update("\n".join(lines))
 
     def _log_with_time(self, msg: str):
-        if self.log_widget is None:
+        """Logs a general "activity" message: bug creation steps, auth,
+        uploads, finalize, etc. Anything that isn't raw collector output or
+        collector status belongs here. See `_log_collector` for that.
+        """
+        self._write_log(self.activity_log_widget, msg)
+
+    def _log_collector(self, msg: str):
+        """Logs a collector-specific message: launch/status/stdout/result.
+
+        Kept in its own widget so verbose collectors (journalctl, dmesg,
+        snap-debug, etc.) don't drown out the higher-signal activity log.
+        """
+        self._write_log(self.log_widget, msg)
+
+    def _write_log(self, widget: RichLog | None, msg: str):
+        if widget is None:
             logger.warning("Uninitialized log widget")
             return
         # 999 seconds is about 2 hours
         # should be enough digits
         s = f"{round(time.time() - self.progress_start_time, 1)}".rjust(6)
-        self.log_widget.write(f"[grey70][ {s} ][/] {msg}")
+        widget.write(f"[grey70][ {s} ][/] {msg}")
 
     def _bug_creation_worker_callback(self, event: Worker.StateChanged):
         if event.worker.name != WorkerName.BUG_CREATION:
@@ -661,7 +725,6 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                         def dismiss_wrapper(_: ReturnScreenChoice | None):
                             # force a null return to avoid awaiting inside a msg handler
                             self.dismiss("report_editor")
-                            return None
 
                         self.app.push_screen(
                             ConfirmScreen[ReturnScreenChoice](
@@ -676,7 +739,6 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
                         def dismiss_wrapper(_: ReturnScreenChoice | None):
                             self.dismiss("quit")
-                            return None
 
                         self.app.push_screen(
                             ConfirmScreen[Literal["quit"]](
@@ -705,7 +767,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 if self._ready_to_upload_attachments():
                     self._launch_upload_workers()
             case WorkerState.ERROR:
-                self._log_with_time(
+                self._log_collector(
                     f"[red]Collector {event.worker.name} failed! {escape_markup(repr(event.worker.error))}"
                 )
             case _:
@@ -742,7 +804,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 )
         except Exception as e:
             finalize_ok = False
-            self._log_with_time(f"[red]ERR when finalizing[/]: {repr(e)}")
+            self._log_with_time(f"[red]ERR when finalizing[/]: {e!r}")
             logger.error(e)
 
         finish_message_lines = ["[green]Submission finished![/]"]
