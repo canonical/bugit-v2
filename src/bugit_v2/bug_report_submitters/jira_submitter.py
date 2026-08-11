@@ -54,12 +54,12 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
     }
 
     JiraAuthModal Input {
-        border: round $boost 700%;
+        border: round #bcbcbc 700%;
         background: $background 100%;
     }
 
     JiraAuthModal Checkbox {
-        border: round $boost 700%;
+        border: round #bcbcbc 700%;
         background: $background 100%;
     }
 
@@ -82,7 +82,9 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
                 id="token",
             )
             yield Label("https://id.atlassian.com/manage-profile/security/api-tokens")
-            yield Label('Create a "Classic" token, not the granular one')
+            yield Label(
+                "Create a [$warning][b]classic[/][/] token, not the granular one"
+            )
             yield Checkbox(
                 "Cache valid credentials until next boot",
                 tooltip=(
@@ -95,9 +97,9 @@ class JiraAuthModal(ModalScreen[tuple[JiraBasicAuth, bool] | None]):
             yield Center(Button("Continue", id="continue_button", disabled=True))
 
     def on_mount(self):
-        self.query_exactly_one(
-            "#top_level_container"
-        ).border_title = "Jira Authentication"
+        self.query_exactly_one("#top_level_container").border_title = (
+            "Jira Authentication"
+        )
 
         email_input = self.query_exactly_one("#email")
         email_input.border_title = "Email"
