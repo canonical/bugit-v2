@@ -139,7 +139,7 @@
 }
 
 .default_box {
-    border: round #bcbcbc;
+    border: round $secondary-muted;
     padding: 0;
     background: white 0%;
 }
