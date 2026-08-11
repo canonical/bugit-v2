@@ -35,18 +35,35 @@ async def _stream_lines(
     :return: all the bytes read from the stream, concatenated. Empty bytes if
         `capture` is False.
     """
+    _CHUNK_SIZE = 65536  # 64 KiB – avoids StreamReader's line-length limit
     chunks: list[bytes] = []
+    remainder = b""
     while True:
-        line = await stream.readline()
-        if not line:
+        chunk = await stream.read(_CHUNK_SIZE)
+        if not chunk:
+            # EOF – flush any unterminated final line
+            if remainder:
+                if capture:
+                    chunks.append(remainder)
+                if dest_file is not None:
+                    dest_file.write(remainder.decode(errors="replace"))
+                    dest_file.flush()
+                if on_line is not None:
+                    on_line(remainder.decode(errors="replace").rstrip("\n"))
             break
-        if capture:
-            chunks.append(line)
-        if dest_file is not None:
-            dest_file.write(line.decode(errors="replace"))
-            dest_file.flush()
-        if on_line is not None:
-            on_line(line.decode(errors="replace").rstrip("\n"))
+        # Split into complete lines; keep any trailing partial line for the
+        # next iteration so callers always see whole logical lines.
+        lines = (remainder + chunk).split(b"\n")
+        remainder = lines.pop()  # last element is the incomplete line (may be b"")
+        for line in lines:
+            line_with_nl = line + b"\n"
+            if capture:
+                chunks.append(line_with_nl)
+            if dest_file is not None:
+                dest_file.write(line_with_nl.decode(errors="replace"))
+                dest_file.flush()
+            if on_line is not None:
+                on_line(line.decode(errors="replace"))
 
     return b"".join(chunks) if capture else b""
 
