@@ -88,7 +88,6 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     #collector_status {
         display: none;
         height: auto;
-        border: round $primary;
         padding: 0 1;
     }
 
@@ -100,6 +99,11 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     #submission_logs {
         height: 1fr;
         border: round $primary;
+    }
+
+    #progress_bar_status_container {
+        border: round $accent;
+        padding: 0;
     }
 
     RichLog {
@@ -320,7 +324,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
             def check_if_worker_is_pending(name: LogName):
                 if self.attachment_workers[name].is_running:
-                    msg = LOG_NAME_TO_COLLECTOR[name].display_name + " is still running"
+                    msg = f"{LOG_NAME_TO_COLLECTOR[name].display_name} is still running"
                     if (t := LOG_NAME_TO_COLLECTOR[name].advertised_timeout) is not None:
                         msg += f" (timeout: {t}s)"
                     msg += "..."
@@ -590,15 +594,16 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         yield SimpleHeader()
 
         with Center(classes="lrm1"):
-            with HorizontalGroup(classes="w100"):
-                yield Label("Submission Progress", classes="mr1")
-                yield ProgressBar(
-                    total=self.submitter.steps
-                    + len(self.bug_report.logs_to_include) * 2,  # collect + upload
-                    id="progress",
-                    show_eta=False,
-                )
-            yield Static(id="collector_status", markup=True)
+            with VerticalGroup(id="progress_bar_status_container"):
+                with HorizontalGroup(classes="w100"):
+                    yield Label("Submission Progress", classes="mr1")
+                    yield ProgressBar(
+                        total=self.submitter.steps
+                        + len(self.bug_report.logs_to_include) * 2,  # collect + upload
+                        id="progress",
+                        show_eta=False,
+                    )
+                yield Static(id="collector_status", markup=True)
             al = RichLog(
                 id="activity_log",
                 markup=True,
@@ -667,7 +672,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         status_widget.display = True
         now = time.time()
         lines = [
-            f"[b]{len(running_names)}[/b] log collector(s) still running:",
+            f"{len(running_names)} log collector(s) still running:",
         ]
 
         for name in running_names:
@@ -681,9 +686,9 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             last_line = self.collector_last_line.get(name)
             if last_line and len(last_line) > 80:
                 last_line = last_line[:77] + "..."
-            last_line_suffix = f" — {escape_markup(last_line)}" if last_line else ""
+            last_line_suffix = f" - {escape_markup(last_line)}" if last_line else ""
             lines.append(
-                f"  - {collector.display_name}: {elapsed:.0f}s elapsed{timeout_suffix}{last_line_suffix}"
+                f"  - [$secondary]{collector.display_name}[/]: {elapsed:.0f}s elapsed{timeout_suffix}{last_line_suffix}"
             )
 
         status_widget.update("\n".join(lines))
