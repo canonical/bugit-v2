@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 COMMAND_TIMEOUT = 10 * 60  # 10 minutes
 NVIDIA_BUG_REPORT_PATH = (
-    HOST_FS / "/usr/bin/nvidia-bug-report.sh"
+    (HOST_FS / "usr/bin/nvidia-bug-report.sh")
     if is_snap()
     else Path("/usr/bin/nvidia-bug-report.sh")
 )
