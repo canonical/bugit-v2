@@ -35,7 +35,7 @@ if ! [ $(id -u) = 0 ]; then
 	exit 1
 fi
 
-if ! which apt 2>&1 > /dev/null; then
+if ! nsenter -t 1 -m -- which apt 2>&1 > /dev/null; then
 	echo "Cannot run sos report in ubuntu core"
 	exit 1
 fi
