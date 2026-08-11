@@ -28,9 +28,19 @@
 # CAP_SYS_ADMIN/ptrace access to /proc/1.
 set -e
 
+if ! [ $(id -u) = 0 ]; then
+	echo "You must run this as root"
+	exit 1
+fi
+
+if ! which apt 2>&1 > /dev/null; then
+	echo "Cannot run sos report in ubuntu core"
+	exit 1
+fi
+
 if ! nsenter -t 1 -m -- snap list sosreport >/dev/null 2>&1; then
-    echo "sosreport snap not found on host, installing it now..." >&2
-    nsenter -t 1 -m -- snap install --classic sosreport
+	echo "sosreport snap not found on host, installing it now..." >&2
+	nsenter -t 1 -m -- snap install --classic sosreport
 fi
 
 exec nsenter -t 1 -m -- /snap/bin/sosreport.sos "$@"
