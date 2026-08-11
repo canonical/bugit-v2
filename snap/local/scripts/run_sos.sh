@@ -28,6 +28,8 @@
 # CAP_SYS_ADMIN/ptrace access to /proc/1.
 set -e
 
+export HWLOC_COMPONENTS=-gl
+
 if ! [ $(id -u) = 0 ]; then
 	echo "You must run this as root"
 	exit 1
