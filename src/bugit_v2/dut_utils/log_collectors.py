@@ -15,13 +15,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from bugit_v2.models.bug_report import BugReport, LogName
-from bugit_v2.utils import host_is_ubuntu_core
+from bugit_v2.utils import host_is_ubuntu_core, is_snap
 from bugit_v2.utils.async_subprocess import asp_check_call, asp_check_output
-from bugit_v2.utils.constants import MAX_JOB_OUTPUT_LEN
+from bugit_v2.utils.constants import HOST_FS, MAX_JOB_OUTPUT_LEN
 
 logger = logging.getLogger(__name__)
 
 COMMAND_TIMEOUT = 10 * 60  # 10 minutes
+NVIDIA_BUG_REPORT_PATH = (
+    HOST_FS / "/usr/bin/nvidia-bug-report.sh"
+    if is_snap()
+    else Path("/usr/bin/nvidia-bug-report.sh")
+)
 
 
 @dataclass(slots=True, frozen=True)
