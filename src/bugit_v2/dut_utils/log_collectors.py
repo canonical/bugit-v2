@@ -265,10 +265,21 @@ async def oem_getlogs(
         with dump_coef_path.open("w") as f:
             try:
                 f.write("1")
-                logger.info(f"wrote 1 to {dump_coef_path}")
+                logger.info(f"Wrote 1 to {dump_coef_path} before calling oem-getlogs")
             except OSError:
                 pass
-    await asp_check_output(["oem-getlogs"], cwd=target_dir, on_line=on_output)
+    await asp_check_output(
+        [
+            "nsenter",
+            "--target",
+            "1",
+            "--mount",
+            # must switch cwd after entering namespace
+            f"--wdns={target_dir.absolute()}",
+            "oem-getlogs",
+        ],
+        on_line=on_output,
+    )
 
 
 async def sosreport(
