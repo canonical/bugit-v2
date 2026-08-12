@@ -61,6 +61,7 @@ async def checkbox_exec(
 
     final_cmd = [
         "sudo",
+        "--non-interactive",
         "nsenter",
         "--target",
         "1",
