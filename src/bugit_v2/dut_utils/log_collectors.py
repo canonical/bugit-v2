@@ -10,6 +10,7 @@ import importlib.resources
 import logging
 import os
 import shutil
+import subprocess
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -82,6 +83,8 @@ async def nvidia_bug_report(
 ) -> str:
     return await asp_check_output(
         [
+            "sudo",
+            "--non-interactive",
             "nsenter",
             "--target",
             "1",
@@ -139,6 +142,8 @@ async def acpidump(
 ) -> None:
     await asp_check_call(
         [
+            "sudo",
+            "--non-interactive",
             "acpidump",
             "-o",
             str(target_dir.absolute() / "acpidump.log"),
@@ -154,7 +159,7 @@ async def dmesg_of_current_boot(
         boot_id = boot_id_file.read().strip().replace("-", "")
         with open(target_dir / f"dmesg-of-boot-{boot_id}.log", "w") as f:
             await asp_check_call(
-                ["journalctl", "--dmesg"],
+                ["sudo", "--non-interactive", "journalctl", "--dmesg"],
                 timeout=COMMAND_TIMEOUT,
                 stdout=f,
                 on_line=on_output,
@@ -180,7 +185,7 @@ async def snap_debug(
     script_path = importlib.resources.files("bugit_v2.dut_utils") / "snap_debug.sh"
     with open(target_dir / "snap_debug.log", "w") as f:
         await asp_check_call(
-            [str(script_path)],
+            ["sudo", "--non-interactive", str(script_path)],
             stdout=f,
             timeout=COMMAND_TIMEOUT,
             on_line=on_output,
@@ -242,14 +247,21 @@ async def oem_getlogs(
     assert target_dir.exists(), f"Target directory {target_dir} does not exist"
     dump_coef_path = Path("/sys/module/snd_hda_codec/parameters/dump_coef")
     if dump_coef_path.exists():
-        with dump_coef_path.open("w") as f:
-            try:
-                f.write("1")
-                logger.info(f"Wrote 1 to {dump_coef_path} before calling oem-getlogs")
-            except OSError:
-                pass
+        try:
+            subprocess.run(
+                ["sudo", "--non-interactive", "tee", str(dump_coef_path)],
+                input="1",
+                text=True,
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )
+            logger.info(f"Wrote 1 to {dump_coef_path} before calling oem-getlogs")
+        except OSError:
+            pass
     await asp_check_output(
         [
+            "sudo",
+            "--non-interactive",
             "nsenter",
             "--target",
             "1",
@@ -270,6 +282,8 @@ async def sosreport(
     assert target_dir.exists(), f"Target directory {target_dir} does not exist"
     await asp_check_call(
         [
+            "sudo",
+            "--non-interactive",
             "nsenter",
             "--target",
             "1",
