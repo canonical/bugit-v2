@@ -256,7 +256,7 @@ async def oem_getlogs(
                 stdout=subprocess.DEVNULL,
             )
             logger.info(f"Wrote 1 to {dump_coef_path} before calling oem-getlogs")
-        except OSError:
+        except (OSError, subprocess.CalledProcessError):
             pass
     await asp_check_output(
         [
