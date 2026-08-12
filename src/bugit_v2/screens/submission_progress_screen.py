@@ -792,16 +792,17 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         give_up_btn.styles.width = "auto"
 
         # make sure we own everything before uploading
-        subprocess.check_call(
-            [
-                "sudo",
-                "--non-interactive",
-                "chown",
-                "-R",
-                str(os.getuid()),
-                str(self.attachment_dir.absolute()),
-            ]
-        )
+        if self.mode == "screen":
+            subprocess.check_call(
+                [
+                    "sudo",
+                    "--non-interactive",
+                    "chown",
+                    "-R",
+                    str(os.getuid()),
+                    str(self.attachment_dir.absolute()),
+                ]
+            )
 
         if self.submitter.allow_parallel_upload:
             self.start_parallel_attachment_upload()
