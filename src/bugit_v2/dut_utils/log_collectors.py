@@ -159,7 +159,7 @@ async def dmesg_of_current_boot(
         boot_id = boot_id_file.read().strip().replace("-", "")
         with open(target_dir / f"dmesg-of-boot-{boot_id}.log", "w") as f:
             await asp_check_call(
-                ["sudo", "--non-interactive", "journalctl", "--dmesg"],
+                ["journalctl", "--dmesg"],
                 timeout=COMMAND_TIMEOUT,
                 stdout=f,
                 on_line=on_output,
