@@ -289,6 +289,8 @@ async def sosreport(
             "1",
             "--mount",
             "--",
+            "env",
+            "HWLOC_COMPONENTS=-gl",
             "/snap/bin/sosreport.sos",
             "report",
             "--batch",

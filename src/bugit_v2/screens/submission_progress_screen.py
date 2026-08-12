@@ -132,7 +132,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             self.attachment_dir = attachment_dir
         else:
             try:
-                prefix = Path(os.environ["SNAP_COMMON"]) / "tmp"
+                prefix = Path(os.environ["SNAP_USER_COMMON"]) / "tmp"
                 prefix.mkdir(exist_ok=True)
             except KeyError:
                 prefix = Path("/var/tmp")
