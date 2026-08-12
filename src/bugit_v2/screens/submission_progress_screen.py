@@ -2,6 +2,7 @@ import enum
 import logging
 import os
 import shutil
+import subprocess
 import time
 from pathlib import Path
 from tempfile import mkdtemp
@@ -789,6 +790,18 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         give_up_btn.disabled = True
         give_up_btn.label = "All collectors finished"
         give_up_btn.styles.width = "auto"
+
+        # make sure we own everything before uploading
+        subprocess.check_call(
+            [
+                "sudo",
+                "--non-interactive",
+                "chown",
+                "-R",
+                str(os.getuid()),
+                str(self.attachment_dir.absolute()),
+            ]
+        )
 
         if self.submitter.allow_parallel_upload:
             self.start_parallel_attachment_upload()
