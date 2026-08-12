@@ -42,6 +42,8 @@ def sudo_devmode_check():
     :raises SystemExit: Not installed with --devmode
     """
     if os.getuid() == 0:
+        # should not be invoked with sudo
+        # otherwise all log collectors and checkbox calls will break
         raise SystemExit("Do not run with sudo")
 
     sp.run(["sudo", "-k"], check=False)  # clear sudo cache timer

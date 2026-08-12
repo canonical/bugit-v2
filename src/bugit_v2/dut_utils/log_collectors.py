@@ -144,7 +144,7 @@ async def acpidump(
         [
             "sudo",
             "--non-interactive",
-            "acpidump",
+            str(Path(os.environ["SNAP"]) / "usr/bin/acpidump"),
             "-o",
             str(target_dir.absolute() / "acpidump.log"),
         ],
