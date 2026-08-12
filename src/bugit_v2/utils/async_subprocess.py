@@ -7,8 +7,6 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from typing import IO, Literal
 
-import psutil
-
 logger = logging.getLogger(__name__)
 
 
@@ -125,12 +123,12 @@ async def asp_check_output(
     except TimeoutError as e:
         if proc.returncode is None:
             logger.error(f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)")
-            recursive_kill(proc.pid)
+            proc.kill()
         raise e
     except asyncio.CancelledError as e:
         if proc.returncode is None:
             logger.warning(f"Force killing process {proc.pid}, cmd='{cmd}' (cancelled)")
-            recursive_kill(proc.pid)
+            proc.kill()
         raise e
 
     assert proc.returncode is not None
@@ -201,12 +199,12 @@ async def asp_check_call(
     except TimeoutError as e:
         if proc.returncode is None:
             logger.error(f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)")
-            recursive_kill(proc.pid)
+            proc.kill()
         raise e
     except asyncio.CancelledError as e:
         if proc.returncode is None:
             logger.warning(f"Force killing process {proc.pid}, cmd='{cmd}' (cancelled)")
-            recursive_kill(proc.pid)
+            proc.kill()
         raise e
 
     if rc != 0:
@@ -246,12 +244,12 @@ async def asp_run(
     except TimeoutError as e:
         if proc.returncode is None:
             logger.error(f"Force killing process {proc.pid}, cmd='{cmd}' (timed out)")
-            recursive_kill(proc.pid)
+            proc.kill()
         raise e
     except asyncio.CancelledError as e:
         if proc.returncode is None:
             logger.warning(f"Force killing process {proc.pid}, cmd='{cmd}' (cancelled)")
-            recursive_kill(proc.pid)
+            proc.kill()
         raise e
 
     assert proc.returncode is not None
@@ -259,17 +257,3 @@ async def asp_run(
     return sp.CompletedProcess[str](
         cmd, proc.returncode, stdout.decode(), stderr.decode()
     )
-
-
-def recursive_kill(pid: int):
-    try:
-        parent = psutil.Process(pid)
-
-        for child in parent.children(recursive=True):
-            child.kill()
-
-        parent.kill()
-    except psutil.NoSuchProcess:
-        logger.warning(f"No such process: {pid}")
-    except PermissionError as e:
-        logger.warning(f"Permission error when killing {pid}: {e}")
