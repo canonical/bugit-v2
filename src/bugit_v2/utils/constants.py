@@ -94,7 +94,7 @@ DUT_INFO_DIR = (
 )
 HOST_FS = Path("/var/lib/snapd/hostfs")
 DISK_CACHE_DIR = (
-    Path(os.getenv("SNAP_COMMON", str(Path().home().absolute() / ".cache")))
+    Path(os.getenv("SNAP_USER_COMMON", str(Path().home().absolute() / ".cache")))
     / "bugit-v2-persistent-cache"
 )
 
