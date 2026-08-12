@@ -44,7 +44,7 @@ def sudo_devmode_check():
     if os.getuid() == 0:
         raise SystemExit("Do not run with sudo")
 
-    sp.run(["sudo", "k"], check=False)
+    sp.run(["sudo", "-k"], check=False)  # clear sudo cache timer
     if sp.run(["sudo", "-n", "true"], check=False).returncode != 0:
         raise SystemExit("You don't have permission to run password-less sudo")
 

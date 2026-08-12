@@ -57,16 +57,15 @@ async def checkbox_exec(
     else:
         clean_additional_env = {}
 
-    NSENTER_PREFIX = [
+    final_cmd = [
         "sudo",
         "nsenter",
         "--target",
         "1",
         "--mount",
         "--",
-    ]
-
-    final_cmd = NSENTER_PREFIX + [
+        # nsenter already chroot for us
+        # and we inherit the PATH from normal user invocation
         str(checkbox_info.bin_path.name),
         *checkbox_args,
     ]
