@@ -50,7 +50,9 @@ async def checkbox_exec(
     logger.info(f"Checkbox args: {checkbox_args}")
     if additional_env:
         clean_additional_env = {
-            k: v for k, v in additional_env.items() if not k.startswith("PYTHON")
+            k: v
+            for k, v in additional_env.items()
+            if not k.startswith(("PYTHON", "PATH"))
         }
         logger.info(f"Using additional env: {clean_additional_env}")
 
@@ -75,6 +77,8 @@ async def checkbox_exec(
     return await asp_run(
         final_cmd,
         timeout=timeout,
+        # do not use env= to set env vars here
+        # it will get absorbed by nsenter
     )
 
 
