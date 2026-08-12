@@ -64,17 +64,16 @@ async def checkbox_exec(
         "1",
         "--mount",
         "--",
+        "env",
+        *(f"{k}={v}" for k, v in clean_additional_env.items()),
         # nsenter already chroot for us
         # and we inherit the PATH from normal user invocation
         str(checkbox_info.bin_path.name),
         *checkbox_args,
     ]
-    env = os.environ.copy()
-    env.update(clean_additional_env)
 
     return await asp_run(
         final_cmd,
-        env=env,
         timeout=timeout,
     )
 
