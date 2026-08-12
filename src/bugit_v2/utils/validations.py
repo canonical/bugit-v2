@@ -41,8 +41,12 @@ def sudo_devmode_check():
     :raises SystemExit: Not using sudo
     :raises SystemExit: Not installed with --devmode
     """
-    if os.getuid() != 0:
-        raise SystemExit("Please run this app with \033[4msudo\033[0m")
+    if os.getuid() == 0:
+        raise SystemExit("Do not run with sudo")
+
+    sp.run(["sudo", "k"], check=False)
+    if sp.run(["sudo", "-n", "true"], check=False).returncode != 0:
+        raise SystemExit("You don't have permission to run password-less sudo")
 
     if is_snap() and not bugit_is_in_devmode():
         raise SystemExit(

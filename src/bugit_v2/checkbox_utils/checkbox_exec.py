@@ -1,4 +1,3 @@
-import configparser as cp
 import logging
 import os
 import shutil
@@ -6,7 +5,6 @@ import subprocess as sp
 from functools import lru_cache
 from pathlib import Path
 from subprocess import CalledProcessError, CompletedProcess
-from tempfile import TemporaryDirectory
 from typing import Literal, NamedTuple
 
 from bugit_v2.utils import is_snap
@@ -59,71 +57,27 @@ async def checkbox_exec(
     else:
         clean_additional_env = {}
 
-    if checkbox_info.type == "snap" or not is_snap():
-        # pipx bugit or snap checkbox
-        # no need to setup anything, just run the command
-        logger.info(f"Directly invoking checkbox at {checkbox_info.bin_path}")
-        return await asp_run(
-            [str(checkbox_info.bin_path), *checkbox_args],
-            env=clean_additional_env | os.environ,
-            timeout=timeout,
-        )
-    else:
-        logger.info("Special case, snap bugit calling deb checkbox")
-        with TemporaryDirectory() as temp_dir:
-            for src_file in Path(
-                "/var/lib/snapd/hostfs/usr/share/plainbox-providers-1/"
-            ).iterdir():
-                dst_file = shutil.copy(src_file, temp_dir)
-                provider_config = cp.ConfigParser()
-                provider_config.read(dst_file)
+    NSENTER_PREFIX = [
+        "sudo",
+        "nsenter",
+        "--target",
+        "1",
+        "--mount",
+        "--",
+    ]
 
-                for key in ("bin_dir", "data_dir", "units_dir", "jobs_dir"):
-                    if key not in provider_config["PlainBox Provider"]:
-                        logger.warning(f"No such key '{key}' in {src_file}")
-                        continue
+    final_cmd = NSENTER_PREFIX + [
+        str(checkbox_info.bin_path.name),
+        *checkbox_args,
+    ]
+    env = os.environ.copy()
+    env.update(clean_additional_env)
 
-                    new_path = HOST_FS / (
-                        provider_config["PlainBox Provider"][key]
-                        # vvvvvv prevent pathlib from treating it as abs path
-                    ).lstrip("/")
-
-                    if not new_path.exists():
-                        logger.warning(f"No such path {new_path}")
-                        continue
-
-                    provider_config["PlainBox Provider"][key] = str(new_path)
-                    with open(dst_file, "w") as f:
-                        provider_config.write(f)
-
-            PATH = ":".join(
-                map(
-                    lambda s: str(HOST_FS).rstrip("/") + s,
-                    [
-                        "/usr/local/sbin",
-                        "/usr/local/bin",
-                        "/usr/sbin",
-                        "/usr/bin",
-                        "/sbin",
-                        "/bin",
-                        "/usr/games",
-                        "/usr/local/games",
-                        "/snap/bin",
-                    ],
-                )
-            )
-            return await asp_run(
-                [str(checkbox_info.bin_path), *checkbox_args],
-                env=clean_additional_env
-                | {
-                    "PATH": PATH,
-                    "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages",
-                    "PROVIDERPATH": str(
-                        Path(temp_dir).absolute(),
-                    ),
-                },
-                timeout=timeout,
-            )
+    return await asp_run(
+        final_cmd,
+        env=env,
+        timeout=timeout,
+    )
 
 
 @lru_cache
