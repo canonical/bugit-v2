@@ -71,7 +71,11 @@ async def checkbox_exec(
         *(f"{k}={v}" for k, v in clean_additional_env.items()),
         # nsenter already chroot for us
         # and we inherit the PATH from normal user invocation
-        str(checkbox_info.bin_path.name),
+        str(
+            Path("/") / checkbox_info.bin_path.relative_to(HOST_FS)
+            if checkbox_info.bin_path.is_relative_to(HOST_FS)
+            else checkbox_info.bin_path
+        ),
         *checkbox_args,
     ]
 
