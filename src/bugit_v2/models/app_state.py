@@ -1,8 +1,9 @@
 import abc
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Literal, override
+from typing import Any, Literal, override
 
 from textual.screen import Screen
 
@@ -74,7 +75,6 @@ class AppState(abc.ABC):
     @abc.abstractmethod
     def assertions(self) -> None:
         """Do assertion in here"""
-        pass
 
     @abc.abstractmethod
     def go_back(self) -> "AppState | None":
@@ -82,7 +82,6 @@ class AppState(abc.ABC):
 
         :return: None if there's nowhere to go back to, new AppState otherwise
         """
-        pass
 
     @abc.abstractmethod
     def go_forward(self, screen_result: object) -> "AppState":
@@ -90,7 +89,6 @@ class AppState(abc.ABC):
 
         :return: None if there's nowhere to go to, new AppState otherwise
         """
-        pass
 
     @abc.abstractmethod
     def get_screen_constructor(self) -> Callable[[], Screen[Any]]:

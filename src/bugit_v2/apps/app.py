@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import final, override
+from typing import Annotated, final, override
 
 import typer
 from cysystemd import journal
@@ -16,13 +16,14 @@ from textual.logging import TextualHandler
 from textual.reactive import var
 from textual.types import CSSPathType
 from textual.widgets import Label
-from typing_extensions import Annotated
 
 from bugit_v2.bug_report_submitters.jira_submitter import JiraSubmitter
 from bugit_v2.bug_report_submitters.launchpad_submitter import (
     LaunchpadSubmitter,
 )
-from bugit_v2.bug_report_submitters.local_file_submitter import LocalFileSubmitter
+from bugit_v2.bug_report_submitters.local_file_submitter import (
+    LocalFileSubmitter,
+)
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils.checkbox_exec import (
@@ -229,8 +230,10 @@ class BugitApp(App[None]):
             case QuitState():
                 self.exit()
             case _:
-                screen_result = await self.push_screen_wait(  # pyright: ignore[reportAny]
-                    self.state.get_screen_constructor()()
+                screen_result = (
+                    await self.push_screen_wait(  # pyright: ignore[reportAny]
+                        self.state.get_screen_constructor()()
+                    )
                 )
                 self.state = self.state.go_forward(
                     screen_result  # pyright: ignore[reportAny]

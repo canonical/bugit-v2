@@ -1,18 +1,20 @@
-import asyncio
 import contextlib
+import csv
 import gzip
 import json
 import logging
 import os
+import re
 import shutil
-import csv
 from base64 import b64decode
 from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
-import re
 
-from bugit_v2.checkbox_utils.checkbox_exec import checkbox_exec, get_checkbox_info
+from bugit_v2.checkbox_utils.checkbox_exec import (
+    checkbox_exec,
+    get_checkbox_info,
+)
 from bugit_v2.checkbox_utils.checkbox_session import SESSION_ROOT_DIR
 from bugit_v2.checkbox_utils.models import CERT_STATUSES, CertificationStatus
 from bugit_v2.utils import slugify
@@ -69,9 +71,7 @@ async def _cache_cert_status_to_file(
 
     if lb_out.returncode != 0:
         logger.error(lb_out.stderr)
-        raise RuntimeError(
-            f"Failed to run checkbox-cli list-bootstrapped {repr(lb_out)}"
-        )
+        raise RuntimeError(f"Failed to run checkbox-cli list-bootstrapped {lb_out!r}")
 
     filepath.parent.mkdir(parents=True, exist_ok=True)
     with open(filepath, "w", newline="") as f:
@@ -137,7 +137,7 @@ async def _get_cert_status_from_file(
             # see if the template id can match
             try:
                 out = await checkbox_exec(["show", template_id, "--exact"], timeout=5)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
 
             if out.returncode != 0:
@@ -155,7 +155,7 @@ async def _get_cert_status_from_file(
                         return TestCaseWithCertStatus(job_id, cert_status)
 
 
-@lru_cache()
+@lru_cache
 def get_session_envs(session_path: Path) -> dict[str, str]:
     out: dict[str, str] = {}
     env_gz = (

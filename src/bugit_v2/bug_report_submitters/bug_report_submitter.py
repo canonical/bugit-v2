@@ -59,7 +59,6 @@ class BugReportSubmitter[TAuth](abc.ABC):
                 what message to yield. The number of steps here should match
                 the number in self.steps
         """
-        pass
 
     @abc.abstractmethod
     def bug_exists(self, bug_id: str) -> bool:
@@ -73,7 +72,6 @@ class BugReportSubmitter[TAuth](abc.ABC):
         Returning None will cause the submission progress screen to show
         self.auth_modal
         """
-        pass
 
     @abc.abstractmethod
     def upload_attachment(
@@ -86,7 +84,6 @@ class BugReportSubmitter[TAuth](abc.ABC):
                          appears in the target (i.e. Jira/LP/Local tar)
         :return: An optional success message
         """
-        pass
 
     @abc.abstractmethod
     def finalize(self) -> str | None:
@@ -95,7 +92,6 @@ class BugReportSubmitter[TAuth](abc.ABC):
         This is useful if we need something to happen AFTER self.submit and
         all of the self.upload_attachment calls are done.
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -106,4 +102,3 @@ class BugReportSubmitter[TAuth](abc.ABC):
         Concrete submitters should raise if the bug hasn't been created or if
         submit() failed
         """
-        pass

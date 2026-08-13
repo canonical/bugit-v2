@@ -1,7 +1,7 @@
-# <img width="64" height="64" alt="image" src="https://github.com/user-attachments/assets/12c84f78-176e-498b-b52d-48e8c9712309" /> Bugit V2 
+# <img width="64" height="64" alt="image" src="https://github.com/user-attachments/assets/12c84f78-176e-498b-b52d-48e8c9712309" /> Bugit V2
 
 <div align=center>
-  
+
 **Start Here 🡺** [User Guide](https://github.com/canonical/bugit-v2/wiki) | [Features](#features) | [Installation](#installation) | [Development](#development) | [Limitations](#limitations)
 
 </div>

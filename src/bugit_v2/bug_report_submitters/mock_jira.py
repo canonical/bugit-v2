@@ -181,7 +181,9 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
             return None
 
     @override
-    def upload_attachment(self, attachment_file: Path, filename: str | None = None) -> str | None:
+    def upload_attachment(
+        self, attachment_file: Path, filename: str | None = None
+    ) -> str | None:
         time.sleep(random.randint(1, 5))
         print("uploaded", attachment_file)
 

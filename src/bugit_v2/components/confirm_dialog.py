@@ -1,11 +1,10 @@
 from collections.abc import Sequence
-from typing import cast, final
+from typing import cast, final, override
 
 from textual.app import ComposeResult
 from textual.containers import Center, HorizontalGroup
 from textual.screen import ModalScreen
 from textual.widgets import Button, Label
-from typing_extensions import override
 
 
 @final
@@ -43,11 +42,10 @@ class ConfirmScreen[T: str](ModalScreen[T]):
         yield Center(Label(self.prompt, classes="wa"))
         if self.sub_prompt:
             yield Center(Label(self.sub_prompt, classes="wa"))
-        with Center():
-            with HorizontalGroup(classes="center wa"):
-                for display_name, value in self.choices[:-1]:
-                    yield Button(display_name, id=value, classes="mr1")
-                yield Button(self.choices[-1][0], id=self.choices[-1][1])
+        with Center(), HorizontalGroup(classes="center wa"):
+            for display_name, value in self.choices[:-1]:
+                yield Button(display_name, id=value, classes="mr1")
+            yield Button(self.choices[-1][0], id=self.choices[-1][1])
 
     def on_mount(self) -> None:
         if self.focus_id_on_mount:

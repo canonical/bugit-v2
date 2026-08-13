@@ -1,5 +1,6 @@
+from typing import Annotated
+
 from pydantic import BaseModel, EmailStr, StringConstraints
-from typing_extensions import Annotated
 
 from bugit_v2.utils.constants import DUT_INFO_DIR
 

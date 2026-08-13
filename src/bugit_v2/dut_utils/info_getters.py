@@ -51,7 +51,7 @@ async def get_cpu_info() -> str:
                 cpu_names[cpu_name] += 1
 
     cpu_name_strings = [
-        "{} ({}x)".format(cpu_name, count) for cpu_name, count in cpu_names.items()
+        f"{cpu_name} ({count}x)" for cpu_name, count in cpu_names.items()
     ]
 
     return "\n".join(cpu_name_strings)
@@ -74,7 +74,7 @@ async def get_amd_gpu_info(timeout: int | None = 30) -> str | None:
         pcis = (
             (
                 await asp_check_output(
-                    ["lspci", "-Dnm", "-d", "1002{}".format(klass)],
+                    ["lspci", "-Dnm", "-d", f"1002{klass}"],
                     timeout=timeout,
                 )
             )
