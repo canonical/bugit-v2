@@ -144,10 +144,7 @@ def get_checkbox_info() -> CheckboxInfo | None:
             else:
                 # search through /snap/bin and see if a project checkbox is there
                 for executable in os.listdir(HOST_FS / "snap" / "bin"):
-                    if (
-                        executable.endswith("checkbox-cli")
-                        and "ce-oem" not in executable
-                    ):
+                    if executable.endswith("checkbox-cli"):
                         return CheckboxInfo(
                             "snap",
                             (
