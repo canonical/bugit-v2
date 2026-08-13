@@ -1,10 +1,10 @@
 import json
 from pathlib import Path
 from sys import stderr
+from typing import Annotated
 
 import typer
 from rich import print as rich_print
-from typing_extensions import Annotated
 
 from bugit_v2.checkbox_utils.checkbox_session import (
     CheckboxSession,
@@ -65,7 +65,7 @@ def main(
                     f"This session [red]{session_path}[/] doesn't seem valid because of this error:",
                     file=stderr,
                 )
-                print(f"  {repr(e)}", file=stderr)
+                print(f"  {e!r}", file=stderr)
                 continue
             rich_print(f"[yellow]Session directory[/]: [bold white]{session_path}")
             rich_print(f"[yellow]Test Plan[/]: [bold white]{session.testplan_id}")

@@ -1,5 +1,5 @@
 from collections.abc import Mapping, Sequence
-from typing import cast, final
+from typing import cast, final, override
 
 from textual import on
 from textual.app import ComposeResult
@@ -8,7 +8,6 @@ from textual.reactive import var
 from textual.widget import Widget
 from textual.widgets import Button, Label, SelectionList
 from textual.widgets.selection_list import Selection
-from typing_extensions import override
 
 
 @final

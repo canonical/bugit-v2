@@ -1,12 +1,11 @@
 from collections.abc import Sequence
-from typing import Final, Literal, final
+from typing import Final, Literal, final, override
 
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import VerticalGroup
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Label, RadioButton, RadioSet
-from typing_extensions import override
 
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.utils.constants import NullSelection
@@ -60,11 +59,9 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
         with VerticalGroup(classes="dt"):
             yield SimpleHeader()
             yield Label(
-                (
-                    f"[bold][$primary]Select a job in [$secondary] {self.job_id_source_name}"
-                )
+                f"[bold][$primary]Select a job in [$secondary] {self.job_id_source_name}"
             )
-            yield Label((f"[bold][$primary]Test Plan: [$secondary]{self.test_plan}"))
+            yield Label(f"[bold][$primary]Test Plan: [$secondary]{self.test_plan}")
 
         yield RadioSet(
             RadioButton(

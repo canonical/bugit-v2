@@ -50,7 +50,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
         except Exception as e:
             error_message = (
                 f"Project '{project_name}' doesn't exist or you don't have access. "
-                + f"Original error: {repr(e)}"
+                + f"Original error: {e!r}"
             )
             raise ValueError(error_message)
 
@@ -146,7 +146,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
             ],
         )
         # https://documentation.ubuntu.com/launchpad/user/explanation/launchpad-api/launchpadlib/#persistent-references-to-launchpad-objects
-        yield AdvanceMessage(f"Created bug: {str(bug)}")
+        yield AdvanceMessage(f"Created bug: {bug!s}")
 
         task = bug.bug_tasks[0]
         if assignee:

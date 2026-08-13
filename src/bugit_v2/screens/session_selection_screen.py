@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Literal, final
+from typing import Literal, final, override
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -8,7 +8,6 @@ from textual.containers import Vertical, VerticalScroll
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Button, Footer, Label
-from typing_extensions import override
 
 from bugit_v2.checkbox_utils.checkbox_session import (
     SESSION_ROOT_DIR,

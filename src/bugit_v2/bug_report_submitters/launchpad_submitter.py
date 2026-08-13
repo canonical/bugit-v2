@@ -1,8 +1,8 @@
 import os
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Any, Callable, Literal, cast, final, override
+from typing import Any, Literal, cast, final, override
 
 from launchpadlib.credentials import (
     Credentials,
@@ -146,19 +146,18 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool] | None]):
                 ),
                 value=True,
             )
-            with Center(classes="mb1"):
-                with HorizontalGroup(classes="wa"):
-                    yield Button(
-                        "Finish Browser Authentication",
-                        id="finish_button",
-                    )
-                    b = Button(
-                        "Continue",
-                        id="continue_button",
-                        classes="wa",
-                    )
-                    b.display = False
-                    yield b
+            with Center(classes="mb1"), HorizontalGroup(classes="wa"):
+                yield Button(
+                    "Finish Browser Authentication",
+                    id="finish_button",
+                )
+                b = Button(
+                    "Continue",
+                    id="continue_button",
+                    classes="wa",
+                )
+                b.display = False
+                yield b
 
     def on_mount(self):
         self.query_exactly_one("#top_level_container").border_title = (
@@ -266,9 +265,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
                 assignee
             ]
         except Exception as e:
-            error_message = (
-                f"Assignee '{assignee}' doesn't exist. Original error: {repr(e)}"
-            )
+            error_message = f"Assignee '{assignee}' doesn't exist. Original error: {e!r}"
             raise ValueError(error_message)
 
     def check_series_existence(self, series: str) -> Any:
@@ -374,7 +371,7 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
         assert self.lp_bug_object, "Unexpected null bug"
         # https://documentation.ubuntu.com/launchpad/user/explanation/launchpad-api/launchpadlib/#persistent-references-to-launchpad-objects
         yield AdvanceMessage(
-            f"Created bug: {str(self.lp_bug_object)}"  # pyright: ignore[reportUnknownArgumentType]
+            f"Created bug: {self.lp_bug_object!s}"  # pyright: ignore[reportUnknownArgumentType]
         )
 
         task = self.lp_bug_object.bug_tasks[0]  # TODO: is it always non-empty?

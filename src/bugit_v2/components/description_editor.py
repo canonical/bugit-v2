@@ -145,4 +145,4 @@ class DescriptionEditor(Widget):
 
                 self.set_timer(3, f)
         except Exception as e:
-            self.notify(f"Failed to save. Reason {repr(e)}")
+            self.notify(f"Failed to save. Reason {e!r}")

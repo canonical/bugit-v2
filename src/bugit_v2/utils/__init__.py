@@ -6,7 +6,6 @@ import string
 
 from bugit_v2.utils.constants import HOST_FS
 
-
 _VALID_CHARS = frozenset(f"-_.{string.ascii_letters}{string.digits}")
 
 
@@ -45,11 +44,11 @@ def pretty_date(d: dt.datetime) -> str:
     elif s < 60:
         return f"{s} seconds ago"
     elif s < 3600:
-        return "{:.2f} minutes ago".format(s / 60)
+        return f"{s / 60:.2f} minutes ago"
     elif s < 7200:
         return "1 hour ago"
     else:
-        return "{:.2f} hours ago".format(s / 3600)
+        return f"{s / 3600:.2f} hours ago"
 
 
 def slugify(s: str) -> str:

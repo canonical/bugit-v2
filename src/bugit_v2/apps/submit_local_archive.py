@@ -1,25 +1,31 @@
 import json
-import shutil
 import tarfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, final
+from typing import Annotated, Any, final
 
 import typer
 from textual import work
 from textual.app import App
 from textual.driver import Driver
 from textual.types import CSSPathType
-from typing_extensions import Annotated
 
-from bugit_v2.bug_report_submitters.bug_report_submitter import BugReportSubmitter
+from bugit_v2.bug_report_submitters.bug_report_submitter import (
+    BugReportSubmitter,
+)
 from bugit_v2.bug_report_submitters.jira_submitter import JiraSubmitter
-from bugit_v2.bug_report_submitters.launchpad_submitter import LaunchpadSubmitter
-from bugit_v2.bug_report_submitters.local_file_submitter import SERIALIZED_REPORT_NAME
+from bugit_v2.bug_report_submitters.launchpad_submitter import (
+    LaunchpadSubmitter,
+)
+from bugit_v2.bug_report_submitters.local_file_submitter import (
+    SERIALIZED_REPORT_NAME,
+)
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.models.bug_report import BugReport, SerializableBugReport
-from bugit_v2.screens.submission_progress_screen import SubmissionProgressScreen
+from bugit_v2.screens.submission_progress_screen import (
+    SubmissionProgressScreen,
+)
 from bugit_v2.utils import is_prod, is_snap
 
 # these files or directories in the working_dir should not be uploaded to jira/lp

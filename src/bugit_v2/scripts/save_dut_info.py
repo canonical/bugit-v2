@@ -1,7 +1,8 @@
+from typing import Annotated
+
 import typer
 from pydantic import ValidationError
 from rich import print as rich_print
-from typing_extensions import Annotated
 
 from bugit_v2.models.dut_info import DutInfo, get_saved_dut_info
 from bugit_v2.utils import is_prod, is_snap

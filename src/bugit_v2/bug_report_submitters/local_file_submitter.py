@@ -131,5 +131,5 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
             return f"The bug report archive is at {self.archive_path}"
         except Exception as e:
             raise RuntimeError(
-                f"Failed to create archive, you can manually recover the files at {self.working_dir.name}. Original err: {repr(e)}"
+                f"Failed to create archive, you can manually recover the files at {self.working_dir.name}. Original err: {e!r}"
             ) from e

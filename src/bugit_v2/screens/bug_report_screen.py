@@ -1,9 +1,9 @@
 import enum
 import logging
 import uuid
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from functools import wraps
-from typing import Callable, Final, Literal, cast, final
+from typing import Final, Literal, cast, final, override
 
 from textual import on, work
 from textual.app import ComposeResult
@@ -32,7 +32,6 @@ from textual.widgets import (
 )
 from textual.widgets.selection_list import Selection
 from textual.worker import Worker, WorkerState
-from typing_extensions import override
 
 from bugit_v2.checkbox_utils.checkbox_session import CheckboxSession
 from bugit_v2.checkbox_utils.get_cert_status import (
