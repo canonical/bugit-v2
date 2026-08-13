@@ -268,7 +268,10 @@ async def oem_getlogs(
             "--mount",
             # must switch cwd after entering namespace
             f"--wdns={target_dir.absolute()}",
-            "oem-getlogs",
+            "--",
+            "env",
+            f"PYTHONPATH={os.environ['PYTHONPATH']}",
+            str(Path(os.environ["SNAP"]) / "usr/bin/oem-getlogs"),
         ],
         on_line=on_output,
     )
