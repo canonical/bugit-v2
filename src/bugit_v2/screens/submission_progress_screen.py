@@ -2,6 +2,7 @@ import enum
 import logging
 import os
 import shutil
+import subprocess
 import time
 from pathlib import Path
 from tempfile import mkdtemp
@@ -132,7 +133,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             self.attachment_dir = attachment_dir
         else:
             try:
-                prefix = Path(os.environ["SNAP_COMMON"]) / "tmp"
+                prefix = Path(os.environ["SNAP_USER_COMMON"]) / "tmp"
                 prefix.mkdir(exist_ok=True)
             except KeyError:
                 prefix = Path("/var/tmp")
@@ -789,6 +790,19 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         give_up_btn.disabled = True
         give_up_btn.label = "All collectors finished"
         give_up_btn.styles.width = "auto"
+
+        # make sure we own everything before uploading
+        if self.mode == "screen":
+            subprocess.check_call(
+                [
+                    "sudo",
+                    "--non-interactive",
+                    "chown",
+                    "-R",
+                    str(os.getuid()),
+                    str(self.attachment_dir.absolute()),
+                ]
+            )
 
         if self.submitter.allow_parallel_upload:
             self.start_parallel_attachment_upload()

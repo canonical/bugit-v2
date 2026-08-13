@@ -36,13 +36,19 @@ def bugit_is_in_devmode() -> bool:
 
 
 def sudo_devmode_check():
-    """Check for sudo and --devmode
+    """Check for password-less sudo and --devmode
 
-    :raises SystemExit: Not using sudo
+    :raises SystemExit: Directly invoked with sudo
     :raises SystemExit: Not installed with --devmode
     """
-    if os.getuid() != 0:
-        raise SystemExit("Please run this app with \033[4msudo\033[0m")
+    if os.getuid() == 0:
+        # should not be invoked with sudo
+        # otherwise all log collectors and checkbox calls will break
+        raise SystemExit("Do not run with sudo")
+
+    sp.run(["sudo", "-k"], check=False)  # clear sudo cache timer
+    if sp.run(["sudo", "--non-interactive", "true"], check=False).returncode != 0:
+        raise SystemExit("You don't have permission to run password-less sudo")
 
     if is_snap() and not bugit_is_in_devmode():
         raise SystemExit(
