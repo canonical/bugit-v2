@@ -19,9 +19,7 @@ To see more about textual itself, [check out their docs](https://textual.textual
 
 ## Installation
 
-### Snap (recommended for ubuntu core and classic systems older than 24.04)
-
-#### Snap store
+### Snap Store
 
 [![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/bugit)
 
@@ -39,9 +37,9 @@ sudo snap install bugit --beta --devmode
 
 The `stable` channel is reserved for the original bugit at the moment.
 
-Run the app with `sudo bugit.bugit-v2 jira` or `sudo bugit.bugit-v2 lp`
+Run the app with `sudo bugit.bugit-v2 jira`, `sudo bugit.bugit-v2 lp`, or `sudo bugit.bugit-v2 local`
 
-#### Local Snap
+### Local Snap
 
 1. Clone the repo
 1. Install snapcraft `sudo snap install snapcraft --edge --classic`
@@ -50,70 +48,6 @@ Run the app with `sudo bugit.bugit-v2 jira` or `sudo bugit.bugit-v2 lp`
 1. Run the app with `sudo bugit.bugit-v2 jira` or `sudo bugit.bugit-v2 lp`
 
 To uninstall, `sudo snap remove bugit`
-
-### pipx (recommended for classic systems running 24.04 and newer)
-
-(works on 24.04+, requires python3.12)
-
-Install pipx first:
-
-```bash
-sudo apt install pipx
-```
-
-Then use pipx to install the app:
-
-```sh
-# choose...
-
-# point version release ("beta")
-pipx install git+https://github.com/canonical/bugit-v2.git@v0.2.2
-
-# or latest commit ("edge")
-pipx install git+https://github.com/canonical/bugit-v2.git
-```
-- Note: If you are using newer pipx that comes with the `--global` flag, you don't need to modify the PATH or specify env when running the app
-
-This should give you a new command called `bugit-v2`. If `pipx install` is used the first time, pipx will prompt you to add `$HOME/.local/bin` to the path. You can use `pipx ensurepath` to fix this. Restart the terminal for it to take effect.
-
-Now we can run the app with
-
-```sh
-sudo -E env PATH="$PATH" bugit-v2 jira
-# or
-sudo -E env PATH="$PATH" bugit-v2 lp
-```
-
-Optionally install tab completion with
-
-```sh
-bugit-v2 --install-completion
-# restart the terminal session for this to take effect
-```
-
-To uninstall, `pipx uninstall bugit-v2`
-
-### Try with uvx
-
-(works on versions that can run the python3.12 binary)
-
-Install uv:
-
-```
-sudo snap install astral-uv
-```
-
-Then use `uvx` to run the latest commit:
-
-```
-sudo -E env PATH="$PATH" uvx --from git+https://github.com/canonical/bugit-v2.git bugit-v2 jira
-```
-
-Or run a specific release:
-
-```
-sudo -E env PATH="$PATH" uvx --from git+https://github.com/canonical/bugit-v2.git@v0.2 bugit-v2 jira
-```
 
 ## How do I copy and paste?
 
@@ -126,11 +60,6 @@ Copying from INSIDE the app to OUTSIDE the app: Hold shift to override textual's
 Copying from OUTSIDE the app to INSIDE the app: Use Ctrl+Shift+V to paste into the app. This is the same as pasting to any other terminal program.
 
 For more details, check out [textual's explanation](https://textual.textualize.io/FAQ/#how-can-i-select-and-copy-text-in-a-textual-app)
-
-## SSH Colors
-
-If you ssh into a ubuntu machine and run a **non-snap** version of bugit-v2, it might give you completely different colors than running locally. This can be fixed by running
-`export COLORTERM=truecolor` in the ssh session. You can also fix this permanently by adding it to the target machine's `.bashrc` or `.zshrc`.
 
 ## Fonts
 
@@ -152,6 +81,10 @@ git clone git@github.com:canonical/bugit-v2.git
 cd bugit-v2
 uv sync --python 3.12 # will download another python if sys python != 3.12
 source .venv/bin/activate
+
+# bugit needs password-less sudo
+echo "%sudo ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/bugit-v2
+
 python3 src/bugit_v2/app.py
 ```
 
@@ -172,7 +105,7 @@ This basically says the automatic style fixes were not included. Do another `git
 
 ### Type Checks
 
-All the tools should pass `basedpyright`'s checks. Run the `basedpyright` command at the project root with the virtual environment enabled. In vscode, there's the [basedpyright extension](https://marketplace.visualstudio.com/items?itemName=detachhead.basedpyright) that lets you catch these errors in the editor.
+All the files should pass `basedpyright`'s checks. Run the `basedpyright` command at the project root with the virtual environment enabled. In vscode, there's the [basedpyright extension](https://marketplace.visualstudio.com/items?itemName=detachhead.basedpyright) that lets you catch these errors in the editor.
 
 - Warnings are OK for now since some of the rules are very strict, but try to fix as many of them as possible
 - Errors must be fixed because they indicate either something is guaranteed to fail at runtime or the type annotations are too incomplete for the type checker to do any meaningful analysis. To just check for errors, run `basedpyright --level error`.
@@ -226,7 +159,7 @@ ready in 91 milliseconds
 You can also debug library functions without invoking the UI. In the virtual environment, run
 
 ```sh
-sudo env PATH="$PATH" DEBUG=1 APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<your_url> BUGIT_APP_NAME=bugit python3 -m asyncio
+DEBUG=1 APPORT_LAUNCHPAD_INSTANCE=production JIRA_SERVER=<your_url> BUGIT_APP_NAME=bugit python3 -m asyncio
 ```
 Change bugit specific envs as needed. This will drop you into a asyncio REPL that allows top level `await`.
 
