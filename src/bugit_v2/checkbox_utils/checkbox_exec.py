@@ -9,7 +9,7 @@ from typing import Literal, NamedTuple
 
 from bugit_v2.utils import is_snap
 from bugit_v2.utils.async_subprocess import asp_run
-from bugit_v2.utils.constants import HOST_FS
+from bugit_v2.utils.constants import HOST_FS, NSENTER_PREFIX
 
 logger = logging.getLogger(__name__)
 
@@ -126,20 +126,21 @@ def get_checkbox_info() -> CheckboxInfo | None:
                 return None
 
         elif is_snap():
-            if (deb_checkbox := HOST_FS / "usr" / "bin" / "checkbox-cli").exists():
+            if (HOST_FS / "usr" / "bin" / "checkbox-cli").exists():
                 # host is using debian checkbox
                 return CheckboxInfo(
                     "deb",
                     (
                         sp.check_output(
-                            [str(deb_checkbox), "--version"],
-                            env={
-                                "PYTHONPATH": "/var/lib/snapd/hostfs/usr/lib/python3/dist-packages"
-                            },
+                            [
+                                *NSENTER_PREFIX,
+                                "/usr/bin/checkbox-cli",
+                                "--version",
+                            ],
                             text=True,
                         )
                     ).strip(),
-                    deb_checkbox,
+                    Path("/usr/bin/checkbox-cli"),
                 )
             else:
                 # search through /snap/bin and see if a project checkbox is there
@@ -150,13 +151,14 @@ def get_checkbox_info() -> CheckboxInfo | None:
                             (
                                 sp.check_output(
                                     [
-                                        str(HOST_FS / "snap" / "bin" / executable),
+                                        *NSENTER_PREFIX,
+                                        str(Path("/snap") / "bin" / executable),
                                         "--version",
                                     ],
                                     text=True,
                                 )
                             ).strip(),
-                            (HOST_FS / "snap" / "bin" / executable),
+                            Path("/snap") / "bin" / executable,
                         )
         else:
             if (checkbox_bin := shutil.which("checkbox-cli")) is not None:
@@ -183,9 +185,9 @@ def get_checkbox_info() -> CheckboxInfo | None:
                                     text=True,
                                 )
                             ).strip(),
-                            Path("/snap/bin") / executable,
+                            Path("/snap") / "bin" / executable,
                         )
     except CalledProcessError as e:
         logger.error("Failed to check checkbox version")
-        logger.error(repr(e))
+        logger.error(f"{e!r}")
         return None

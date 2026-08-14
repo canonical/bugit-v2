@@ -102,6 +102,16 @@ MAX_JOB_OUTPUT_LEN = 3000
 MAX_ADDITIONAL_FILE_SIZE = (
     50 * 10**6  # 50mb
 )  # prevents the user from choosing things like swap.img
+# attach this prefix to command arrays when the command needs to be run on host
+NSENTER_PREFIX = [
+    "sudo",
+    "--non-interactive",
+    "nsenter",
+    "--target",
+    "1",
+    "--mount",
+    "--",
+]
 
 
 class NullSelection(enum.Enum):
