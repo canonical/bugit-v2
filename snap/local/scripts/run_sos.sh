@@ -40,9 +40,9 @@ if ! nsenter -t 1 -m -- which apt 2>&1 > /dev/null; then
 	exit 1
 fi
 
-if ! nsenter -t 1 -m -- snap list sosreport >/dev/null 2>&1; then
+if ! nsenter -t 1 -m -- /usr/bin/snap list sosreport >/dev/null 2>&1; then
 	echo "sosreport snap not found on host, installing it now..." >&2
-	nsenter -t 1 -m -- snap install --classic sosreport
+	nsenter -t 1 -m -- /usr/bin/snap install --classic sosreport
 fi
 
 exec nsenter -t 1 -m -- /snap/bin/sosreport.sos "$@"
