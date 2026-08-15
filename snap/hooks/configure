@@ -4,13 +4,30 @@
 #   sudo snap set bugit jira-server=<your_url>
 # Unsetting it (snap unset bugit jira-server) reverts to the default
 # https://warthogs.atlassian.net, see snap/local/scripts/env_wrapper.sh
+#
+# Also invalidates any cached Jira credentials under /tmp when the
+# server changes, since those credentials are tied to a specific server.
 
 set -e
+
+CACHE_FILE="$SNAP_DATA/jira-server-url"
+
+OLD_JIRA_SERVER=""
+if [ -f "$CACHE_FILE" ]; then
+    OLD_JIRA_SERVER="$(cat "$CACHE_FILE")"
+fi
 
 JIRA_SERVER="$(snapctl get jira-server)"
 
 if [ -n "$JIRA_SERVER" ]; then
-    echo "$JIRA_SERVER" > "$SNAP_DATA/jira-server-url"
+    echo "$JIRA_SERVER" > "$CACHE_FILE"
 else
-    rm -f "$SNAP_DATA/jira-server-url"
+    rm -f "$CACHE_FILE"
+fi
+
+# the cached basic-auth credentials (see JiraSubmitter.name in
+# jira_submitter.py) belong to a specific Jira server, so drop them
+# whenever the server changes to force re-authentication
+if [ "$JIRA_SERVER" != "$OLD_JIRA_SERVER" ]; then
+    rm -f /tmp/jira_submitter-credentials.json
 fi
