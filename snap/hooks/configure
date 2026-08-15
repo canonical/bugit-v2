@@ -1,0 +1,16 @@
+#!/bin/sh
+#
+# Allows the Jira server URL to be changed at runtime with:
+#   sudo snap set bugit jira-server=<your_url>
+# Unsetting it (snap unset bugit jira-server) reverts to the default
+# https://warthogs.atlassian.net, see snap/local/scripts/env_wrapper.sh
+
+set -e
+
+JIRA_SERVER="$(snapctl get jira-server)"
+
+if [ -n "$JIRA_SERVER" ]; then
+    echo "$JIRA_SERVER" > "$SNAP_DATA/jira-server-url"
+else
+    rm -f "$SNAP_DATA/jira-server-url"
+fi

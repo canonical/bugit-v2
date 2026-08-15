@@ -49,6 +49,17 @@ Run the app with `sudo bugit.bugit-v2 jira`, `sudo bugit.bugit-v2 lp`, or `sudo 
 
 To uninstall, `sudo snap remove bugit`
 
+### Jira Server Configuration
+
+The Jira server URL can be changed after install:
+
+```sh
+sudo snap set bugit jira-server=<your_url>
+```
+
+Run `sudo snap unset bugit jira-server` to revert to the default
+(`https://warthogs.atlassian.net`).
+
 ## How do I copy and paste?
 
 This varies across different terminal emulators so I'll use gnome-terminal as the example here since it comes with ubuntu by default (and by extension ptyxis that comes with 25.10).
