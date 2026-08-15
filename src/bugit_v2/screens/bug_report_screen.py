@@ -476,7 +476,10 @@ class BugReportScreen(Screen[BugReport]):
                     yield t
                 else:
                     for k, output in job_output.items():
-                        assert type(output) is str
+                        if type(output) is not str:
+                            raise RuntimeError(
+                                f"Job output for {k} is not a string: {output!r}"
+                            )
                         t = TextArea(
                             output, read_only=True, classes="ha default_box mh75"
                         )
@@ -709,9 +712,10 @@ class BugReportScreen(Screen[BugReport]):
             btn.label = "Submit Bug Report"
 
     def _standard_info_worker_callback(self, event: Worker.StateChanged):
-        assert (
-            event.worker.is_finished
-        ), "Standard info callback invoked but the worker has not finished"
+        if not event.worker.is_finished:
+            raise RuntimeError(
+                "Standard info callback invoked but the worker has not finished"
+            )
 
         textarea = self.query_exactly_one(
             f"#{BugReportElemId.DESCRIPTION}", DescriptionEditor
@@ -793,10 +797,12 @@ class BugReportScreen(Screen[BugReport]):
             )
 
     def _get_cert_status_worker_callback(self, event: Worker.StateChanged):
-        assert self.job_id is not NullSelection.NO_JOB
-        assert (
-            event.worker.is_finished
-        ), "Cert status callback invoked but the worker has not finished"
+        if self.job_id is NullSelection.NO_JOB:
+            raise RuntimeError("Cert status callback invoked without a job id")
+        if not event.worker.is_finished:
+            raise RuntimeError(
+                "Cert status callback invoked but the worker has not finished"
+            )
 
         cert_status_box = self.query_exactly_one("#cert_status_box", Label)
 
@@ -815,13 +821,18 @@ class BugReportScreen(Screen[BugReport]):
         self._color_cert_status_box(cert_status and cert_status.cert_status)
 
     def _get_submission_cert_status_worker_callback(self, event: Worker.StateChanged):
-        assert self.job_id is not NullSelection.NO_JOB
-        assert (
-            event.worker.is_finished
-        ), "Submission cert status callback invoked but the worker has not finished"
+        if self.job_id is NullSelection.NO_JOB:
+            raise RuntimeError(
+                "Submission cert status callback invoked without a job id"
+            )
+        if not event.worker.is_finished:
+            raise RuntimeError(
+                "Submission cert status callback invoked but the worker has not finished"
+            )
 
         if event.worker.state == WorkerState.SUCCESS:
-            assert event.worker.result in CERT_STATUSES
+            if event.worker.result not in CERT_STATUSES:
+                raise RuntimeError(f"Unexpected cert status: {event.worker.result!r}")
             self._color_cert_status_box(event.worker.result)
         else:
             logger.error(f"Cert status worker error {event.worker.error}")

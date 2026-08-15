@@ -52,5 +52,6 @@ class ConfirmScreen[T: str](ModalScreen[T]):
             self.query_exactly_one(f"#{self.focus_id_on_mount}", Button).focus()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        assert event.button.id
+        if not event.button.id:
+            raise RuntimeError("Button pressed without an id")
         self.dismiss(cast(T, event.button.id))

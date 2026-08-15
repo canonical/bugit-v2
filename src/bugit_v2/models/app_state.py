@@ -60,7 +60,8 @@ class AppState(abc.ABC):
 
     @property
     def context(self) -> AppContext:
-        assert self._context, "Use before context is assigned"
+        if not self._context:
+            raise RuntimeError("Use before context is assigned")
         return self._context
 
     @context.setter
@@ -115,7 +116,10 @@ class RecoverFromAutosaveState(AppState):
                 return JobSelectionState(self.context)
 
         # recover from existing report path
-        assert isinstance(screen_result, SerializableBugReport)
+        if not isinstance(screen_result, SerializableBugReport):
+            raise TypeError(
+                f"Unexpected screen result during autosave recovery: {screen_result!r}"
+            )
         backup = screen_result.to_bug_report()
         self.context.bug_report_init_state = backup
         self.context.session = backup.checkbox_session or NullSelection.NO_SESSION
@@ -143,17 +147,16 @@ class RecoverFromAutosaveState(AppState):
 class SessionSelectionState(AppState):
     @override
     def assertions(self) -> None:
-        assert self.context.session in (
-            None,
-            NullSelection.NO_SESSION,
-        ), "Entered session selection with one already selected"
-        assert self.context.job_id in (
-            None,
-            NullSelection.NO_JOB,
-        ), f"Impossible to have a job ID during session selection: {self.context.job_id}"
-        assert (
-            self.context.bug_report_to_submit is None
-        ), "Impossible to have a complete bug report during session selection"
+        if self.context.session not in (None, NullSelection.NO_SESSION):
+            raise RuntimeError("Entered session selection with one already selected")
+        if self.context.job_id not in (None, NullSelection.NO_JOB):
+            raise RuntimeError(
+                f"Impossible to have a job ID during session selection: {self.context.job_id}"
+            )
+        if self.context.bug_report_to_submit is not None:
+            raise RuntimeError(
+                "Impossible to have a complete bug report during session selection"
+            )
 
     @override
     def go_back(self) -> "AppState | None":
@@ -186,12 +189,15 @@ class SessionSelectionState(AppState):
 class JobSelectionState(AppState):
     @override
     def assertions(self) -> None:
-        assert isinstance(self.context.session, AbstractCheckboxSession) or isinstance(
-            self.context.checkbox_submission, SimpleCheckboxSubmission
-        ), "No source to choose jobs from"
-        assert (
-            self.context.bug_report_to_submit is None
-        ), "Impossible to have a complete bug report during job selection"
+        if not (
+            isinstance(self.context.session, AbstractCheckboxSession)
+            or isinstance(self.context.checkbox_submission, SimpleCheckboxSubmission)
+        ):
+            raise TypeError("No source to choose jobs from")
+        if self.context.bug_report_to_submit is not None:
+            raise RuntimeError(
+                "Impossible to have a complete bug report during job selection"
+            )
 
     @override
     def go_back(self) -> "AppState | None":
@@ -209,7 +215,10 @@ class JobSelectionState(AppState):
     @override
     def go_forward(self, screen_result: object) -> AppState:
         # can either go to job selection or editor
-        assert (type(screen_result) is str) or (screen_result is NullSelection.NO_JOB)
+        if not ((type(screen_result) is str) or (screen_result is NullSelection.NO_JOB)):
+            raise RuntimeError(
+                f"Unexpected return value from job selection: {screen_result!r}"
+            )
         self.context.job_id = screen_result
         return ReportEditorState(self.context)
 
@@ -251,9 +260,10 @@ class JobSelectionState(AppState):
 class ReportEditorState(AppState):
     @override
     def assertions(self) -> None:
-        assert (
-            self.context.bug_report_to_submit is None
-        ), "Impossible to have a complete bug report during job selection"
+        if self.context.bug_report_to_submit is not None:
+            raise RuntimeError(
+                "Impossible to have a complete bug report during job selection"
+            )
 
     @override
     def go_back(self) -> "AppState | None":
@@ -312,7 +322,10 @@ class ReportEditorState(AppState):
 
     @override
     def go_forward(self, screen_result: object) -> AppState:
-        assert isinstance(screen_result, BugReport)
+        if not isinstance(screen_result, BugReport):
+            raise TypeError(
+                f"Unexpected screen result from report editor: {screen_result!r}"
+            )
         self.context.bug_report_to_submit = screen_result
         return SubmissionProgressState(self.context)
 
@@ -335,7 +348,8 @@ class ReportEditorState(AppState):
 class SubmissionProgressState(AppState):
     @override
     def assertions(self) -> None:
-        assert self.context.bug_report_to_submit, "No bug report to submit"
+        if not self.context.bug_report_to_submit:
+            raise RuntimeError("No bug report to submit")
 
     @override
     def go_back(self) -> "AppState | None":
@@ -343,7 +357,10 @@ class SubmissionProgressState(AppState):
 
     @override
     def go_forward(self, screen_result: object) -> AppState:
-        assert screen_result in RETURN_SCREEN_CHOICES
+        if screen_result not in RETURN_SCREEN_CHOICES:
+            raise RuntimeError(
+                f"Unexpected screen result from submission progress: {screen_result!r}"
+            )
         backup = self.context.bug_report_to_submit
         self.context.bug_report_to_submit = None
         # this is where we get the select a new session/job buttons
@@ -367,7 +384,8 @@ class SubmissionProgressState(AppState):
     @override
     def get_screen_constructor(self):
         def c():
-            assert self.context.bug_report_to_submit
+            if not self.context.bug_report_to_submit:
+                raise RuntimeError("No bug report to submit")
             return SubmissionProgressScreen(
                 self.context.bug_report_to_submit,
                 self.context.submitter(),

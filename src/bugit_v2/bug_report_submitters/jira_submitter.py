@@ -174,7 +174,8 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
             https://hostname.com/jira/software/c/projects/NAME
         :return: true if the project exists
         """
-        assert self.jira, "Jira client is not initialized"
+        if not self.jira:
+            raise JiraSubmitterError("Jira client is not initialized")
         try:
             self.jira.project(id=project_name)
         except Exception:
@@ -186,7 +187,8 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
         :param assignee: the email of the assignee or some form of ID
         :return: exists and unique
         """
-        assert self.jira, "Jira client is not initialized"
+        if not self.jira:
+            raise JiraSubmitterError("Jira client is not initialized")
 
         query_result = self.jira.search_users(query=assignee)
         if len(query_result) == 0:
@@ -198,7 +200,8 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
         return query_result[0].accountId  # pyright: ignore[reportAny]
 
     def all_components_exist(self, project: str, components: Sequence[str]) -> None:
-        assert self.jira, "Jira client is not initialized"
+        if not self.jira:
+            raise JiraSubmitterError("Jira client is not initialized")
         # the @translate_args decorator confuses the type checker
         query_result = cast(list[Component], self.jira.project_components(project))
         for wanted_component in components:
@@ -214,7 +217,8 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
 
     @override
     def bug_exists(self, bug_id: str) -> bool:
-        assert self.auth
+        if not self.auth:
+            raise JiraSubmitterError("Missing auth credentials")
 
         try:
             if not self.jira:
@@ -273,8 +277,10 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
 
                 bug_dict["description"] = content_str
 
-        assert self.auth, "Missing auth credentials"
-        assert JIRA_SERVER_ADDRESS, "JIRA_SERVER is not specified!"
+        if not self.auth:
+            raise JiraSubmitterError("Missing auth credentials")
+        if not JIRA_SERVER_ADDRESS:
+            raise JiraSubmitterError("JIRA_SERVER is not specified!")
 
         yield "Starting Jira authentication..."
         self.jira = JIRA(
@@ -330,8 +336,10 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
     def upload_attachment(
         self, attachment_file: Path, filename: str | None = None
     ) -> None:
-        assert self.jira
-        assert self.issue
+        if not self.jira:
+            raise JiraSubmitterError("Jira client is not initialized")
+        if not self.issue:
+            raise JiraSubmitterError("Nothing has been submitted to Jira yet")
         # .add_attachment has a decorator that confuses the typechecker
         # go to its definition to see the expected arguments
         self.jira.add_attachment(self.issue.id, str(attachment_file), filename)
@@ -339,8 +347,10 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
     @property
     @override
     def bug_url(self) -> str:
-        assert self.jira
-        assert self.issue, "Nothing has been submitted to Jira yet"
+        if not self.jira:
+            raise JiraSubmitterError("Jira client is not initialized")
+        if not self.issue:
+            raise JiraSubmitterError("Nothing has been submitted to Jira yet")
         return f"{self.jira.server_url}/browse/{self.issue.key}"
 
     @override

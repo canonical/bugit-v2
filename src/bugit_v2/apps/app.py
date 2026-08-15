@@ -387,7 +387,8 @@ def main(
 ):
     sudo_devmode_check()
     ensure_all_directories_exist()
-    assert ctx.command.name in ("lp", "jira", "local")
+    if ctx.command.name not in ("lp", "jira", "local"):
+        raise RuntimeError(f"Unexpected command name: {ctx.command.name!r}")
 
     if checkbox_submission:
         print(f"Decompressing checkbox submission at {checkbox_submission}")

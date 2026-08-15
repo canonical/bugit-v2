@@ -40,7 +40,8 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
     auth_modal = LaunchpadAuthModal
 
     def check_project_existence(self, project_name: str) -> Any:
-        assert self.lp_client
+        if not self.lp_client:
+            raise RuntimeError("Launchpad client is not initialized")
         try:
             # type checker freaks out here
             # since launchpad lib wants unknown member access + index access
@@ -55,7 +56,8 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
             raise ValueError(error_message)
 
     def check_assignee_existence(self, assignee: str) -> Any:
-        assert self.lp_client
+        if not self.lp_client:
+            raise RuntimeError("Launchpad client is not initialized")
         try:
             return self.lp_client.people[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
                 assignee
@@ -65,7 +67,8 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
             raise ValueError(error_message)
 
     def check_series_existence(self, series: str) -> Any:
-        assert self.lp_client
+        if not self.lp_client:
+            raise RuntimeError("Launchpad client is not initialized")
         try:
             return self.lp_client.project.getSeries(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess, reportUnknownVariableType]
                 name=series
@@ -83,12 +86,15 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
         self, bug_report: BugReport
     ) -> Generator[str | AdvanceMessage, None, None]:
 
-        assert SERVICE_ROOT in VALID_SERVICE_ROOTS, (
-            "Invalid APPORT_LAUNCHPAD_INSTANCE, "
-            f"expected one of {VALID_SERVICE_ROOTS}, but got {SERVICE_ROOT}"
-        )
-        assert LP_APP_NAME, "BUGIT_APP_NAME was not specified"
-        assert LP_AUTH_FILE_PATH.exists(), "At this point auth should already be valid"
+        if SERVICE_ROOT not in VALID_SERVICE_ROOTS:
+            raise RuntimeError(
+                "Invalid APPORT_LAUNCHPAD_INSTANCE, "
+                f"expected one of {VALID_SERVICE_ROOTS}, but got {SERVICE_ROOT}"
+            )
+        if not LP_APP_NAME:
+            raise RuntimeError("BUGIT_APP_NAME was not specified")
+        if not LP_AUTH_FILE_PATH.exists():
+            raise RuntimeError("At this point auth should already be valid")
 
         yield f"Logging into Launchpad: {SERVICE_ROOT}"
         try:

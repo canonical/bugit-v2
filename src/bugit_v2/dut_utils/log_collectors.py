@@ -69,9 +69,8 @@ class LogCollector:
 async def pack_checkbox_session(
     target_dir: Path, bug_report: BugReport, _on_output: Callable[[str], None] | None
 ) -> str:
-    assert (
-        bug_report.checkbox_session is not None
-    ), "Can't use this collector if there's no checkbox session"
+    if bug_report.checkbox_session is None:
+        raise RuntimeError("Can't use this collector if there's no checkbox session")
 
     shutil.make_archive(
         str(target_dir / "checkbox_session"),
@@ -193,13 +192,13 @@ async def snap_debug(
 async def pack_checkbox_submission(
     target_dir: Path, bug_report: BugReport, _on_output: Callable[[str], None] | None
 ):
-    assert (
-        bug_report.checkbox_submission is not None
-    ), "Can't use this collector if there's no checkbox submission"
+    if bug_report.checkbox_submission is None:
+        raise RuntimeError("Can't use this collector if there's no checkbox submission")
     submission_path = bug_report.checkbox_submission.submission_path
-    assert (
-        submission_path.exists()
-    ), f"{submission_path} was deleted after the bug report was created!"
+    if not submission_path.exists():
+        raise RuntimeError(
+            f"{submission_path} was deleted after the bug report was created!"
+        )
 
     shutil.copyfile(submission_path, target_dir / os.path.basename(submission_path))
 
@@ -213,19 +212,21 @@ async def long_job_outputs(
     Only used when the job's stdout is way too long for the description
     """
 
-    assert (
-        bug_report.checkbox_session is not None
-    ), "Can't use this collector if there's no checkbox session"
-    assert bug_report.job_id is not None, "Can't use this collector if there's no job id"
-    assert (
-        bug_report.checkbox_session.session_path.exists()
-    ), f"{bug_report.checkbox_session.session_path} was deleted after the bug report was created!"
+    if bug_report.checkbox_session is None:
+        raise RuntimeError("Can't use this collector if there's no checkbox session")
+    if bug_report.job_id is None:
+        raise RuntimeError("Can't use this collector if there's no job id")
+    if not bug_report.checkbox_session.session_path.exists():
+        raise RuntimeError(
+            f"{bug_report.checkbox_session.session_path} was deleted after the bug report was created!"
+        )
 
     job_output = bug_report.checkbox_session.get_job_output(bug_report.job_id)
 
-    assert (
-        job_output
-    ), "This collector should not be called if there's no job output. Please report this bug to bugit's repo."
+    if not job_output:
+        raise RuntimeError(
+            "This collector should not be called if there's no job output. Please report this bug to bugit's repo."
+        )
 
     added_keys: list[str] = []
     for k, v in job_output.items():
@@ -242,7 +243,8 @@ async def long_job_outputs(
 async def oem_getlogs(
     target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
 ):
-    assert target_dir.exists(), f"Target directory {target_dir} does not exist"
+    if not target_dir.exists():
+        raise RuntimeError(f"Target directory {target_dir} does not exist")
     dump_coef_path = Path("/sys/module/snd_hda_codec/parameters/dump_coef")
     if dump_coef_path.exists():
         try:
@@ -275,7 +277,8 @@ async def sosreport(
 ):
     if host_is_ubuntu_core():
         raise RuntimeError("SOS Report cannot run on ubuntu core")
-    assert target_dir.exists(), f"Target directory {target_dir} does not exist"
+    if not target_dir.exists():
+        raise RuntimeError(f"Target directory {target_dir} does not exist")
     await asp_check_call(
         [
             *NSENTER_PREFIX,

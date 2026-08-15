@@ -109,12 +109,14 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
     @property
     @override
     def bug_url(self) -> str:
-        assert self.archive_path, "Report archive not created"
+        if not self.archive_path:
+            raise FileNotFoundError("Report archive not created")
         return str(self.archive_path)
 
     @override
     def finalize(self) -> str:
-        assert self.archive_name, "Unexpected call before archive name was determined"
+        if not self.archive_name:
+            raise RuntimeError("Unexpected call before archive name was determined")
 
         working_dir = Path(self.working_dir.name)
 
@@ -126,7 +128,10 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
                     format="gztar",
                 )
             )
-            assert self.archive_path.exists()
+            if not self.archive_path.exists():
+                raise FileNotFoundError(
+                    f"Archive {self.archive_path} was not created as expected"
+                )
             self.finalize_ok = True
             return f"The bug report archive is at {self.archive_path}"
         except Exception as e:

@@ -174,7 +174,8 @@ class FilePickerWidget(Widget):
 
     @on(Button.Pressed, ".delete_selection")
     def delete_file_from_list(self, event: Button.Pressed):
-        assert event.button.name is not None
+        if event.button.name is None:
+            raise RuntimeError("Delete button is missing its file name")
         try:
             self._chosen_files.remove(Path(event.button.name))
             self.post_message(self.FilesUpdated(list(self._chosen_files)))
