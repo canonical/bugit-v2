@@ -20,15 +20,13 @@ fi
 JIRA_SERVER="$(snapctl get jira-server)"
 
 if [ -n "$JIRA_SERVER" ]; then
-    # only a lightweight sanity check: must be an http(s) URL with a host,
-    # not a full validation that it's a real/reachable Jira instance
-    case "$JIRA_SERVER" in
-        http://?*|https://?*) ;;
-        *)
-            echo "jira-server must be a valid URL, e.g. https://your-instance.atlassian.net (got: '$JIRA_SERVER')" >&2
-            exit 1
-            ;;
-    esac
+    # only a lightweight sanity check: must be an http(s) URL with a host
+    # made up of valid URL characters (no whitespace or other invalid
+    # chars), not a full validation that it's a real/reachable Jira instance
+    if ! printf '%s' "$JIRA_SERVER" | grep -Eq '^https?://[A-Za-z0-9._~:/?#@!$&()*+,;=%-]+$'; then
+        echo "jira-server must be a valid URL with no whitespace or invalid characters, e.g. https://your-instance.atlassian.net (got: '$JIRA_SERVER')" >&2
+        exit 1
+    fi
     echo "$JIRA_SERVER" > "$URL_FILE"
 else
     rm -f "$URL_FILE"
