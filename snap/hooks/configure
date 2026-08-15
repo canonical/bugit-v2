@@ -10,19 +10,19 @@
 
 set -e
 
-CACHE_FILE="$SNAP_DATA/jira-server-url"
+URL_FILE="$SNAP_DATA/jira-server-url"
 
 OLD_JIRA_SERVER=""
-if [ -f "$CACHE_FILE" ]; then
-    OLD_JIRA_SERVER="$(cat "$CACHE_FILE")"
+if [ -f "$URL_FILE" ]; then
+    OLD_JIRA_SERVER="$(cat "$URL_FILE")"
 fi
 
 JIRA_SERVER="$(snapctl get jira-server)"
 
 if [ -n "$JIRA_SERVER" ]; then
-    echo "$JIRA_SERVER" > "$CACHE_FILE"
+    echo "$JIRA_SERVER" > "$URL_FILE"
 else
-    rm -f "$CACHE_FILE"
+    rm -f "$URL_FILE"
 fi
 
 # the cached basic-auth credentials (see JiraSubmitter.name in
