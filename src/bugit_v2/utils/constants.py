@@ -103,7 +103,7 @@ MAX_ADDITIONAL_FILE_SIZE = (
     50 * 10**6  # 50mb
 )  # prevents the user from choosing things like swap.img
 # attach this prefix to command arrays when the command needs to be run on host
-NSENTER_PREFIX = [
+NSENTER_PREFIX = (
     "sudo",
     "--non-interactive",
     "nsenter",
@@ -111,7 +111,7 @@ NSENTER_PREFIX = [
     "1",
     "--mount",
     "--",
-]
+)
 
 
 class NullSelection(enum.Enum):
