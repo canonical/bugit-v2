@@ -22,8 +22,12 @@ case "$SNAP_ARCH" in
 	;;
 esac
 
-# PERL_VERSION=$(perl -e '$^V=~/^v(\d+\.\d+)/;print $1')
-# export PERL5LIB="$PERL5LIB:$SNAP/usr/lib/$ARCH/perl/$PERL_VERSION:$SNAP/usr/lib/$ARCH/perl5/$PERL_VERSION:$SNAP/usr/share/perl/$PERL_VERSION:$SNAP/usr/share/perl5"
+
+# lets 'snap set bugit jira-server=<your_url>' override the default
+# JIRA_SERVER, see snap/hooks/configure
+if [ -f "$SNAP_DATA/jira-server-url" ]; then
+	export JIRA_SERVER="$(cat "$SNAP_DATA/jira-server-url")"
+fi
 
 # https://github.com/snapcrafters/get-iplayer/blob/candidate/snap/local/scripts/launcher
 exec "$@"

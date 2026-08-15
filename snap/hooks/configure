@@ -1,0 +1,40 @@
+#!/bin/sh
+#
+# Allows the Jira server URL to be changed at runtime with:
+#   sudo snap set bugit jira-server=<your_url>
+# Unsetting it (snap unset bugit jira-server) reverts to the default
+# https://warthogs.atlassian.net, see snap/local/scripts/env_wrapper.sh
+#
+# Also invalidates any cached Jira credentials under /tmp when the
+# server changes, since those credentials are tied to a specific server.
+
+set -e
+
+URL_FILE="$SNAP_DATA/jira-server-url"
+
+OLD_JIRA_SERVER=""
+if [ -f "$URL_FILE" ]; then
+    OLD_JIRA_SERVER="$(cat "$URL_FILE")"
+fi
+
+JIRA_SERVER="$(snapctl get jira-server)"
+
+if [ -n "$JIRA_SERVER" ]; then
+    # only a lightweight sanity check: must be an http(s) URL with a host
+    # made up of valid URL characters (no whitespace or other invalid
+    # chars), not a full validation that it's a real/reachable Jira instance
+    if ! printf '%s' "$JIRA_SERVER" | grep -Eq '^https?://[A-Za-z0-9._~:/?#@!$&()*+,;=%-]+$'; then
+        echo "jira-server must be a valid URL with no whitespace or invalid characters, e.g. https://your-instance.atlassian.net (got: '$JIRA_SERVER')" >&2
+        exit 1
+    fi
+    echo "$JIRA_SERVER" > "$URL_FILE"
+else
+    rm -f "$URL_FILE"
+fi
+
+# the cached basic-auth credentials (see JiraSubmitter.name in
+# jira_submitter.py) belong to a specific Jira server, so drop them
+# whenever the server changes to force re-authentication
+if [ "$JIRA_SERVER" != "$OLD_JIRA_SERVER" ]; then
+    rm -f /tmp/jira_submitter-credentials.json
+fi
