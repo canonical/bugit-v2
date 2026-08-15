@@ -12,8 +12,8 @@ import re
 from collections import Counter
 
 from bugit_v2.checkbox_utils.checkbox_exec import get_checkbox_info
-from bugit_v2.utils import is_snap
 from bugit_v2.utils.async_subprocess import asp_check_output, asp_run
+from bugit_v2.utils.constants import NSENTER_PREFIX
 
 
 async def get_thinkpad_ec_version(timeout: int | None = 30) -> str | None:
@@ -165,8 +165,8 @@ async def get_standard_info(
         try:
             nvidia_log = await asp_run(
                 [
-                    ("/var/lib/snapd/hostfs/usr/bin/" if is_snap() else "")
-                    + "nvidia-smi",
+                    *NSENTER_PREFIX,
+                    "nvidia-smi",
                     "-q",
                 ],
                 timeout=command_timeout,

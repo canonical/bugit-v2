@@ -20,6 +20,6 @@ cp /var/lib/snapd/hostfs/etc/os-release $SNAP_COMMON/etc/os-release
 
 
 # see snap/local/scripts/run_sos.sh for why this uses 'nsenter -t 1 -m'
-if ! nsenter -t 1 -m -- snap list sosreport >/dev/null 2>&1; then
-    nsenter -t 1 -m -- snap install --classic sosreport || true
+if ! nsenter -t 1 -m -- /usr/bin/snap list sosreport >/dev/null 2>&1; then
+    nsenter -t 1 -m --  /usr/bin/snap install --classic sosreport || true
 fi

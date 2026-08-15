@@ -18,7 +18,11 @@ from pathlib import Path
 from bugit_v2.models.bug_report import BugReport, LogName
 from bugit_v2.utils import host_is_ubuntu_core, is_snap
 from bugit_v2.utils.async_subprocess import asp_check_call, asp_check_output
-from bugit_v2.utils.constants import HOST_FS, MAX_JOB_OUTPUT_LEN
+from bugit_v2.utils.constants import (
+    HOST_FS,
+    MAX_JOB_OUTPUT_LEN,
+    NSENTER_PREFIX,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -83,13 +87,7 @@ async def nvidia_bug_report(
 ) -> str:
     return await asp_check_output(
         [
-            "sudo",
-            "--non-interactive",
-            "nsenter",
-            "--target",
-            "1",
-            "--mount",
-            "--",
+            *NSENTER_PREFIX,
             "nvidia-bug-report.sh",
             "--extra-system-data",
             "--output-file",
@@ -260,12 +258,7 @@ async def oem_getlogs(
             pass
     await asp_check_output(
         [
-            "sudo",
-            "--non-interactive",
-            "nsenter",
-            "--target",
-            "1",
-            "--mount",
+            *(NSENTER_PREFIX[:-1]),  # remove the '--' first
             # must switch cwd after entering namespace
             f"--wdns={target_dir.absolute()}",
             "--",
@@ -285,13 +278,7 @@ async def sosreport(
     assert target_dir.exists(), f"Target directory {target_dir} does not exist"
     await asp_check_call(
         [
-            "sudo",
-            "--non-interactive",
-            "nsenter",
-            "--target",
-            "1",
-            "--mount",
-            "--",
+            *NSENTER_PREFIX,
             "env",
             "HWLOC_COMPONENTS=-gl",
             "/snap/bin/sosreport.sos",
