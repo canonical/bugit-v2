@@ -60,13 +60,7 @@ async def checkbox_exec(
         clean_additional_env = {}
 
     final_cmd = [
-        "sudo",
-        "--non-interactive",
-        "nsenter",
-        "--target",
-        "1",
-        "--mount",
-        "--",
+        *NSENTER_PREFIX,
         "env",
         *(f"{k}={v}" for k, v in clean_additional_env.items()),
         # nsenter already chroot for us
