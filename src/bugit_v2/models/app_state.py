@@ -262,7 +262,7 @@ class ReportEditorState(AppState):
     def assertions(self) -> None:
         if self.context.bug_report_to_submit is not None:
             raise RuntimeError(
-                "Impossible to have a complete bug report during job selection"
+                "Impossible to have a complete bug report during report editing"
             )
 
     @override
