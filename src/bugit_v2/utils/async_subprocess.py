@@ -109,9 +109,15 @@ async def asp_check_output(
             # stream stdout line-by-line while draining stderr concurrently
             # (stderr must still be drained or the process can deadlock once
             # its pipe buffer fills up)
-            stdout_bytes, stderr_bytes = await asyncio.gather(
+            # also wait() for the process here: draining stdout/stderr to
+            # EOF doesn't guarantee the child has actually been reaped yet,
+            # since pipe EOF and returncode being set are handled by
+            # separate asyncio callbacks that can race with each other,
+            # which could otherwise leave `proc.returncode` as None below
+            stdout_bytes, stderr_bytes, _ = await asyncio.gather(
                 _stream_lines(stdout_stream, on_line, None),
                 stderr_stream.read(),
+                proc.wait(),
             )
             return stdout_bytes, stderr_bytes
         else:
