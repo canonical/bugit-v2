@@ -853,12 +853,25 @@ class BugReportScreen(Screen[BugReport]):
         ).pressed_button
 
         # shouldn't fail at runtime, major logic error if they do
-        assert selected_severity_button
-        assert selected_severity_button.name in SEVERITIES
-        assert selected_issue_file_time_button
-        assert selected_issue_file_time_button.name in ISSUE_FILE_TIMES
-        assert selected_status_button
-        assert selected_status_button.name in BUG_STATUSES
+        if not selected_severity_button:
+            raise RuntimeError("No severity button selected")
+        if selected_severity_button.name not in SEVERITIES:
+            raise RuntimeError(
+                f"Unexpected severity button name: {selected_severity_button.name!r}"
+            )
+        if not selected_issue_file_time_button:
+            raise RuntimeError("No issue file time button selected")
+        if selected_issue_file_time_button.name not in ISSUE_FILE_TIMES:
+            raise RuntimeError(
+                "Unexpected issue file time button name: "
+                + f"{selected_issue_file_time_button.name!r}"
+            )
+        if not selected_status_button:
+            raise RuntimeError("No status button selected")
+        if selected_status_button.name not in BUG_STATUSES:
+            raise RuntimeError(
+                f"Unexpected status button name: {selected_status_button.name!r}"
+            )
 
         hidden_collectors: list[LogName] = []
         if self.job_output_too_long:
