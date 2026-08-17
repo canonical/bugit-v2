@@ -35,7 +35,11 @@ SERVICE_ROOT = cast(
 )
 LP_APP_NAME = os.getenv("BUGIT_APP_NAME", "bugit-v2")
 
-assert SERVICE_ROOT in VALID_SERVICE_ROOTS
+if SERVICE_ROOT not in VALID_SERVICE_ROOTS:
+    raise RuntimeError(
+        "Invalid APPORT_LAUNCHPAD_INSTANCE, "
+        f"expected one of {VALID_SERVICE_ROOTS}, but got {SERVICE_ROOT}"
+    )
 
 
 @final
@@ -167,11 +171,13 @@ class LaunchpadAuthModal(ModalScreen[tuple[Path, bool] | None]):
 
     @work(thread=True)
     def main_auth_sequence(self):
-        assert SERVICE_ROOT in VALID_SERVICE_ROOTS, (
-            "Invalid APPORT_LAUNCHPAD_INSTANCE, "
-            f"expected one of {VALID_SERVICE_ROOTS}, but got {SERVICE_ROOT}"
-        )
-        assert LP_APP_NAME, "BUGIT_APP_NAME was not specified"
+        if SERVICE_ROOT not in VALID_SERVICE_ROOTS:
+            raise RuntimeError(
+                "Invalid APPORT_LAUNCHPAD_INSTANCE, "
+                f"expected one of {VALID_SERVICE_ROOTS}, but got {SERVICE_ROOT}"
+            )
+        if not LP_APP_NAME:
+            raise RuntimeError("BUGIT_APP_NAME was not specified")
 
         log_widget = self.query_exactly_one("#lp_login_stdout", RichLog)
         auth_engine = GraphicalAuthorizeRequestTokenWithURL(
@@ -244,7 +250,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
     lp_bug_object: Any | None = None  # TODO: make a wrapper for this
 
     def check_project_existence(self, project_name: str) -> Any:
-        assert self.lp_client
+        if not self.lp_client:
+            raise RuntimeError("Launchpad client is not initialized")
         try:
             # type checker freaks out here
             # since launchpad lib wants unknown member access + index access
@@ -259,7 +266,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
             raise ValueError(error_message)
 
     def check_assignee_existence(self, assignee: str) -> Any:
-        assert self.lp_client
+        if not self.lp_client:
+            raise RuntimeError("Launchpad client is not initialized")
         try:
             return self.lp_client.people[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
                 assignee
@@ -269,7 +277,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
             raise ValueError(error_message)
 
     def check_series_existence(self, series: str) -> Any:
-        assert self.lp_client
+        if not self.lp_client:
+            raise RuntimeError("Launchpad client is not initialized")
         try:
             return self.lp_client.project.getSeries(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess, reportUnknownVariableType]
                 name=series
@@ -286,12 +295,15 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
     def submit(
         self, bug_report: BugReport
     ) -> Generator[str | AdvanceMessage, None, None]:
-        assert SERVICE_ROOT in VALID_SERVICE_ROOTS, (
-            "Invalid APPORT_LAUNCHPAD_INSTANCE, "
-            f"expected one of {VALID_SERVICE_ROOTS}, but got {SERVICE_ROOT}"
-        )
-        assert LP_APP_NAME, "BUGIT_APP_NAME was not specified"
-        assert LP_AUTH_FILE_PATH.exists(), "At this point auth should already be valid"
+        if SERVICE_ROOT not in VALID_SERVICE_ROOTS:
+            raise RuntimeError(
+                "Invalid APPORT_LAUNCHPAD_INSTANCE, "
+                f"expected one of {VALID_SERVICE_ROOTS}, but got {SERVICE_ROOT}"
+            )
+        if not LP_APP_NAME:
+            raise RuntimeError("BUGIT_APP_NAME was not specified")
+        if not LP_AUTH_FILE_PATH.exists():
+            raise RuntimeError("At this point auth should already be valid")
 
         yield f"Logging into Launchpad: {SERVICE_ROOT}"
         try:
@@ -368,7 +380,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
                 bug_report.project  # index access also has a side effect
             ],
         )
-        assert self.lp_bug_object, "Unexpected null bug"
+        if not self.lp_bug_object:
+            raise RuntimeError("Unexpected null bug")
         # https://documentation.ubuntu.com/launchpad/user/explanation/launchpad-api/launchpadlib/#persistent-references-to-launchpad-objects
         yield AdvanceMessage(
             f"Created bug: {self.lp_bug_object!s}"  # pyright: ignore[reportUnknownArgumentType]
@@ -399,7 +412,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
     def upload_attachment(
         self, attachment_file: Path, filename: str | None = None
     ) -> str | None:
-        assert self.lp_bug_object, "No launchpad bug has been created or fetched"
+        if not self.lp_bug_object:
+            raise RuntimeError("No launchpad bug has been created or fetched")
         with open(attachment_file, "rb") as f:
             # this might explode on low memory systems
             # but idk how to work around it
@@ -412,7 +426,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
     @property
     @override
     def bug_url(self) -> str:
-        assert self.lp_bug_object, "No launchpad bug has been created or fetched"
+        if not self.lp_bug_object:
+            raise RuntimeError("No launchpad bug has been created or fetched")
         match SERVICE_ROOT:
             case "production":
                 return f"{LPNET_WEB_ROOT}bugs/{self.lp_bug_object.id}"

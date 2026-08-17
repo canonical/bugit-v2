@@ -171,7 +171,8 @@ class RecoverFromAutoSaveScreen(Screen[SerializableBugReport | None]):
             self.dismiss(None)
             return
 
-        assert event.button.name
+        if not event.button.name:
+            raise RuntimeError("Button pressed without a name")
 
         if event.button.name.startswith("delete:"):
             savefile_name = event.button.name.removeprefix("delete:")
@@ -185,7 +186,8 @@ class RecoverFromAutoSaveScreen(Screen[SerializableBugReport | None]):
             self.dismiss(self.valid_autosave_data[event.button.name])
 
     def _button_text(self, filename: str) -> Content:
-        assert filename in self.valid_autosave_data
+        if filename not in self.valid_autosave_data:
+            raise RuntimeError(f"Unknown autosave filename: {filename!r}")
         autosave = self.valid_autosave_data[filename]
         lines: list[str] = []
         if self.is_relative:

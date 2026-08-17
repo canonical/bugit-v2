@@ -95,8 +95,10 @@ async def asp_check_output(
             *cmd, stdout=asp.PIPE, stderr=asp.PIPE, cwd=cwd
         )
 
-    assert proc.stdout is not None
-    assert proc.stderr is not None
+    if proc.stdout is None:
+        raise RuntimeError("Subprocess stdout pipe was not created")
+    if proc.stderr is None:
+        raise RuntimeError("Subprocess stderr pipe was not created")
     # bind to locals so type checkers can narrow away the `| None` from
     # `proc.stdout`/`proc.stderr` inside the nested closure below
     stdout_stream = proc.stdout
@@ -131,7 +133,8 @@ async def asp_check_output(
             proc.kill()
         raise e
 
-    assert proc.returncode is not None
+    if proc.returncode is None:
+        raise RuntimeError("Subprocess finished without a return code")
     if proc.returncode != 0:
         raise CalledProcessError(proc.returncode, cmd, stdout, stderr)
 
@@ -185,7 +188,8 @@ async def asp_check_call(
 
     async def _run() -> int:
         if streaming:
-            assert proc.stdout is not None
+            if proc.stdout is None:
+                raise RuntimeError("Subprocess stdout pipe was not created")
             # capture=False: asp_check_call doesn't return captured stdout,
             # so don't hold potentially huge output in memory for nothing
             await _stream_lines(proc.stdout, on_line, dest_file, capture=False)
@@ -252,7 +256,8 @@ async def asp_run(
             proc.kill()
         raise e
 
-    assert proc.returncode is not None
+    if proc.returncode is None:
+        raise RuntimeError("Subprocess finished without a return code")
 
     return sp.CompletedProcess[str](
         cmd, proc.returncode, stdout.decode(), stderr.decode()

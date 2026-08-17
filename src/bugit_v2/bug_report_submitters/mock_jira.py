@@ -54,7 +54,8 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
             https://hostname.com/jira/software/c/projects/NAME
         :return: true if the project exists
         """
-        assert self.jira, "Jira object is not initialized"
+        if not self.jira:
+            raise JiraSubmitterError("Jira object is not initialized")
         try:
             self.jira.project(id=project_name)
         except Exception:
@@ -66,7 +67,8 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
         :param assignee: the email of the assignee or some form of ID
         :return: exists and unique
         """
-        assert self.jira, "Jira object is not initialized"
+        if not self.jira:
+            raise JiraSubmitterError("Jira object is not initialized")
 
         query_result = self.jira.search_users(query=assignee)
         if len(query_result) == 0:
@@ -75,7 +77,8 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
             raise JiraSubmitterError(f"Assignee '{assignee}' isn't unique!")
 
     def all_components_exist(self, project: str, components: Sequence[str]) -> None:
-        assert self.jira, "Jira object is not initialized"
+        if not self.jira:
+            raise JiraSubmitterError("Jira object is not initialized")
         # the @translate_args decorator confuses the type checker
         query_result = cast(list[Component], self.jira.project_components(project))
         for wanted_component in components:
@@ -89,7 +92,8 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
 
     @override
     def bug_exists(self, bug_id: str) -> bool:
-        assert self.auth
+        if not self.auth:
+            raise JiraSubmitterError("Missing auth credentials")
 
         try:
             if not self.jira:
@@ -123,8 +127,10 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
             "issuetype": {"name": "Bug"},
         }
 
-        assert self.auth, "Missing auth credentials"
-        assert JIRA_SERVER_ADDRESS, "JIRA_SERVER is not specified!"
+        if not self.auth:
+            raise JiraSubmitterError("Missing auth credentials")
+        if not JIRA_SERVER_ADDRESS:
+            raise JiraSubmitterError("JIRA_SERVER is not specified!")
 
         yield "Starting Jira authentication..."
         self.jira = JIRA(
@@ -190,7 +196,8 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
     @property
     @override
     def bug_url(self) -> str:
-        assert self.mock_issue
+        if not self.mock_issue:
+            raise JiraSubmitterError("Nothing has been submitted to Jira yet")
         return "http://example.com/"
 
     @override

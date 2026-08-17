@@ -49,6 +49,7 @@ environment:
   PYTHONPATH: "$PYTHONPATH:$SNAP/usr/lib/python3/dist-packages"
   # prevent lstopo from hanging on 26.04
   HWLOC_COMPONENTS: "-gl"
+  PYTHONOPTIMIZE: '1'
 
 layout:
   # this combined with the 'cp' in the install hook

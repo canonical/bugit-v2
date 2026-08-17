@@ -79,13 +79,15 @@ class SessionSelectionScreen(Screen[Path | Literal[NullSelection.NO_SESSION]]):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         session_path = event.button.name
         try:
-            assert session_path
+            if not session_path:
+                raise RuntimeError("Button pressed without a session path")
             if session_path == "bugit_no_session" and event.button.tooltip is not None:
                 self.dismiss(NullSelection.NO_SESSION)
             else:
-                assert Path(session_path).exists()
+                if not Path(session_path).exists():
+                    raise RuntimeError(f"{session_path} does not exist")
                 self.dismiss(Path(session_path).absolute())
-        except AssertionError:
+        except RuntimeError:
             self.app.notify(
                 "Was it deleted while BugIt is running?",
                 title=f"{session_path} doesn't exist.",

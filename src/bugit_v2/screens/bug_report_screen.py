@@ -476,7 +476,10 @@ class BugReportScreen(Screen[BugReport]):
                     yield t
                 else:
                     for k, output in job_output.items():
-                        assert type(output) is str
+                        if type(output) is not str:
+                            raise RuntimeError(
+                                f"Job output for {k} is not a string: {output!r}"
+                            )
                         t = TextArea(
                             output, read_only=True, classes="ha default_box mh75"
                         )
@@ -709,9 +712,10 @@ class BugReportScreen(Screen[BugReport]):
             btn.label = "Submit Bug Report"
 
     def _standard_info_worker_callback(self, event: Worker.StateChanged):
-        assert (
-            event.worker.is_finished
-        ), "Standard info callback invoked but the worker has not finished"
+        if not event.worker.is_finished:
+            raise RuntimeError(
+                "Standard info callback invoked but the worker has not finished"
+            )
 
         textarea = self.query_exactly_one(
             f"#{BugReportElemId.DESCRIPTION}", DescriptionEditor
@@ -793,10 +797,12 @@ class BugReportScreen(Screen[BugReport]):
             )
 
     def _get_cert_status_worker_callback(self, event: Worker.StateChanged):
-        assert self.job_id is not NullSelection.NO_JOB
-        assert (
-            event.worker.is_finished
-        ), "Cert status callback invoked but the worker has not finished"
+        if self.job_id is NullSelection.NO_JOB:
+            raise RuntimeError("Cert status callback invoked without a job id")
+        if not event.worker.is_finished:
+            raise RuntimeError(
+                "Cert status callback invoked but the worker has not finished"
+            )
 
         cert_status_box = self.query_exactly_one("#cert_status_box", Label)
 
@@ -815,13 +821,18 @@ class BugReportScreen(Screen[BugReport]):
         self._color_cert_status_box(cert_status and cert_status.cert_status)
 
     def _get_submission_cert_status_worker_callback(self, event: Worker.StateChanged):
-        assert self.job_id is not NullSelection.NO_JOB
-        assert (
-            event.worker.is_finished
-        ), "Submission cert status callback invoked but the worker has not finished"
+        if self.job_id is NullSelection.NO_JOB:
+            raise RuntimeError(
+                "Submission cert status callback invoked without a job id"
+            )
+        if not event.worker.is_finished:
+            raise RuntimeError(
+                "Submission cert status callback invoked but the worker has not finished"
+            )
 
         if event.worker.state == WorkerState.SUCCESS:
-            assert event.worker.result in CERT_STATUSES
+            if event.worker.result not in CERT_STATUSES:
+                raise RuntimeError(f"Unexpected cert status: {event.worker.result!r}")
             self._color_cert_status_box(event.worker.result)
         else:
             logger.error(f"Cert status worker error {event.worker.error}")
@@ -842,12 +853,25 @@ class BugReportScreen(Screen[BugReport]):
         ).pressed_button
 
         # shouldn't fail at runtime, major logic error if they do
-        assert selected_severity_button
-        assert selected_severity_button.name in SEVERITIES
-        assert selected_issue_file_time_button
-        assert selected_issue_file_time_button.name in ISSUE_FILE_TIMES
-        assert selected_status_button
-        assert selected_status_button.name in BUG_STATUSES
+        if not selected_severity_button:
+            raise RuntimeError("No severity button selected")
+        if selected_severity_button.name not in SEVERITIES:
+            raise RuntimeError(
+                f"Unexpected severity button name: {selected_severity_button.name!r}"
+            )
+        if not selected_issue_file_time_button:
+            raise RuntimeError("No issue file time button selected")
+        if selected_issue_file_time_button.name not in ISSUE_FILE_TIMES:
+            raise RuntimeError(
+                "Unexpected issue file time button name: "
+                + f"{selected_issue_file_time_button.name!r}"
+            )
+        if not selected_status_button:
+            raise RuntimeError("No status button selected")
+        if selected_status_button.name not in BUG_STATUSES:
+            raise RuntimeError(
+                f"Unexpected status button name: {selected_status_button.name!r}"
+            )
 
         hidden_collectors: list[LogName] = []
         if self.job_output_too_long:

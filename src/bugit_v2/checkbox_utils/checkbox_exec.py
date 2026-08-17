@@ -45,7 +45,8 @@ async def checkbox_exec(
     :return: whatever subprocess.run returns
     """
     checkbox_info = get_checkbox_info()
-    assert checkbox_info, "Unable to find checkbox on this DUT"
+    if not checkbox_info:
+        raise RuntimeError("Unable to find checkbox on this DUT")
 
     logger.info(f"Checkbox args: {checkbox_args}")
     if additional_env:

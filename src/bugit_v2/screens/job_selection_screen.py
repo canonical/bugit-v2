@@ -90,7 +90,8 @@ class JobSelectionScreen(Screen[str | Literal[NullSelection.NO_JOB]]):
 
     @on(Button.Pressed, "#continue_button")
     def finish_selection(self) -> None:
-        assert self.selected_job is not None
+        if self.selected_job is None:
+            raise RuntimeError("Continue button pressed without a selected job")
         if self.selected_job == "bugit_no_job":
             self.dismiss(NullSelection.NO_JOB)
         else:

@@ -162,7 +162,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     auth_rv = await self.app.push_screen_wait(
                         self.submitter.auth_modal()
                     )
-                    assert auth_rv
+                    if not auth_rv:
+                        raise ValueError("Auth modal was dismissed without a result")
                     (
                         self.submitter.auth,
                         self.submitter.allow_cache_credentials,
@@ -179,7 +180,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 # overwrite the old one to avoid counting th_log_with_time time waiting
                 # for the auth modal
                 self.progress_start_time = time.time()
-            except AssertionError:
+            except ValueError:
                 if self.mode == "screen":
                     prompt = ConfirmScreen[ReturnScreenChoice](
                         "[red]Authentication form returned nothing[/]",
@@ -313,7 +314,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                             ]
                         )
                     )
-                    logger.error(repr(e))
+                    logger.error(f"{collector.display_name}:{e!r}")
                     if collector.manual_collection_command:
                         self._log_collector(
                             f"You can rerun [blue]{collector.display_name}[/] "
@@ -354,7 +355,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         )
 
     def start_parallel_attachment_upload(self) -> None:
-        assert self.activity_log_widget
+        if not self.activity_log_widget:
+            raise RuntimeError("Activity log widget is not mounted")
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
 
         def upload_one(f: Path):
@@ -395,7 +397,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             self._log_with_time(f"Uploading: {file.name}")
 
     def start_sequential_attachment_upload(self) -> None:
-        assert self.activity_log_widget
+        if not self.activity_log_widget:
+            raise RuntimeError("Activity log widget is not mounted")
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
 
         def upload_all():
@@ -439,7 +442,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
     def create_bug(self) -> None:
         """Do the entire bug creation sequence. This should be run in a worker"""
-        assert self.activity_log_widget
+        if not self.activity_log_widget:
+            raise RuntimeError("Activity log widget is not mounted")
 
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
         display_name = self.submitter.display_name or self.submitter.name
@@ -829,7 +833,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 )
         except Exception as e:
             finalize_ok = False
-            self._log_with_time(f"[red]ERR when finalizing[/]: {e!r}")
+            self._log_with_time(f"[red]FINALIZE FAIL[/]: {e!r}")
             logger.error(e)
 
         finish_message_lines = ["[green]Submission finished![/]"]
