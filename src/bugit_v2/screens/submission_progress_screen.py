@@ -314,7 +314,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                             ]
                         )
                     )
-                    logger.error(repr(e))
+                    logger.error(f"{collector.display_name}:{e!r}")
                     if collector.manual_collection_command:
                         self._log_collector(
                             f"You can rerun [blue]{collector.display_name}[/] "
