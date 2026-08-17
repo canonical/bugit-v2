@@ -833,7 +833,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 )
         except Exception as e:
             finalize_ok = False
-            self._log_with_time(f"[red]ERR when finalizing[/]: {e!r}")
+            self._log_with_time(f"[red]FINALIZE FAIL[/]: {e!r}")
             logger.error(e)
 
         finish_message_lines = ["[green]Submission finished![/]"]
