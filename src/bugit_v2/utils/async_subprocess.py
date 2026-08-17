@@ -140,7 +140,7 @@ async def asp_check_output(
         raise e
 
     if proc.returncode is None:
-        raise RuntimeError("Subprocess finished without a return code")
+        raise RuntimeError(f"{cmd} finished without a return code")
     if proc.returncode != 0:
         raise CalledProcessError(proc.returncode, cmd, stdout, stderr)
 
@@ -263,7 +263,7 @@ async def asp_run(
         raise e
 
     if proc.returncode is None:
-        raise RuntimeError("Subprocess finished without a return code")
+        raise RuntimeError(f"{cmd} finished without a return code")
 
     return sp.CompletedProcess[str](
         cmd, proc.returncode, stdout.decode(), stderr.decode()
