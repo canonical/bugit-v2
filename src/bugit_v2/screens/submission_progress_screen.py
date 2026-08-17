@@ -163,7 +163,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                         self.submitter.auth_modal()
                     )
                     if not auth_rv:
-                        raise RuntimeError("Auth modal was dismissed without a result")
+                        raise ValueError("Auth modal was dismissed without a result")
                     (
                         self.submitter.auth,
                         self.submitter.allow_cache_credentials,
@@ -180,7 +180,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 # overwrite the old one to avoid counting th_log_with_time time waiting
                 # for the auth modal
                 self.progress_start_time = time.time()
-            except AssertionError:
+            except ValueError:
                 if self.mode == "screen":
                     prompt = ConfirmScreen[ReturnScreenChoice](
                         "[red]Authentication form returned nothing[/]",
