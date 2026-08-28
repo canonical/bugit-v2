@@ -3,7 +3,9 @@ import logging
 import os
 import shutil
 import subprocess
+import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 from tempfile import mkdtemp
 from typing import Final, Literal, final, override
@@ -383,7 +385,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 self._log_with_time(f"[red]FAIL[/red] failed to upload {f}: {e!r}")
                 raise e  # mark the worker as failed
             finally:
-                progress_bar.advance()
+                self._call_on_app_thread(progress_bar.advance)
 
         for file in self.attachment_dir.iterdir():
             self.upload_workers[str(file)] = self.run_worker(
@@ -425,7 +427,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     failed_attachments.append(f.name)
                     self._log_with_time(f"[red]FAIL[/red] failed to upload {f}: {e!r}")
                 finally:
-                    progress_bar.advance()
+                    self._call_on_app_thread(progress_bar.advance)
 
             if len(failed_attachments) != 0:
                 # force an error here to mark the worker as failed
@@ -458,7 +460,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     self._log_with_time(
                         f"[green]OK[/] [b]{display_name}[/b]: " + step_result.message
                     )
-                    progress_bar.advance()
+                    self._call_on_app_thread(progress_bar.advance)
 
         running_collectors = [
             w for w in self.attachment_workers.values() if w.is_running
@@ -712,6 +714,25 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         """
         self._write_log(self.log_widget, msg)
 
+    def _call_on_app_thread(
+        self, callback: Callable[..., object], *args: object
+    ) -> None:
+        """Runs `callback(*args)` on the app's own thread.
+
+        Several workers run with thread=True (bug creation, uploads,
+        finalize) and mutate widgets directly from a background OS thread.
+        Textual widgets aren't thread-safe: concurrent mutations from
+        multiple threads (or racing with the main thread) can corrupt
+        internal widget state, e.g. a RichLog write being interrupted
+        mid-mutation, which can surface as bogus MarkupErrors like
+        "closing tag '[/]' has nothing to close". Marshal the call back
+        onto the app's thread whenever we're not already on it.
+        """
+        if threading.get_ident() == self.app._thread_id:
+            callback(*args)
+        else:
+            self.app.call_from_thread(callback, *args)
+
     def _write_log(self, widget: RichLog | None, msg: str):
         if widget is None:
             logger.warning("Uninitialized log widget")
@@ -719,7 +740,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         # 999 seconds is about 2 hours
         # should be enough digits
         s = f"{round(time.time() - self.progress_start_time, 1)}".rjust(6)
-        widget.write(f"[grey70][ {s} ][/] {msg}")
+        line = f"[grey70][ {s} ][/] {msg}"
+        self._call_on_app_thread(widget.write, line)
 
     def _bug_creation_worker_callback(self, event: Worker.StateChanged):
         if event.worker.name != WorkerName.BUG_CREATION:
@@ -872,7 +894,10 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 "You can go back to job/session selection or quit BugIt."
             )
 
-        self.query_exactly_one("#finish_message", Label).update(
-            "\n".join(finish_message_lines)
-        )
-        self.query_exactly_one("#menu_after_finish").display = True
+        def _show_finish_message() -> None:
+            self.query_exactly_one("#finish_message", Label).update(
+                "\n".join(finish_message_lines)
+            )
+            self.query_exactly_one("#menu_after_finish").display = True
+
+        self._call_on_app_thread(_show_finish_message)
