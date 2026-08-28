@@ -714,22 +714,14 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         """
         self._write_log(self.log_widget, msg)
 
-    def _call_on_app_thread(
-        self, callback: Callable[..., object], *args: object
+    def _call_on_app_thread[**P, R](
+        self, callback: Callable[P, R], *args: P.args, **kwargs: P.kwargs
     ) -> None:
-        """Runs `callback(*args)` on the app's own thread.
-
-        Several workers run with thread=True (bug creation, uploads,
-        finalize) and mutate widgets directly from a background OS thread.
-        Textual widgets aren't thread-safe: concurrent mutations from
-        multiple threads (or racing with the main thread) can corrupt
-        internal widget state, e.g. a RichLog write being interrupted
-        mid-mutation, which can surface as bogus MarkupErrors like
-        "closing tag '[/]' has nothing to close". Marshal the call back
-        onto the app's thread whenever we're not already on it.
-        """
+        # A thin wrapper over self.app_call_from_thread
+        # if we are on the same thread as app, directly run the callback
+        # otherwise, use the call_from_thread method to keep it thread safe
         if threading.get_ident() == self.app._thread_id:
-            callback(*args)
+            callback(*args, **kwargs)
         else:
             self.app.call_from_thread(callback, *args)
 
