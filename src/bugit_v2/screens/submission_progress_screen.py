@@ -723,7 +723,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         if threading.get_ident() == self.app._thread_id:
             callback(*args, **kwargs)
         else:
-            self.app.call_from_thread(callback, *args)
+            self.app.call_from_thread(callback, *args, **kwargs)
 
     def _write_log(self, widget: RichLog | None, msg: str):
         if widget is None:
