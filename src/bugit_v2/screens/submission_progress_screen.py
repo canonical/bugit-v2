@@ -639,7 +639,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 yield Static(id="collector_status", markup=True)
             al = RichLog(
                 id="activity_log",
-                markup=True,
+                # markup=True,
                 wrap=True,
                 max_lines=100,
             )
@@ -648,7 +648,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
             sl = RichLog(
                 id="submission_logs",
-                markup=True,
+                # markup=True,
                 wrap=True,
                 max_lines=5000,
             )
