@@ -130,7 +130,7 @@ async def get_standard_info(
         ):
             standard_info[" ".join(word.capitalize() for word in dmi_key.split("-"))] = (
                 await asp_check_output(
-                    ["dmidecode", "-s", dmi_key],
+                    [*NSENTER_PREFIX, "dmidecode", "-s", dmi_key],
                     timeout=command_timeout,
                 )
             ).strip()
