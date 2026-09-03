@@ -859,7 +859,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 self._log_with_time(f"[green]FINALIZE OK[/] {escape_markup(rv)}")
             else:
                 self._log_with_time(
-                    f"[green]FINALIZE OK[/] {escape_markup(self.submitter.display_name or '')}"
+                    f"[green]FINALIZE OK[/] {escape_markup(self.submitter.display_name or self.submitter.name)}"
                 )
         except Exception as e:
             finalize_ok = False
