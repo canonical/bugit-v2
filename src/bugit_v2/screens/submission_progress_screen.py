@@ -65,6 +65,12 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     activity_log_widget: RichLog | None = None  # late init in on_mount, everything else
     upload_attempted = False
 
+    # captured in on_mount, which always runs on the app/UI thread. Used by
+    # _call_on_app_thread to decide whether a call needs to hop threads,
+    # without depending on Textual's private, potentially-unstable
+    # App._thread_id or the wording of its internal error messages.
+    _app_thread_id: int | None = None
+
     # tracks when each log collector was launched so we can show elapsed time
     collector_start_times: dict[LogName, float]
     # tracks the most recent stdout line streamed from each running collector
@@ -152,6 +158,10 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
     @work
     async def on_mount(self) -> None:
+        # capture this once, on the app/UI thread, so _call_on_app_thread has
+        # a stable reference that never changes for the lifetime of the screen
+        self._app_thread_id = threading.get_ident()
+
         self.log_widget = self.query_exactly_one("#submission_logs", RichLog)
         self.activity_log_widget = self.query_exactly_one("#activity_log", RichLog)
         self.query_exactly_one("#menu_after_finish").display = False
@@ -736,7 +746,27 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     def _call_on_app_thread[**P, R](
         self, callback: Callable[P, R], *args: P.args, **kwargs: P.kwargs
     ) -> None:
-        if threading.get_ident() == self.app._thread_id:
+        """Runs `callback` on the app/UI thread, from whichever thread we're
+        currently on.
+
+        This used to pre-check `threading.get_ident() == self.app._thread_id`
+        before deciding whether to call directly or go through
+        `call_from_thread`. That's a classic check-then-act race:
+        `App._thread_id` is a private Textual implementation detail that
+        isn't guaranteed to stay stable between our check and the moment
+        `call_from_thread` re-checks it internally (e.g. around app
+        shutdown). If the two checks ever disagreed, we'd hit
+        `RuntimeError("...must run in a different thread from the app")`
+        even though we were legitimately on a worker thread.
+
+        Rather than depend on Textual's private attribute (or, worse, on
+        pattern-matching the wording of its internal exception, which could
+        silently break on a future Textual release), we keep our own
+        `_app_thread_id`, captured once in `on_mount` - a point guaranteed to
+        run on the app/UI thread. That value never changes for the screen's
+        lifetime, so this comparison can't race with anything.
+        """
+        if threading.get_ident() == self._app_thread_id:
             callback(*args, **kwargs)
         else:
             self.app.call_from_thread(callback, *args, **kwargs)
