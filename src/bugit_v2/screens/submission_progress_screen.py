@@ -636,7 +636,10 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                         id="progress",
                         show_eta=False,
                     )
-                yield Static(id="collector_status", markup=True)
+                yield Static(
+                    id="collector_status",
+                    # markup=True,
+                )
             al = RichLog(
                 id="activity_log",
                 # markup=True,
