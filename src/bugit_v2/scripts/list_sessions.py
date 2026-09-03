@@ -33,6 +33,7 @@ def main(
     ] = False,
 ):
     valid_sessions = get_valid_sessions()
+    valid_sessions.sort(key=str)
 
     if len(valid_sessions) == 0:
         if print_json:
