@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import subprocess
+import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -716,7 +717,10 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     def _call_on_app_thread[**P, R](
         self, callback: Callable[P, R], *args: P.args, **kwargs: P.kwargs
     ) -> None:
-        self.app.call_from_thread(callback, *args, **kwargs)
+        if threading.get_ident() == self.app._thread_id:
+            callback(*args, **kwargs)
+        else:
+            self.app.call_from_thread(callback, *args, **kwargs)
 
     def _write_log(self, widget: RichLog | None, msg: str):
         if widget is None:
