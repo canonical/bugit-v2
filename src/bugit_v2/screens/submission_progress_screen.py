@@ -232,13 +232,13 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         for key, worker in self.attachment_workers.items():
             if worker.is_running:
                 self._log_collector(
-                    f"Unmount, cancelling collector [b]{escape_markup(str(key))}[/]"
+                    f"Unmount, cancelling collector {escape_markup(str(key))}"
                 )
                 worker.cancel()
         for key, worker in self.upload_workers.items():
             if worker.is_running:
                 self._log_with_time(
-                    f"Unmount, cancelling uploader [b]{escape_markup(str(key))}[/]"
+                    f"Unmount, cancelling uploader {escape_markup(str(key))}"
                 )
                 worker.cancel()
 
@@ -267,7 +267,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 shutil.copy(file, self.attachment_dir / target_file_name)
             except Exception as e:
                 self._log_collector(
-                    f"[red]Failed to copy {escape_markup(str(file))}: {escape_markup(repr(e))}"
+                    f"FAIL! Failed to copy {escape_markup(str(file))}: {escape_markup(repr(e))}"
                 )
 
         # get the log collectors running first
@@ -295,7 +295,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                         return
                     last_logged_at = now
                     self._log_collector(
-                        f"[grey58]{collector.display_name}[/] | {escape_markup(stripped)}"
+                        f"{collector.display_name} | {escape_markup(stripped)}"
                     )
 
                 try:
@@ -307,8 +307,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                         self._log_collector(
                             " ".join(
                                 [
-                                    "[green]OK[/]",
-                                    f"[b]{escape_markup(collector.display_name)}[/b]:",
+                                    "OK!",
+                                    f"{escape_markup(collector.display_name)}:",
                                     escape_markup(rv.strip()),
                                 ]
                             )
@@ -317,8 +317,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                         self._log_collector(
                             " ".join(
                                 [
-                                    "[green]OK[/]",
-                                    f"[b]{escape_markup(collector.display_name)}[/b]:",
+                                    "OK!",
+                                    f"{escape_markup(collector.display_name)}:",
                                     "Finished collection!",
                                 ]
                             )
@@ -327,7 +327,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     self._log_collector(
                         " ".join(
                             [
-                                f"[red]FAIL[/red] {escape_markup(collector.display_name)} failed:",
+                                f"FAIL! {escape_markup(collector.display_name)} failed:",
                                 escape_markup(repr(e)),
                             ]
                         )
@@ -335,8 +335,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     logger.error(f"{collector.display_name}:{e!r}")
                     if collector.manual_collection_command:
                         self._log_collector(
-                            f"You can rerun [blue]{collector.display_name}[/] "
-                            + f"with [blue]{collector.manual_collection_command}[/]"
+                            f"You can rerun {collector.display_name} "
+                            + f"with {collector.manual_collection_command}"
                         )
                 finally:
                     self.collector_last_line.pop(log, None)
@@ -381,7 +381,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             try:
                 if f.stat().st_size == 0:
                     self._log_with_time(
-                        f"[orange_red1]WARN[/] {escape_markup(str(f))} is an empty file. Skipping"
+                        f"WARN! {escape_markup(str(f))} is an empty file. Skipping"
                     )
                     return
 
@@ -393,15 +393,13 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 if rv and rv.strip():
                     # only show non-empty, non-null messages
                     self._log_with_time(
-                        f"[green]OK[/] [b]Uploaded {escape_markup(f.name)}[/]: {escape_markup(rv.strip())}"
+                        f"OK! Uploaded {escape_markup(f.name)}: {escape_markup(rv.strip())}"
                     )
                 else:
-                    self._log_with_time(
-                        f"[green]OK[/] [b]Uploaded {escape_markup(f.name)}[/b]"
-                    )
+                    self._log_with_time(f"OK! Uploaded {escape_markup(f.name)}")
             except Exception as e:
                 self._log_with_time(
-                    f"[red]FAIL[/red] failed to upload {escape_markup(str(f))}: {escape_markup(repr(e))}"
+                    f"FAIL! failed to upload {escape_markup(str(f))}: {escape_markup(repr(e))}"
                 )
                 raise e  # mark the worker as failed
             finally:
@@ -429,7 +427,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 try:
                     if f.stat().st_size == 0:
                         self._log_with_time(
-                            f"[orange_red1]WARN[/] {escape_markup(str(f))} is an empty file. Skipping"
+                            f"WARN! {escape_markup(str(f))} is an empty file. Skipping"
                         )
                         continue
 
@@ -439,16 +437,14 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     if rv and rv.strip():
                         # only show non-empty, non-null messages
                         self._log_with_time(
-                            f"[green]OK[/] [b]Uploaded {escape_markup(f.name)}[/]: {escape_markup(rv.strip())}"
+                            f"OK! Uploaded {escape_markup(f.name)}: {escape_markup(rv.strip())}"
                         )
                     else:
-                        self._log_with_time(
-                            f"[green]OK[/] [b]Uploaded {escape_markup(f.name)}[/b]"
-                        )
+                        self._log_with_time(f"OK! Uploaded {escape_markup(f.name)}")
                 except Exception as e:
                     failed_attachments.append(f.name)
                     self._log_with_time(
-                        f"[red]FAIL[/red] failed to upload {escape_markup(str(f))}: {escape_markup(repr(e))}"
+                        f"FAIL! failed to upload {escape_markup(str(f))}: {escape_markup(repr(e))}"
                     )
                 finally:
                     self._call_on_app_thread(progress_bar.advance)
@@ -479,12 +475,12 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 case str():
                     # general logs
                     self._log_with_time(
-                        f"[b]{escape_markup(display_name)}[/b]: {escape_markup(step_result)}"
+                        f"{escape_markup(display_name)}: {escape_markup(step_result)}"
                     )
                 case AdvanceMessage():
                     # messages that will advance the progress bar
                     self._log_with_time(
-                        f"[green]OK[/] [b]{escape_markup(display_name)}[/b]: "
+                        f"OK! {escape_markup(display_name)}: "
                         + escape_markup(step_result.message)
                     )
                     self._call_on_app_thread(progress_bar.advance)
@@ -495,7 +491,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         num_attachments = sum(1 for _ in self.attachment_dir.iterdir())
         if len(running_collectors) > 0:
             self._log_with_time(
-                f"[blue]Finished bug creation. Waiting for {len(running_collectors)} log collector(s) to finish"
+                f"Finished bug creation. Waiting for {len(running_collectors)} log collector(s) to finish"
             )
             for c in running_collectors:
                 if c.name in LOG_NAME_TO_COLLECTOR:
@@ -583,7 +579,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 if event.worker.name in self.attachment_workers
                 else self._log_with_time
             )
-            log(f"[yellow]{event.worker.name} was cancelled[/]")
+            log(f"{event.worker.name} was cancelled")
 
         if self.finished:
             # don't do the following callbacks if finished
@@ -609,9 +605,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     def cancel_all_unfinished_collectors(self, event: Button.Pressed):
         for key, worker in self.attachment_workers.items():
             if worker.is_running:
-                self._log_collector(
-                    f"Cancelling collector [b]{escape_markup(str(key))}[/]"
-                )
+                self._log_collector(f"Cancelling collector {escape_markup(str(key))}")
                 worker.cancel()
                 self.attachment_worker_checker_timers[key].stop()
                 self.query_exactly_one("#progress", ProgressBar).advance()
@@ -642,7 +636,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 )
             al = RichLog(
                 id="activity_log",
-                # markup=True,
+                markup=False,
                 wrap=True,
                 max_lines=100,
             )
@@ -651,7 +645,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
             sl = RichLog(
                 id="submission_logs",
-                # markup=True,
+                markup=False,
                 wrap=True,
                 max_lines=5000,
             )
@@ -726,7 +720,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 last_line = last_line[:77] + "..."
             last_line_suffix = f" - {escape_markup(last_line)}" if last_line else ""
             lines.append(
-                f"  - [$secondary]{collector.display_name}[/]: {elapsed:.0f}s elapsed{timeout_suffix}{last_line_suffix}"
+                f"  - {collector.display_name}: {elapsed:.0f}s elapsed{timeout_suffix}{last_line_suffix}"
             )
 
         status_widget.update("\n".join(lines))
@@ -781,7 +775,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         # 999 seconds is about 2 hours
         # should be enough digits
         s = f"{round(time.time() - self.progress_start_time, 1)}".rjust(6)
-        line = f"[grey70][ {s} ][/] {msg}"
+        line = f"[ {s} ] {msg}"
         self._call_on_app_thread(widget.write, line)
 
     def _bug_creation_worker_callback(self, event: Worker.StateChanged):
@@ -889,14 +883,14 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             rv = self.submitter.finalize()
             finalize_ok = True
             if rv:
-                self._log_with_time(f"[green]FINALIZE OK[/] {escape_markup(rv)}")
+                self._log_with_time(f"FINALIZE OK {escape_markup(rv)}")
             else:
                 self._log_with_time(
-                    f"[green]FINALIZE OK[/] {escape_markup(self.submitter.display_name or self.submitter.name)}"
+                    f"FINALIZE OK {escape_markup(self.submitter.display_name or self.submitter.name)}"
                 )
         except Exception as e:
             finalize_ok = False
-            self._log_with_time(f"[red]FINALIZE FAIL[/]: {escape_markup(repr(e))}")
+            self._log_with_time(f"FINALIZE FAIL!: {escape_markup(repr(e))}")
             logger.error(e)
 
         finish_message_lines = ["[green]Submission finished![/]"]
