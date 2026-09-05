@@ -706,9 +706,9 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         status_widget.remove_children()
 
         now = time.time()
-        lines = [
-            f"{len(running_names)} log collector(s) still running:",
-        ]
+        status_widget.mount(
+            Static(f"{len(running_names)} log collector(s) still running:")
+        )
 
         for name in running_names:
             collector = LOG_NAME_TO_COLLECTOR[name]
@@ -721,13 +721,14 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             last_line = self.collector_last_line.get(name)
             if last_line and len(last_line) > 80:
                 last_line = last_line[:77] + "..."
-            last_line_suffix = f" - {escape_markup(last_line)}" if last_line else ""
-            lines.append(
-                f"  - [$secondary]{collector.display_name}[/]: [$accent]{elapsed:.0f}s[/] elapsed{timeout_suffix}{last_line_suffix}"
+            status_widget.mount(
+                HorizontalGroup(
+                    Static(
+                        f" - [$secondary]{collector.display_name}[/]: [$accent]{elapsed:.0f}s[/] elapsed{timeout_suffix}"
+                    ),
+                    Static(f" - {last_line}", markup=False),
+                )
             )
-
-        for line in lines:
-            status_widget.mount(Static(line))
 
     def _log_with_time(self, msg: str):
         """Logs a general "activity" message: bug creation steps, auth,
@@ -790,7 +791,12 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                             ConfirmScreen[ReturnScreenChoice](
                                 "Got the following error during submission",
                                 sub_prompt=f"[red]{escape_markup(str(event.worker.error))}",
-                                choices=(("Return to Report Editor", "report_editor"),),
+                                choices=(
+                                    (
+                                        "Return to Report Editor",
+                                        "report_editor",
+                                    ),
+                                ),
                                 focus_id_on_mount="report_editor",
                             ),
                             dismiss_wrapper,
