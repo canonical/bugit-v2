@@ -607,7 +607,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             self.dismiss(event.button.id)
 
     @on(Button.Pressed, "#give_up")
-    def cancel_all_unfinished_collectors(self, event: Button.Pressed):
+    async def cancel_all_unfinished_collectors(self, event: Button.Pressed):
         for key, worker in self.attachment_workers.items():
             if worker.is_running:
                 self._log_collector(f"Cancelling collector {escape_markup(str(key))}")
@@ -619,7 +619,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         event.button.disabled = True
         event.button.label = "All collectors finished"
         event.button.styles.width = "auto"
-        self._update_collector_status()
+        await self._update_collector_status()
 
     @override
     def compose(self) -> ComposeResult:
