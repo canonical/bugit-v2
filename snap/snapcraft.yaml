@@ -49,7 +49,7 @@ environment:
   PYTHONPATH: "$PYTHONPATH:$SNAP/usr/lib/python3/dist-packages"
   # prevent lstopo from hanging on 26.04
   HWLOC_COMPONENTS: "-gl"
-  PYTHONOPTIMIZE: '1'
+  PYTHONOPTIMIZE: "1"
 
 layout:
   # this combined with the 'cp' in the install hook
@@ -130,3 +130,38 @@ parts:
     plugin: nil
     stage-packages:
       - apport # provides "oem-getlogs"
+
+  ###################from checkbox#############################################
+  plz-run:
+    plugin: go
+    source: https://github.com/canonical/plz-run.git
+    build-snaps:
+      - go/latest/stable
+  ################################################################################
+  # statically linked nsenter as plz-run launches nsenter outside of the namespace
+  # so if the user is using a different base / os with a different version of
+  # glibc, nsenter won't work at all.
+  static-nsenter:
+    plugin: nil
+    source-tag: "v2.41.1"
+    source-depth: 1
+    source: https://github.com/util-linux/util-linux.git
+    build-packages:
+      - build-essential
+      - libcap-ng-dev
+      - git
+      - autoconf
+      - automake
+      - libtool
+      - gettext
+      - bison
+      - pkg-config
+      - flex
+      - autopoint
+    override-build: |
+      snapcraftctl build
+      ./autogen.sh
+      ./configure --disable-all-programs --disable-year2038 --enable-nsenter \
+        --enable-setpriv --enable-static-programs=nsenter
+      make LDFLAGS="-static -all-static"
+      install -D -m 755 nsenter.static "$SNAPCRAFT_PART_INSTALL/usr/bin/nsenter.static"
