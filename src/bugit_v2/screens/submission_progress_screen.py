@@ -629,8 +629,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                         id="progress",
                         show_eta=False,
                     )
-                yield Static(
-                    id="collector_status",
+                yield VerticalGroup(
+                    id="collector_status_container",
                     markup=False,
                 )
             al = RichLog(
@@ -685,7 +685,9 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         still running and how long each of them has been running for, even
         during long stretches where no collector has produced any log output.
         """
-        status_widget = self.query_exactly_one("#collector_status", Static)
+        status_widget = self.query_exactly_one(
+            "#collector_status_container", VerticalGroup
+        )
 
         running_names: list[LogName] = [
             name
@@ -694,13 +696,15 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         ]
 
         if not running_names:
-            status_widget.update("")
+            status_widget.remove_children()
             status_widget.display = False
             if self.collector_status_timer is not None:
                 self.collector_status_timer.stop()
             return
 
         status_widget.display = True
+        status_widget.remove_children()
+
         now = time.time()
         lines = [
             f"{len(running_names)} log collector(s) still running:",
@@ -719,10 +723,11 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 last_line = last_line[:77] + "..."
             last_line_suffix = f" - {escape_markup(last_line)}" if last_line else ""
             lines.append(
-                f"  - {collector.display_name}: {elapsed:.0f}s elapsed{timeout_suffix}{last_line_suffix}"
+                f"  - [blue]{collector.display_name}[/blue]: {elapsed:.0f}s elapsed{timeout_suffix}{last_line_suffix}"
             )
 
-        status_widget.update("\n".join(lines))
+        for line in lines:
+            status_widget.mount(Static(line))
 
     def _log_with_time(self, msg: str):
         """Logs a general "activity" message: bug creation steps, auth,
