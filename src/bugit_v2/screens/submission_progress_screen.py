@@ -65,10 +65,9 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     activity_log_widget: RichLog | None = None  # late init in on_mount, everything else
     upload_attempted = False
 
-    # captured in on_mount, which always runs on the app/UI thread. Used by
-    # _call_on_app_thread to decide whether a call needs to hop threads,
-    # without depending on Textual's private, potentially-unstable
-    # App._thread_id or the wording of its internal error messages.
+    # snapshot the current thread id in on_mount
+    # to allow _call_on_app_thread to dynamically pick between
+    # direct call and app.call_from_thread
     _app_thread_id: int | None = None
 
     # tracks when each log collector was launched so we can show elapsed time
@@ -76,6 +75,11 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     # tracks the most recent stdout line streamed from each running collector
     collector_last_line: dict[LogName, str]
     collector_status_timer: Timer | None = None
+
+    # widgets backing the "collectors remaining" panel, kept alive across
+    # ticks so we can update them in place instead of unmount/remount
+    _collector_status_header: Static | None = None
+    _collector_status_rows: dict[LogName, tuple[HorizontalGroup, Static, Static]]
 
     submitter: Final[BugReportSubmitter[TAuth]]
     # handles the special case for bugit.submit
@@ -94,7 +98,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         display: none;
     }
 
-    #collector_status {
+    #collector_status_container {
         display: none;
         height: auto;
         padding: 0 1;
@@ -152,6 +156,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         self.upload_workers = {}
         self.collector_start_times = {}
         self.collector_last_line = {}
+        self._collector_status_rows = {}
         self.progress_start_time = time.time()
 
         super().__init__(name, id, classes)
@@ -216,7 +221,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             self.collector_status_timer = self.set_interval(
                 1, self._update_collector_status
             )
-            self._update_collector_status()
+            await self._update_collector_status()
 
         # auth ready, do the jira/lp steps
         self.bug_creation_worker = self.run_worker(
@@ -269,6 +274,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 self._log_collector(
                     f"FAIL! Failed to copy {escape_markup(str(file))}: {escape_markup(repr(e))}"
                 )
+                logger.exception(f"Failed to copy {file}")
 
         # get the log collectors running first
         # all log collectors are allowed to fail. If they do, write a message
@@ -278,10 +284,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             async def run_collect(log: LogName):
                 collector = LOG_NAME_TO_COLLECTOR[log]
                 last_logged_at = 0.0
-                # chatty collectors (e.g. a week of journalctl, snap-debug)
-                # can emit tens of thousands of lines; throttle how often we
-                # write to the RichLog to avoid flooding the UI/memory, while
-                # still updating the status panel's "latest line" every time
+                # throttle how fast we update the status widget
                 min_log_interval = 0.2
 
                 def stream_line(line: str) -> None:
@@ -332,12 +335,12 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                             ]
                         )
                     )
-                    logger.error(f"{collector.display_name}:{e!r}")
                     if collector.manual_collection_command:
                         self._log_collector(
                             f"You can rerun {collector.display_name} "
                             + f"with {collector.manual_collection_command}"
                         )
+                    logger.exception(f"{collector.display_name}")
                 finally:
                     self.collector_last_line.pop(log, None)
                     progress_bar.advance()
@@ -401,7 +404,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 self._log_with_time(
                     f"FAIL! failed to upload {escape_markup(str(f))}: {escape_markup(repr(e))}"
                 )
-                raise e  # mark the worker as failed
+                raise  # mark the worker as failed
             finally:
                 self._call_on_app_thread(progress_bar.advance)
 
@@ -446,6 +449,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     self._log_with_time(
                         f"FAIL! failed to upload {escape_markup(str(f))}: {escape_markup(repr(e))}"
                     )
+                    logger.exception(f"Failed to upload {f}")
                 finally:
                     self._call_on_app_thread(progress_bar.advance)
 
@@ -602,7 +606,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             self.dismiss(event.button.id)
 
     @on(Button.Pressed, "#give_up")
-    def cancel_all_unfinished_collectors(self, event: Button.Pressed):
+    async def cancel_all_unfinished_collectors(self, event: Button.Pressed):
         for key, worker in self.attachment_workers.items():
             if worker.is_running:
                 self._log_collector(f"Cancelling collector {escape_markup(str(key))}")
@@ -614,7 +618,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         event.button.disabled = True
         event.button.label = "All collectors finished"
         event.button.styles.width = "auto"
-        self._update_collector_status()
+        await self._update_collector_status()
 
     @override
     def compose(self) -> ComposeResult:
@@ -630,10 +634,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                         id="progress",
                         show_eta=False,
                     )
-                yield Static(
-                    id="collector_status",
-                    markup=False,
-                )
+                yield VerticalGroup(id="collector_status_container")
             al = RichLog(
                 id="activity_log",
                 markup=False,
@@ -679,14 +680,21 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
             yield Footer()
 
-    def _update_collector_status(self) -> None:
+    async def _update_collector_status(self) -> None:
         """Refreshes the live "collectors remaining" panel.
 
         Runs on a 1s interval so users can see how many log collectors are
         still running and how long each of them has been running for, even
         during long stretches where no collector has produced any log output.
+
+        Rows are created once per collector and updated in place afterwards
+        (via `Static.update`) rather than unmounting/remounting everything
+        every tick; only rows for collectors that started/finished since the
+        last tick are mounted/removed.
         """
-        status_widget = self.query_exactly_one("#collector_status", Static)
+        status_container = self.query_exactly_one(
+            "#collector_status_container", VerticalGroup
+        )
 
         running_names: list[LogName] = [
             name
@@ -695,18 +703,32 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         ]
 
         if not running_names:
-            status_widget.update("")
-            status_widget.display = False
+            await status_container.remove_children()
+            self._collector_status_header = None
+            self._collector_status_rows = {}
+            status_container.display = False
             if self.collector_status_timer is not None:
                 self.collector_status_timer.stop()
             return
 
-        status_widget.display = True
-        now = time.time()
-        lines = [
-            f"{len(running_names)} log collector(s) still running:",
-        ]
+        status_container.display = True
 
+        header_text = f"{len(running_names)} log collector(s) still running:"
+        if self._collector_status_header is None:
+            self._collector_status_header = Static(header_text)
+            await status_container.mount(self._collector_status_header)
+        else:
+            self._collector_status_header.update(header_text)
+
+        running_name_set = set(running_names)
+
+        # remove rows for collectors that finished since the last tick
+        for name in list(self._collector_status_rows):
+            if name not in running_name_set:
+                row, _, _ = self._collector_status_rows.pop(name)
+                await row.remove()
+
+        now = time.time()
         for name in running_names:
             collector = LOG_NAME_TO_COLLECTOR[name]
             elapsed = now - self.collector_start_times.get(name, now)
@@ -715,15 +737,29 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 if collector.advertised_timeout is not None
                 else ""
             )
+
             last_line = self.collector_last_line.get(name)
             if last_line and len(last_line) > 80:
                 last_line = last_line[:77] + "..."
-            last_line_suffix = f" - {escape_markup(last_line)}" if last_line else ""
-            lines.append(
-                f"  - {collector.display_name}: {elapsed:.0f}s elapsed{timeout_suffix}{last_line_suffix}"
-            )
 
-        status_widget.update("\n".join(lines))
+            elapsed_text = f" - [$secondary]{collector.display_name}[/]: [$accent]{elapsed:.0f}s[/] elapsed{timeout_suffix}"
+            last_line_text = f" - {last_line}" if last_line else ""
+
+            row = self._collector_status_rows.get(name)
+            if row is None:
+                elapsed_static = Static(elapsed_text, classes="wa")
+                last_line_static = Static(last_line_text, markup=False, classes="wa")
+                new_row = HorizontalGroup(elapsed_static, last_line_static, classes="wa")
+                self._collector_status_rows[name] = (
+                    new_row,
+                    elapsed_static,
+                    last_line_static,
+                )
+                await status_container.mount(new_row)
+            else:
+                _, elapsed_static, last_line_static = row
+                elapsed_static.update(elapsed_text)
+                last_line_static.update(last_line_text)
 
     def _log_with_time(self, msg: str):
         """Logs a general "activity" message: bug creation steps, auth,
@@ -743,25 +779,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     def _call_on_app_thread[**P, R](
         self, callback: Callable[P, R], *args: P.args, **kwargs: P.kwargs
     ) -> None:
-        """Runs `callback` on the app/UI thread, from whichever thread we're
-        currently on.
-
-        This used to pre-check `threading.get_ident() == self.app._thread_id`
-        before deciding whether to call directly or go through
-        `call_from_thread`. That's a classic check-then-act race:
-        `App._thread_id` is a private Textual implementation detail that
-        isn't guaranteed to stay stable between our check and the moment
-        `call_from_thread` re-checks it internally (e.g. around app
-        shutdown). If the two checks ever disagreed, we'd hit
-        `RuntimeError("...must run in a different thread from the app")`
-        even though we were legitimately on a worker thread.
-
-        Rather than depend on Textual's private attribute (or, worse, on
-        pattern-matching the wording of its internal exception, which could
-        silently break on a future Textual release), we keep our own
-        `_app_thread_id`, captured once in `on_mount` - a point guaranteed to
-        run on the app/UI thread. That value never changes for the screen's
-        lifetime, so this comparison can't race with anything.
+        """
+        Thin wrapper over call_from_thread
         """
         if threading.get_ident() == self._app_thread_id:
             callback(*args, **kwargs)
@@ -803,7 +822,12 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                             ConfirmScreen[ReturnScreenChoice](
                                 "Got the following error during submission",
                                 sub_prompt=f"[red]{escape_markup(str(event.worker.error))}",
-                                choices=(("Return to Report Editor", "report_editor"),),
+                                choices=(
+                                    (
+                                        "Return to Report Editor",
+                                        "report_editor",
+                                    ),
+                                ),
                                 focus_id_on_mount="report_editor",
                             ),
                             dismiss_wrapper,
@@ -891,7 +915,9 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         except Exception as e:
             finalize_ok = False
             self._log_with_time(f"FINALIZE FAIL!: {escape_markup(repr(e))}")
-            logger.error(e)
+            logger.exception(
+                f"Failed to finalize {self.submitter.display_name or self.submitter.name}"
+            )
 
         finish_message_lines = ["[green]Submission finished![/]"]
 
