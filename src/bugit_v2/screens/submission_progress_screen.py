@@ -65,7 +65,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     activity_log_widget: RichLog | None = None  # late init in on_mount, everything else
     upload_attempted = False
 
-    # snapshot the current thread id in the constructor
+    # snapshot the current thread id in on_mount
     # to allow _call_on_app_thread to dynamically pick between
     # direct call and app.call_from_thread
     _app_thread_id: int | None = None
