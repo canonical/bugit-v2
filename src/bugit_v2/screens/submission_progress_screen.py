@@ -692,7 +692,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         every tick; only rows for collectors that started/finished since the
         last tick are mounted/removed.
         """
-        status_widget = self.query_exactly_one(
+        status_container = self.query_exactly_one(
             "#collector_status_container", VerticalGroup
         )
 
@@ -703,20 +703,20 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         ]
 
         if not running_names:
-            await status_widget.remove_children()
+            await status_container.remove_children()
             self._collector_status_header = None
             self._collector_status_rows = {}
-            status_widget.display = False
+            status_container.display = False
             if self.collector_status_timer is not None:
                 self.collector_status_timer.stop()
             return
 
-        status_widget.display = True
+        status_container.display = True
 
         header_text = f"{len(running_names)} log collector(s) still running:"
         if self._collector_status_header is None:
             self._collector_status_header = Static(header_text)
-            await status_widget.mount(self._collector_status_header)
+            await status_container.mount(self._collector_status_header)
         else:
             self._collector_status_header.update(header_text)
 
@@ -755,7 +755,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     elapsed_static,
                     last_line_static,
                 )
-                await status_widget.mount(new_row)
+                await status_container.mount(new_row)
             else:
                 _, elapsed_static, last_line_static = row
                 elapsed_static.update(elapsed_text)
