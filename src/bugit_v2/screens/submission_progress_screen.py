@@ -723,7 +723,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 last_line = last_line[:77] + "..."
             last_line_suffix = f" - {escape_markup(last_line)}" if last_line else ""
             lines.append(
-                f"  - [blue]{collector.display_name}[/blue]: {elapsed:.0f}s elapsed{timeout_suffix}{last_line_suffix}"
+                f"  - [$secondary]{collector.display_name}[/]: [$accent]{elapsed:.0f}s[/] elapsed{timeout_suffix}{last_line_suffix}"
             )
 
         for line in lines:
