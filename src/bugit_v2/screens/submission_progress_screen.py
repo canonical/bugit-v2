@@ -634,10 +634,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                         id="progress",
                         show_eta=False,
                     )
-                yield VerticalGroup(
-                    id="collector_status_container",
-                    markup=False,
-                )
+                yield VerticalGroup(id="collector_status_container")
             al = RichLog(
                 id="activity_log",
                 markup=False,
