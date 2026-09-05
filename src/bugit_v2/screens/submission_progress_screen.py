@@ -283,10 +283,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             async def run_collect(log: LogName):
                 collector = LOG_NAME_TO_COLLECTOR[log]
                 last_logged_at = 0.0
-                # chatty collectors (e.g. a week of journalctl, snap-debug)
-                # can emit tens of thousands of lines; throttle how often we
-                # write to the RichLog to avoid flooding the UI/memory, while
-                # still updating the status panel's "latest line" every time
+                # throttle how fast we update the status widget
                 min_log_interval = 0.2
 
                 def stream_line(line: str) -> None:
