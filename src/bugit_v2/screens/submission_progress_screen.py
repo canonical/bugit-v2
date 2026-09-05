@@ -17,7 +17,6 @@ from textual.markup import escape as escape_markup
 from textual.reactive import var
 from textual.screen import Screen
 from textual.timer import Timer
-from textual.widget import Widget
 from textual.widgets import Button, Footer, Label, ProgressBar, RichLog, Static
 from textual.worker import Worker, WorkerState
 
@@ -76,6 +75,11 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     # tracks the most recent stdout line streamed from each running collector
     collector_last_line: dict[LogName, str]
     collector_status_timer: Timer | None = None
+
+    # widgets backing the "collectors remaining" panel, kept alive across
+    # ticks so we can update them in place instead of unmount/remount
+    _collector_status_header: Static | None = None
+    _collector_status_rows: dict[LogName, tuple[HorizontalGroup, Static, Static]]
 
     submitter: Final[BugReportSubmitter[TAuth]]
     # handles the special case for bugit.submit
@@ -152,6 +156,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         self.upload_workers = {}
         self.collector_start_times = {}
         self.collector_last_line = {}
+        self._collector_status_rows = {}
         self.progress_start_time = time.time()
 
         super().__init__(name, id, classes)
@@ -685,11 +690,15 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         Runs on a 1s interval so users can see how many log collectors are
         still running and how long each of them has been running for, even
         during long stretches where no collector has produced any log output.
+
+        Rows are created once per collector and updated in place afterwards
+        (via `Static.update`) rather than unmounting/remounting everything
+        every tick; only rows for collectors that started/finished since the
+        last tick are mounted/removed.
         """
         status_widget = self.query_exactly_one(
             "#collector_status_container", VerticalGroup
         )
-        await status_widget.remove_children()
 
         running_names: list[LogName] = [
             name
@@ -699,15 +708,29 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
         if not running_names:
             await status_widget.remove_children()
+            self._collector_status_header = None
+            self._collector_status_rows = {}
             status_widget.display = False
             if self.collector_status_timer is not None:
                 self.collector_status_timer.stop()
             return
 
         status_widget.display = True
-        widgets_to_mount: list[Widget] = [
-            Static(f"{len(running_names)} log collector(s) still running:")
-        ]
+
+        header_text = f"{len(running_names)} log collector(s) still running:"
+        if self._collector_status_header is None:
+            self._collector_status_header = Static(header_text)
+            await status_widget.mount(self._collector_status_header)
+        else:
+            self._collector_status_header.update(header_text)
+
+        running_name_set = set(running_names)
+
+        # remove rows for collectors that finished since the last tick
+        for name in list(self._collector_status_rows):
+            if name not in running_name_set:
+                row, _, _ = self._collector_status_rows.pop(name)
+                await row.remove()
 
         now = time.time()
         for name in running_names:
@@ -723,18 +746,24 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             if last_line and len(last_line) > 80:
                 last_line = last_line[:77] + "..."
 
-            widgets_to_mount.append(
-                HorizontalGroup(
-                    Static(
-                        f" - [$secondary]{collector.display_name}[/]: [$accent]{elapsed:.0f}s[/] elapsed{timeout_suffix}",
-                        classes="wa",
-                    ),
-                    Static(f" - {last_line}", markup=False, classes="wa"),
-                    classes="wa",
-                )
-            )
+            elapsed_text = f" - [$secondary]{collector.display_name}[/]: [$accent]{elapsed:.0f}s[/] elapsed{timeout_suffix}"
+            last_line_text = f" - {last_line}"
 
-        await status_widget.mount_all(widgets_to_mount)
+            row = self._collector_status_rows.get(name)
+            if row is None:
+                elapsed_static = Static(elapsed_text, classes="wa")
+                last_line_static = Static(last_line_text, markup=False, classes="wa")
+                new_row = HorizontalGroup(elapsed_static, last_line_static, classes="wa")
+                self._collector_status_rows[name] = (
+                    new_row,
+                    elapsed_static,
+                    last_line_static,
+                )
+                await status_widget.mount(new_row)
+            else:
+                _, elapsed_static, last_line_static = row
+                elapsed_static.update(elapsed_text)
+                last_line_static.update(last_line_text)
 
     def _log_with_time(self, msg: str):
         """Logs a general "activity" message: bug creation steps, auth,
