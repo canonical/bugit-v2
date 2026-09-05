@@ -98,7 +98,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         display: none;
     }
 
-    #collector_status {
+    #collector_status_container {
         display: none;
         height: auto;
         padding: 0 1;
