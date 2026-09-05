@@ -274,6 +274,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 self._log_collector(
                     f"FAIL! Failed to copy {escape_markup(str(file))}: {escape_markup(repr(e))}"
                 )
+                logger.exception(f"Failed to copy {file}")
 
         # get the log collectors running first
         # all log collectors are allowed to fail. If they do, write a message
@@ -334,12 +335,12 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                             ]
                         )
                     )
-                    logger.error(f"{collector.display_name}:{e!r}")
                     if collector.manual_collection_command:
                         self._log_collector(
                             f"You can rerun {collector.display_name} "
                             + f"with {collector.manual_collection_command}"
                         )
+                    logger.exception(f"{collector.display_name}")
                 finally:
                     self.collector_last_line.pop(log, None)
                     progress_bar.advance()
@@ -403,7 +404,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 self._log_with_time(
                     f"FAIL! failed to upload {escape_markup(str(f))}: {escape_markup(repr(e))}"
                 )
-                raise e  # mark the worker as failed
+                raise  # mark the worker as failed
             finally:
                 self._call_on_app_thread(progress_bar.advance)
 
@@ -448,6 +449,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     self._log_with_time(
                         f"FAIL! failed to upload {escape_markup(str(f))}: {escape_markup(repr(e))}"
                     )
+                    logger.exception(f"Failed to upload {f}")
                 finally:
                     self._call_on_app_thread(progress_bar.advance)
 
@@ -916,7 +918,9 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         except Exception as e:
             finalize_ok = False
             self._log_with_time(f"FINALIZE FAIL!: {escape_markup(repr(e))}")
-            logger.error(e)
+            logger.exception(
+                f"Failed to finalize {self.submitter.display_name or self.submitter.name}"
+            )
 
         finish_message_lines = ["[green]Submission finished![/]"]
 
