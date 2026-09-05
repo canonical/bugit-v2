@@ -724,9 +724,11 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             status_widget.mount(
                 HorizontalGroup(
                     Static(
-                        f" - [$secondary]{collector.display_name}[/]: [$accent]{elapsed:.0f}s[/] elapsed{timeout_suffix}"
+                        f" - [$secondary]{collector.display_name}[/]: [$accent]{elapsed:.0f}s[/] elapsed{timeout_suffix}",
+                        classes="wa",
                     ),
-                    Static(f" - {last_line}", markup=False),
+                    Static(f" - {last_line}", markup=False, classes="wa"),
+                    classes="wa",
                 )
             )
 
