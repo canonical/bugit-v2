@@ -17,6 +17,7 @@ from textual.markup import escape as escape_markup
 from textual.reactive import var
 from textual.screen import Screen
 from textual.timer import Timer
+from textual.widget import Widget
 from textual.widgets import Button, Footer, Label, ProgressBar, RichLog, Static
 from textual.worker import Worker, WorkerState
 
@@ -215,7 +216,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             self.collector_status_timer = self.set_interval(
                 1, self._update_collector_status
             )
-            self._update_collector_status()
+            await self._update_collector_status()
 
         # auth ready, do the jira/lp steps
         self.bug_creation_worker = self.run_worker(
@@ -678,7 +679,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
             yield Footer()
 
-    def _update_collector_status(self) -> None:
+    async def _update_collector_status(self) -> None:
         """Refreshes the live "collectors remaining" panel.
 
         Runs on a 1s interval so users can see how many log collectors are
@@ -688,6 +689,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         status_widget = self.query_exactly_one(
             "#collector_status_container", VerticalGroup
         )
+        await status_widget.remove_children()
 
         running_names: list[LogName] = [
             name
@@ -696,20 +698,18 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         ]
 
         if not running_names:
-            status_widget.remove_children()
+            await status_widget.remove_children()
             status_widget.display = False
             if self.collector_status_timer is not None:
                 self.collector_status_timer.stop()
             return
 
         status_widget.display = True
-        status_widget.remove_children()
+        widgets_to_mount: list[Widget] = [
+            Static(f"{len(running_names)} log collector(s) still running:")
+        ]
 
         now = time.time()
-        status_widget.mount(
-            Static(f"{len(running_names)} log collector(s) still running:")
-        )
-
         for name in running_names:
             collector = LOG_NAME_TO_COLLECTOR[name]
             elapsed = now - self.collector_start_times.get(name, now)
@@ -718,10 +718,12 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 if collector.advertised_timeout is not None
                 else ""
             )
+
             last_line = self.collector_last_line.get(name)
             if last_line and len(last_line) > 80:
                 last_line = last_line[:77] + "..."
-            status_widget.mount(
+
+            widgets_to_mount.append(
                 HorizontalGroup(
                     Static(
                         f" - [$secondary]{collector.display_name}[/]: [$accent]{elapsed:.0f}s[/] elapsed{timeout_suffix}",
@@ -731,6 +733,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     classes="wa",
                 )
             )
+
+        await status_widget.mount_all(widgets_to_mount)
 
     def _log_with_time(self, msg: str):
         """Logs a general "activity" message: bug creation steps, auth,
