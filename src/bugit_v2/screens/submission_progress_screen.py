@@ -747,7 +747,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 last_line = last_line[:77] + "..."
 
             elapsed_text = f" - [$secondary]{collector.display_name}[/]: [$accent]{elapsed:.0f}s[/] elapsed{timeout_suffix}"
-            last_line_text = f" - {last_line}"
+            last_line_text = f" - {last_line}" if last_line else ""
 
             row = self._collector_status_rows.get(name)
             if row is None:
