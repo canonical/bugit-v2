@@ -21,7 +21,7 @@ bugit-v2 = "bugit_v2.apps.app:cli_app"
 
 [dependency-groups]
 dev = [
-    "isort>=8,<9",
+    "isort>=9,<10",
     "textual-dev>=1.7.0,<2",
     "pre-commit>=4.2.0,<5",
     "black>=26.1,<27",
