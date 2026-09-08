@@ -29,5 +29,18 @@ if [ -f "$SNAP_DATA/jira-server-url" ]; then
 	export JIRA_SERVER="$(cat "$SNAP_DATA/jira-server-url")"
 fi
 
+# lets 'snap set bugit ai-api-key/ai-base-url/ai-model=...' configure the
+# (hidden-by-default) AI Log Collector, see snap/hooks/configure and
+# src/bugit_v2/utils/ai_config.py
+if [ -f "$SNAP_DATA/ai-api-key" ]; then
+	export AI_API_KEY="$(cat "$SNAP_DATA/ai-api-key")"
+fi
+if [ -f "$SNAP_DATA/ai-base-url" ]; then
+	export AI_BASE_URL="$(cat "$SNAP_DATA/ai-base-url")"
+fi
+if [ -f "$SNAP_DATA/ai-model" ]; then
+	export AI_MODEL="$(cat "$SNAP_DATA/ai-model")"
+fi
+
 # https://github.com/snapcrafters/get-iplayer/blob/candidate/snap/local/scripts/launcher
 exec "$@"

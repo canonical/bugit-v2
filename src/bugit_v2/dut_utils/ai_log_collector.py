@@ -1,0 +1,349 @@
+"""
+AI Log Collector — an LLM-driven log collector adapted from the
+hackathon-oemqa-log-collector-05-13 ("Sherlog") agent.
+
+Unlike Sherlog, which analyses a Jira bug description with an LLM and then
+SSHes into a *remote* device to run the commands it decides on, this
+collector runs entirely *locally* on the DUT bugit itself is running on,
+using bugit's existing async subprocess helpers instead of SSH.
+
+The collector is only shown/selectable when an OpenAI-compatible API is
+configured (see utils/ai_config.py). It is intentionally stateless: unlike
+Sherlog it does not persist "learnings" across runs.
+
+Safety guardrails (since this now runs directly on real hardware, not a
+disposable remote test box):
+  - a hard cap on the number of agentic tool-call iterations
+  - a per-command timeout
+  - commands run as the current user; the LLM is never allowed to invoke
+    `sudo` itself
+  - a blocklist of obviously destructive command patterns, checked before
+    any command is executed
+  - a collection-manifest.txt is always written, mapping output files to the
+    commands that produced them (same format as Sherlog's manifest)
+"""
+
+import asyncio
+import json
+import logging
+import re
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any, TypedDict, cast
+
+from bugit_v2.models.bug_report import BugReport
+from bugit_v2.utils.ai_config import AiConfig, get_ai_config
+
+logger = logging.getLogger(__name__)
+
+MAX_ITERATIONS = 60  # safety cap on agentic tool-call turns
+COMMAND_TIMEOUT = 60  # seconds, matches Sherlog's SSH command timeout
+
+# Patterns that must never be executed, regardless of what the LLM asks for.
+# Matched case-insensitively against the full command string.
+_DESTRUCTIVE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\brm\s+.*-[a-z]*r[a-z]*f", re.IGNORECASE),  # rm -rf / -fr
+    re.compile(r"\bmkfs(\.\w+)?\b", re.IGNORECASE),
+    re.compile(r"\bdd\b.*\bof=\s*/dev/", re.IGNORECASE),
+    re.compile(r"\bwipefs\b", re.IGNORECASE),
+    re.compile(r"\b(fdisk|parted|sgdisk|gdisk)\b", re.IGNORECASE),
+    re.compile(r"\b(shutdown|reboot|poweroff|halt)\b", re.IGNORECASE),
+    re.compile(r"\binit\s+[06]\b", re.IGNORECASE),
+    re.compile(r"\bsystemctl\s+(poweroff|reboot|halt)\b", re.IGNORECASE),
+    re.compile(r"\bsudo\b", re.IGNORECASE),  # no LLM-initiated privilege escalation
+    re.compile(r":\(\)\s*{\s*:\s*\|\s*:\s*&\s*}\s*;\s*:"),  # fork bomb
+    re.compile(r">\s*/dev/sd[a-z]"),
+)
+
+
+class CommandLogEntry(TypedDict):
+    command: str
+    file: str | None
+
+
+def _is_destructive(command: str) -> str | None:
+    """Return a rejection reason if *command* matches a blocked pattern, else None."""
+    for pattern in _DESTRUCTIVE_PATTERNS:
+        if pattern.search(command):
+            return f"Command blocked by safety guardrails (matched pattern: {pattern.pattern})"
+    return None
+
+
+# Matches "> $TARGET_DIR/foo.txt" / "> "$TARGET_DIR/foo.txt"" style redirections
+# used to figure out which file a command produced, for the manifest.
+def _detect_output_file(command: str, target_dir: Path) -> str | None:
+    pattern = re.compile(
+        r">\s*[\"']?"
+        + re.escape(str(target_dir))
+        + r"/([^\s\"';&|>]+)"
+    )
+    m = pattern.search(command)
+    return m.group(1).strip() if m else None
+
+
+async def _run_local_command(
+    command: str,
+    on_output: Callable[[str], None] | None,
+    timeout: int = COMMAND_TIMEOUT,
+) -> str:
+    """Run *command* through the shell locally and return its combined output.
+
+    Mirrors Sherlog's `run_ssh_command`, but executes on the local machine
+    instead of over SSH. Never raises on a non-zero exit code — the output
+    (including a captured stderr tail) is just returned so the LLM can see
+    what happened and adjust its next step.
+    """
+    try:
+        proc = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except OSError as exc:
+        return f"[ERROR] Failed to start command: {exc}"
+
+    if proc.stdout is None or proc.stderr is None:
+        return "[ERROR] Subprocess stdout/stderr pipe was not created"
+    stdout_stream = proc.stdout
+    stderr_stream = proc.stderr
+
+    async def _drain(stream: asyncio.StreamReader, is_stderr: bool) -> bytes:
+        chunks: list[bytes] = []
+        while True:
+            line = await stream.readline()
+            if not line:
+                break
+            chunks.append(line)
+            if on_output is not None and not is_stderr:
+                on_output(line.decode(errors="replace").rstrip("\n"))
+        return b"".join(chunks)
+
+    try:
+        stdout_bytes, stderr_bytes = await asyncio.wait_for(
+            asyncio.gather(_drain(stdout_stream, False), _drain(stderr_stream, True)),
+            timeout=timeout,
+        )
+        await proc.wait()
+    except TimeoutError:
+        proc.kill()
+        await proc.wait()
+        return f"[ERROR] Command timed out after {timeout} seconds"
+
+    output = stdout_bytes.decode(errors="replace")
+    if proc.returncode != 0 and stderr_bytes:
+        output += f"\n[stderr]: {stderr_bytes.decode(errors='replace').strip()}"
+    return output or "(no output)"
+
+
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "run_command",
+            "description": (
+                "Run a shell command locally on this device to collect logs. "
+                "Redirect any file output into the provided target directory."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "Shell command to execute locally",
+                    },
+                },
+                "required": ["command"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "finish",
+            "description": "Call this when all log collection is complete.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": ["success", "failure"],
+                    },
+                    "summary": {
+                        "type": "string",
+                        "description": "Summary of files collected and what to look at first",
+                    },
+                },
+                "required": ["status", "summary"],
+            },
+        },
+    },
+]
+
+
+def _build_manifest_content(
+    target_dir: Path, bug_description: str, command_log: list[CommandLogEntry]
+) -> str:
+    lines = [
+        "# Log Collection Manifest",
+        f"# Log dir   : {target_dir}",
+        f"# Bug       : {bug_description[:200].strip()}{'…' if len(bug_description) > 200 else ''}",
+        "",
+        "# Files and the commands that produced them",
+        "# ------------------------------------------",
+    ]
+    mapped = [e for e in command_log if e["file"]]
+    unmapped = [e for e in command_log if not e["file"]]
+    if mapped:
+        max_file = max(len(e["file"] or "") for e in mapped)
+        for entry in mapped:
+            lines.append(f"{entry['file']:<{max_file}}  |  {entry['command']}")
+    if unmapped:
+        lines += ["", "# Commands with no file output", "# ----------------------------"]
+        for entry in unmapped:
+            lines.append(f"  {entry['command']}")
+    return "\n".join(lines) + "\n"
+
+
+def _bug_description_text(bug_report: BugReport) -> str:
+    parts = [f"Title: {bug_report.title}", "", bug_report.description]
+    if bug_report.platform_tags:
+        parts.append(f"\nPlatform tags: {', '.join(bug_report.platform_tags)}")
+    if bug_report.impacted_features:
+        parts.append(f"Impacted features: {', '.join(bug_report.impacted_features)}")
+    return "\n".join(parts)
+
+
+async def ai_collect(
+    target_dir: Path,
+    bug_report: BugReport,
+    on_output: Callable[[str], None] | None,
+) -> str:
+    ai_config = get_ai_config()
+    if ai_config is None:
+        raise RuntimeError(
+            "AI Log Collector is not configured. Set it up with "
+            "'sudo snap set bugit ai-api-key=<key> ai-base-url=<url> ai-model=<model>'"
+        )
+
+    # imported lazily so bugit doesn't need `openai` installed unless this
+    # collector is actually configured and used
+    from openai import OpenAI
+
+    client = OpenAI(api_key=ai_config.api_key, base_url=ai_config.base_url)
+    bug_description = _bug_description_text(bug_report)
+
+    system_prompt = (
+        "You are a Linux log collection agent running NON-INTERACTIVELY on the "
+        "device that is exhibiting the bug described below.\n\n"
+        "## Execution rules\n"
+        f"- All output files MUST be written under: {target_dir}\n"
+        f"- Save every output file with a redirect, e.g.: journalctl -k --no-pager > "
+        f"{target_dir}/journal-kernel.txt\n"
+        "- Do NOT use sudo — you are already running with the permissions you have; "
+        "any command requiring elevated privileges will be rejected.\n"
+        "- Do NOT run destructive, reboot/shutdown, disk-formatting, or fork-bomb "
+        "commands — they will be rejected.\n"
+        "- Use the run_command tool to execute every command — do NOT list commands in text.\n"
+        "- When all relevant logs have been collected, call the finish tool with a "
+        "summary of what was collected and what to inspect first.\n"
+        f"- You have at most {MAX_ITERATIONS} tool-call turns before collection is "
+        "stopped automatically, so be efficient and targeted."
+        f"- Do not install any new package\n"
+        f"- Save all intermediate bash output to {target_dir}"
+    )
+
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": bug_description},
+    ]
+
+    command_log: list[CommandLogEntry] = []
+    summary = ""
+
+    for iteration in range(MAX_ITERATIONS):
+        response = await asyncio.to_thread(
+            client.chat.completions.create,
+            model=ai_config.model,
+            messages=cast(Any, messages),
+            tools=cast(Any, TOOLS),
+            tool_choice="required",
+            max_tokens=4096,
+        )
+        msg = response.choices[0].message
+
+        assistant_msg: dict[str, Any] = {"role": "assistant"}
+        if msg.content:
+            assistant_msg["content"] = msg.content
+        if msg.tool_calls:
+            assistant_msg["tool_calls"] = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        # only "function"-type tool calls are ever produced,
+                        # since TOOLS only declares function tools
+                        "name": cast(Any, tc).function.name,
+                        "arguments": cast(Any, tc).function.arguments,
+                    },
+                }
+                for tc in msg.tool_calls
+            ]
+        messages.append(assistant_msg)
+
+        if not msg.tool_calls:
+            break
+
+        finished = False
+        for tool_call in msg.tool_calls:
+            tool_call_fn = cast(Any, tool_call).function
+            fn_name = tool_call_fn.name
+            try:
+                fn_args = json.loads(tool_call_fn.arguments)
+            except json.JSONDecodeError:
+                fn_args = {}
+
+            if fn_name == "finish":
+                summary = fn_args.get("summary", "")
+                messages.append(
+                    {"role": "tool", "tool_call_id": tool_call.id, "content": "done"}
+                )
+                finished = True
+                continue
+
+            command = fn_args.get("command", "")
+            if on_output is not None:
+                on_output(f"$ {command}")
+
+            rejection = _is_destructive(command) if command else "No command provided"
+            if rejection:
+                if on_output is not None:
+                    on_output(f"[BLOCKED] {rejection}")
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": f"[REJECTED] {rejection}",
+                    }
+                )
+                continue
+
+            output = await _run_local_command(command, on_output, COMMAND_TIMEOUT)
+            command_log.append(
+                {"command": command, "file": _detect_output_file(command, target_dir)}
+            )
+            messages.append(
+                {"role": "tool", "tool_call_id": tool_call.id, "content": output[:8000]}
+            )
+
+        if finished:
+            break
+    else:
+        logger.warning("AI Log Collector hit the %d-iteration cap", MAX_ITERATIONS)
+        summary = summary or (
+            f"Stopped after reaching the {MAX_ITERATIONS}-iteration safety cap"
+        )
+
+    manifest_content = _build_manifest_content(target_dir, bug_description, command_log)
+    (target_dir / "collection-manifest.txt").write_text(manifest_content)
+
+    return summary or f"AI Log Collector finished; see {target_dir}/collection-manifest.txt"
