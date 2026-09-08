@@ -250,6 +250,7 @@ async def ai_collect(
         "stopped automatically, so be efficient and targeted."
         f"- Do not install any new package\n"
         f"- Save all intermediate bash output to {target_dir}"
+        f"- Save key finding to {target_dir}/finding.log"
     )
 
     messages: list[dict[str, Any]] = [
