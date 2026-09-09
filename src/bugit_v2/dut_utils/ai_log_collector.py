@@ -33,11 +33,56 @@ from typing import Any, TypedDict, cast
 
 from bugit_v2.models.bug_report import BugReport
 from bugit_v2.utils.ai_config import AiConfig, get_ai_config
+from bugit_v2.utils.constants import AI_SYSTEM_PROMPT_FILE
 
 logger = logging.getLogger(__name__)
 
 MAX_ITERATIONS = 60  # safety cap on agentic tool-call turns
 COMMAND_TIMEOUT = 60  # seconds, matches Sherlog's SSH command timeout
+
+# Default system prompt template, written out to AI_SYSTEM_PROMPT_FILE the
+# first time it's needed so users can subsequently edit it without touching
+# source code. `{target_dir}` and `{max_iterations}` are substituted at
+# prompt-build time via str.format(); any other literal `{`/`}` a user adds
+# should be avoided or doubled (`{{`/`}}`) to not confuse str.format().
+DEFAULT_SYSTEM_PROMPT_TEMPLATE = (
+    "You are a Linux log collection agent running NON-INTERACTIVELY on the "
+    "device that is exhibiting the bug described below.\n\n"
+    "## Execution rules\n"
+    "- All output files MUST be written under: {target_dir}\n"
+    "- Save every output file with a redirect, e.g.: journalctl -k --no-pager > "
+    "{target_dir}/journal-kernel.txt\n"
+    "- Do NOT use sudo — you are already running with the permissions you have; "
+    "any command requiring elevated privileges will be rejected.\n"
+    "- Do NOT run destructive, reboot/shutdown, disk-formatting, or fork-bomb "
+    "commands — they will be rejected.\n"
+    "- Use the run_command tool to execute every command — do NOT list commands in text.\n"
+    "- When all relevant logs have been collected, call the finish tool with a "
+    "summary of what was collected and what to inspect first.\n"
+    "- You have at most {max_iterations} tool-call turns before collection is "
+    "stopped automatically, so be efficient and targeted."
+    "- Do not install any new package\n"
+    "- Save all intermediate bash output to {target_dir}"
+    "- Save key finding to {target_dir}/finding.log"
+)
+
+
+def _load_system_prompt_template(
+    prompt_file: Path = AI_SYSTEM_PROMPT_FILE,
+) -> str:
+    """Return the (possibly user-edited) system prompt template.
+
+    If *prompt_file* doesn't exist yet, it is created with
+    `DEFAULT_SYSTEM_PROMPT_TEMPLATE` so users have a starting point they can
+    edit at runtime — no rebuild/reinstall required. The file is re-read on
+    every call (i.e. once per `ai_collect()` run), so edits take effect the
+    next time a collection is started.
+    """
+    if not prompt_file.exists():
+        prompt_file.parent.mkdir(parents=True, exist_ok=True)
+        prompt_file.write_text(DEFAULT_SYSTEM_PROMPT_TEMPLATE)
+    return prompt_file.read_text()
+
 
 # Patterns that must never be executed, regardless of what the LLM asks for.
 # Matched case-insensitively against the full command string.
@@ -232,26 +277,17 @@ async def ai_collect(
     client = OpenAI(api_key=ai_config.api_key, base_url=ai_config.base_url)
     bug_description = _bug_description_text(bug_report)
 
-    system_prompt = (
-        "You are a Linux log collection agent running NON-INTERACTIVELY on the "
-        "device that is exhibiting the bug described below.\n\n"
-        "## Execution rules\n"
-        f"- All output files MUST be written under: {target_dir}\n"
-        f"- Save every output file with a redirect, e.g.: journalctl -k --no-pager > "
-        f"{target_dir}/journal-kernel.txt\n"
-        "- Do NOT use sudo — you are already running with the permissions you have; "
-        "any command requiring elevated privileges will be rejected.\n"
-        "- Do NOT run destructive, reboot/shutdown, disk-formatting, or fork-bomb "
-        "commands — they will be rejected.\n"
-        "- Use the run_command tool to execute every command — do NOT list commands in text.\n"
-        "- When all relevant logs have been collected, call the finish tool with a "
-        "summary of what was collected and what to inspect first.\n"
-        f"- You have at most {MAX_ITERATIONS} tool-call turns before collection is "
-        "stopped automatically, so be efficient and targeted."
-        f"- Do not install any new package\n"
-        f"- Save all intermediate bash output to {target_dir}"
-        f"- Save key finding to {target_dir}/finding.log"
-    )
+    system_prompt_template = _load_system_prompt_template()
+    try:
+        system_prompt = system_prompt_template.format(
+            target_dir=target_dir, max_iterations=MAX_ITERATIONS
+        )
+    except (KeyError, IndexError) as exc:
+        raise RuntimeError(
+            f"Malformed system prompt template at {AI_SYSTEM_PROMPT_FILE}: {exc}. "
+            "Literal '{' or '}' characters must be doubled ('{{' / '}}'), and only "
+            "'{target_dir}' / '{max_iterations}' are valid placeholders."
+        ) from exc
 
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
