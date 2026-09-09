@@ -97,6 +97,11 @@ DISK_CACHE_DIR = (
     Path(os.getenv("SNAP_USER_COMMON", str(Path().home().absolute() / ".cache")))
     / "bugit-v2-persistent-cache"
 )
+AI_SYSTEM_PROMPT_FILE = (
+    Path(os.getenv("SNAP_USER_DATA", str(Path().home().absolute() / ".config")))
+    / "bugit-v2-ai-config"
+    / "system_prompt.txt"
+)
 
 MAX_JOB_OUTPUT_LEN = 3000
 MAX_ADDITIONAL_FILE_SIZE = (
