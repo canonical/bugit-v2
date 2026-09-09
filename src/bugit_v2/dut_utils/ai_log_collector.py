@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, TypedDict, cast
 
 from bugit_v2.models.bug_report import BugReport
-from bugit_v2.utils.ai_config import AiConfig, get_ai_config
+from bugit_v2.utils.ai_config import get_ai_config
 from bugit_v2.utils.constants import AI_SYSTEM_PROMPT_FILE
 
 logger = logging.getLogger(__name__)
