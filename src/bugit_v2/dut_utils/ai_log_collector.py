@@ -60,10 +60,10 @@ DEFAULT_SYSTEM_PROMPT_TEMPLATE = (
     "- When all relevant logs have been collected, call the finish tool with a "
     "summary of what was collected and what to inspect first.\n"
     "- You have at most {max_iterations} tool-call turns before collection is "
-    "stopped automatically, so be efficient and targeted."
+    "stopped automatically, so be efficient and targeted.\n"
     "- Do not install any new package\n"
-    "- Save all intermediate bash output to {target_dir}"
-    "- Save key finding to {target_dir}/finding.log"
+    "- Save all intermediate bash output to {target_dir}\n"
+    "- Save key finding to {target_dir}/finding.log\n"
 )
 
 
