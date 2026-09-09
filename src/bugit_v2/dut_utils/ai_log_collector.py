@@ -87,7 +87,7 @@ def _load_system_prompt_template(
 # Patterns that must never be executed, regardless of what the LLM asks for.
 # Matched case-insensitively against the full command string.
 _DESTRUCTIVE_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\brm\s+.*-[a-z]*r[a-z]*f", re.IGNORECASE),  # rm -rf / -fr
+    re.compile(r"\brm\b(?=[^|;&\n]*(?:\s-(?:[^\s]*r[^\s]*)|\s--recursive\b))(?=[^|;&\n]*(?:\s-(?:[^\s]*f[^\s]*)|\s--force\b)).*", re.IGNORECASE),  # rm -rf / -r -f / --recursive --force
     re.compile(r"\bmkfs(\.\w+)?\b", re.IGNORECASE),
     re.compile(r"\bdd\b.*\bof=\s*/dev/", re.IGNORECASE),
     re.compile(r"\bwipefs\b", re.IGNORECASE),
