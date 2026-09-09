@@ -347,6 +347,16 @@ async def ai_collect(
                 finished = True
                 continue
 
+            if fn_name != "run_command":
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": f"[REJECTED] Unknown tool '{fn_name}'",
+                    }
+                )
+                continue
+
             command = fn_args.get("command", "")
             if on_output is not None:
                 on_output(f"$ {command}")
