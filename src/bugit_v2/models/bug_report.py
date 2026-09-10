@@ -58,6 +58,7 @@ LogName = Literal[
     "long-job-outputs",
     "oem-getlogs",
     "sosreport",
+    "ai-log-collector",
 ]
 LOG_NAMES: tuple[LogName, ...] = LogName.__args__
 # pretty log names should be specified in the LogCollector class

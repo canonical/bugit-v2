@@ -15,8 +15,16 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from bugit_v2.dut_utils.ai_log_collector import (
+    COMMAND_TIMEOUT as AI_COMMAND_TIMEOUT,
+)
+from bugit_v2.dut_utils.ai_log_collector import (
+    MAX_ITERATIONS as AI_MAX_ITERATIONS,
+)
+from bugit_v2.dut_utils.ai_log_collector import ai_collect
 from bugit_v2.models.bug_report import BugReport, LogName
 from bugit_v2.utils import host_is_ubuntu_core, is_snap
+from bugit_v2.utils.ai_config import get_ai_config
 from bugit_v2.utils.async_subprocess import asp_check_call, asp_check_output
 from bugit_v2.utils.constants import (
     HOST_FS,
@@ -400,6 +408,17 @@ real_collectors: Sequence[LogCollector] = (
         not host_is_ubuntu_core(),  # sosreport doesn't run on core
         "sudo sos report --batch --tmp-dir ~",
         advertised_timeout=COMMAND_TIMEOUT,
+    ),
+    LogCollector(
+        "ai-log-collector",
+        ai_collect,
+        "AI Log Collector (experimental)",
+        collect_by_default=False,
+        manual_collection_command=None,
+        advertised_timeout=AI_MAX_ITERATIONS * AI_COMMAND_TIMEOUT,
+        # hidden entirely unless an OpenAI-compatible API has been configured
+        # via 'sudo snap set bugit ai-api-key=... ai-base-url=... ai-model=...'
+        hidden=get_ai_config() is None,
     ),
     # hidden collectors
     LogCollector(

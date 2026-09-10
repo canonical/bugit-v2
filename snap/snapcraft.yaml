@@ -45,6 +45,11 @@ environment:
   #   sudo snap set bugit jira-server=<your_url>
   # see snap/hooks/configure and snap/local/scripts/env_wrapper.sh
   JIRA_SERVER: https://warthogs.atlassian.net
+  # AI Log Collector (experimental, hidden unless configured): set all three with
+  #   sudo snap set bugit ai-api-key=<key> ai-base-url=<url> ai-model=<model>
+  # see snap/hooks/configure, snap/local/scripts/env_wrapper.sh, and
+  # src/bugit_v2/utils/ai_config.py. Unset here; only ever populated by the
+  # configure hook via $SNAP_DATA.
   # optional, lets apt installed python apps find their libraries
   PYTHONPATH: "$PYTHONPATH:$SNAP/usr/lib/python3/dist-packages"
   # prevent lstopo from hanging on 26.04

@@ -14,6 +14,11 @@ This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [
 - "Real" text editor. The bug description box is now a full-fledged editor that allows familiar keyboard shortcuts like Ctrl+C Ctrl+V Ctrl+Z Ctrl+Shift+Z, etc. To see all the bindings, click the `^p palette` button or use Control+P to bring up the command palette and click Help
 - Fancy colors! Textual comes with a lot of themes and provides us with a nice framework to theme it ourselves.
 - Works through SSH. If you are dealing with ubuntu server/core, textual will still give you a pretty UI as long as the terminal you are viewing it from is a graphical terminal like gnome-terminal
+- **AI Log Collector (experimental)**: an opt-in log collector that uses an LLM (any OpenAI-compatible API) to analyse the bug description and decide, iteratively, which local commands to run to collect the most relevant logs — inspired by the [Sherlog](https://github.com/canonical/hackathon-oemqa-log-collector-05-13) hackathon project, but running entirely locally on the DUT instead of over SSH. It's hidden from the collector list until configured with:
+  ```sh
+  sudo snap set bugit ai-api-key=<key> ai-base-url=<url> ai-model=<model>
+  ```
+  Guardrails: a cap on the number of tool-call iterations, a per-command timeout, a blocklist of destructive commands, and no LLM-initiated `sudo`. A `collection-manifest.txt` mapping output files to the commands that produced them is always written alongside the collected logs.
 
 To see more about textual itself, [check out their docs](https://textual.textualize.io/)
 
