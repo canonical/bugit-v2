@@ -38,3 +38,35 @@ fi
 if [ "$JIRA_SERVER" != "$OLD_JIRA_SERVER" ]; then
     rm -f /tmp/jira_submitter-credentials.json
 fi
+
+# Configures the AI Log Collector, an experimental LLM-driven collector.
+# It is hidden entirely unless all three of these are set:
+#   sudo snap set bugit ai-api-key=<key> ai-base-url=<url> ai-model=<model>
+# Unsetting any one of them (snap unset bugit ai-api-key/ai-base-url/ai-model)
+# hides the collector again, see snap/local/scripts/env_wrapper.sh and
+# src/bugit_v2/utils/ai_config.py
+AI_API_KEY="$(snapctl get ai-api-key)"
+AI_BASE_URL="$(snapctl get ai-base-url)"
+AI_MODEL="$(snapctl get ai-model)"
+
+if [ -n "$AI_API_KEY" ]; then
+    echo "$AI_API_KEY" > "$SNAP_DATA/ai-api-key"
+else
+    rm -f "$SNAP_DATA/ai-api-key"
+fi
+
+if [ -n "$AI_BASE_URL" ]; then
+    if ! printf '%s' "$AI_BASE_URL" | grep -Eq '^https?://[A-Za-z0-9._~:/?#@!$&()*+,;=%-]+$'; then
+        echo "ai-base-url must be a valid URL with no whitespace or invalid characters, e.g. https://api.openai.com/v1 (got: '$AI_BASE_URL')" >&2
+        exit 1
+    fi
+    echo "$AI_BASE_URL" > "$SNAP_DATA/ai-base-url"
+else
+    rm -f "$SNAP_DATA/ai-base-url"
+fi
+
+if [ -n "$AI_MODEL" ]; then
+    echo "$AI_MODEL" > "$SNAP_DATA/ai-model"
+else
+    rm -f "$SNAP_DATA/ai-model"
+fi
