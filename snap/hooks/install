@@ -23,3 +23,7 @@ cp /var/lib/snapd/hostfs/etc/os-release $SNAP_COMMON/etc/os-release
 if ! nsenter -t 1 -m -- /usr/bin/snap list sosreport >/dev/null 2>&1; then
     nsenter -t 1 -m --  /usr/bin/snap install --classic sosreport || true
 fi
+
+# zsh/fish completions, bash completion is already provided by snapd
+nsenter -t 1 -m -- /bin/sh "$SNAP/install_completions.sh" install ||
+    echo "Failed to install zsh/fish completions" >&2

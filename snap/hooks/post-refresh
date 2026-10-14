@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# Refreshes the zsh/fish completion loaders in case the commands changed,
+# see snap/local/scripts/install_completions.sh
+
+nsenter -t 1 -m -- /bin/sh "$SNAP/install_completions.sh" install ||
+    echo "Failed to install zsh/fish completions" >&2

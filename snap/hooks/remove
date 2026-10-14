@@ -2,3 +2,4 @@
 set -e
 
 rm -f /etc/sudoers.d/bugit-v2
+nsenter -t 1 -m -- /bin/sh "$SNAP/install_completions.sh" remove || true

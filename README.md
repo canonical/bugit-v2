@@ -46,7 +46,9 @@ Run the app with `sudo bugit.bugit-v2 jira`, `sudo bugit.bugit-v2 lp`, or `sudo 
 
 ### Shell Completion
 
-Bash completion works out of the box through snapd. For zsh and fish, install the completion script once:
+Bash completion works out of the box through snapd. For zsh and fish, the snap's install/post-refresh hooks put small loaders in `/usr/local/share/zsh/site-functions` and `/usr/local/share/fish/vendor_completions.d` (removed with the snap, see `snap/local/scripts/install_completions.sh`). Open a new shell after installing. If zsh still doesn't complete, run `rm ~/.zcompdump*` and restart it.
+
+If your shell doesn't search those directories, install the scripts manually:
 
 ```sh
 # zsh, either put it somewhere in $fpath

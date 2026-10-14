@@ -1,6 +1,7 @@
 #!/bin/sh
 # Prints the shell completion script for the bugit apps.
-# bash completion is automatically provided by snapd, but sourcing the script
+# bash completion is provided by snapd and zsh/fish completions are installed
+# by the snap hooks (see install_completions.sh). Sourcing the bash script
 # directly avoids the 'snap run' overhead on every <TAB>.
 
 dir="$SNAP/src/bugit_v2/completions"
