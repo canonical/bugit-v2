@@ -95,10 +95,6 @@ apps:
     command: bin/python3 $SNAP/src/bugit_v2/scripts/save_dut_info.py
     completer: src/bugit_v2/completions/bugit.bash
 
-  completion:
-    # prints the completion script for bash, zsh or fish
-    command: print_completion.sh
-
   oem-getlogs:
     command: usr/bin/oem-getlogs
 
