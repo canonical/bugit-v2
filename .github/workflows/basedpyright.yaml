@@ -9,7 +9,7 @@ on:
 
 jobs:
   basedpyright-check:
-    runs-on: [self-hosted-linux-amd64-noble-small]
+    runs-on: [self-hosted, self-hosted-linux-amd64-noble-small]
 
     steps:
       - name: Checkout repository
