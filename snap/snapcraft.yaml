@@ -10,7 +10,9 @@ summary: Cool new bugit
 description: |
   This snap is a fresh new UI for bugit
 version: "0.2.11"
-confinement: devmode # required for ubuntu core to collect logs
+# allows us to go to --stable
+# but --devmode still required during installation
+confinement: strict
 license: GPL-3.0+
 
 platforms:
