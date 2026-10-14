@@ -73,6 +73,7 @@ cli_app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
     pretty_exceptions_enable=not is_prod(),
     pretty_exceptions_show_locals=not is_prod(),
+    add_completion=not is_snap(),  # the built-in ones doesn't work in snap
 )
 
 
