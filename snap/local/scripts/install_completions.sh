@@ -15,9 +15,26 @@ MARKER="# Installed by the $SNAP_INSTANCE_NAME snap, removed with the snap"
 SRC_DIR="/snap/$SNAP_INSTANCE_NAME/current/src/bugit_v2/completions"
 ZSH_DIR=/usr/local/share/zsh/site-functions
 FISH_DIR=/usr/local/share/fish/vendor_completions.d
+# snap specific name so it never collides with a "_bugit" from elsewhere
+ZSH_LOADER="$ZSH_DIR/_${SNAP_INSTANCE_NAME}_snap"
+
+# write_loader <path>: writes stdin to <path>, unless <path> already exists
+# and wasn't created by this snap (e.g. from a package or a manual install)
+write_loader() {
+    if [ -e "$1" ] && ! grep -qF "$MARKER" "$1"; then
+        echo "Not overwriting $1, it was not installed by this snap" >&2
+        cat >/dev/null
+        return 0
+    fi
+    cat >"$1.tmp"
+    chmod 644 "$1.tmp"
+    mv -f "$1.tmp" "$1"
+}
 
 remove() {
-    for f in "$ZSH_DIR/_bugit" "$FISH_DIR"/bugit*.fish; do
+    # _bugit and bugit-v2.fish are loader names used by older revisions
+    for f in "$ZSH_LOADER" "$ZSH_DIR/_bugit" "$FISH_DIR/$SNAP_NAME".*.fish \
+        "$FISH_DIR/bugit-v2.fish"; do
         if [ -f "$f" ] && grep -qF "$MARKER" "$f"; then
             rm -f "$f"
         fi
@@ -27,16 +44,24 @@ remove() {
 }
 
 install() {
-    # the first line of the zsh script is "#compdef <all command names>"
+    # the first line of the zsh script is "#compdef <all command names>",
+    # only take the snap's own commands (not e.g. the pipx "bugit-v2")
     compdef_line=$(head -n 1 "$SNAP/src/bugit_v2/completions/_bugit")
-    names=${compdef_line#\#compdef }
+    names=""
+    for name in ${compdef_line#\#compdef }; do
+        case "$name" in
+        "$SNAP_NAME".*) names="$names $name" ;;
+        esac
+    done
 
     mkdir -p "$ZSH_DIR" "$FISH_DIR"
 
-    # zsh autoloads this file as the body of _bugit. Sourcing the real script
-    # redefines _bugit, then the new definition handles this first completion
-    cat >"$ZSH_DIR/_bugit" <<EOF
-$compdef_line
+    # zsh autoloads this file as the body of the loader function. Sourcing
+    # the real script defines _bugit (and compdefs it for later completions),
+    # then _bugit handles this first completion. Inside a sourced file
+    # $funcstack[1] is the file path, so the real script won't dispatch again
+    write_loader "$ZSH_LOADER" <<EOF
+#compdef$names
 $MARKER
 [[ -f $SRC_DIR/_bugit ]] || return 1
 source $SRC_DIR/_bugit
@@ -45,14 +70,13 @@ EOF
 
     # fish autoloads completions by command name, so one loader per command
     for name in $names; do
-        cat >"$FISH_DIR/$name.fish" <<EOF
+        write_loader "$FISH_DIR/$name.fish" <<EOF
 $MARKER
 if not functions -q __bugit_path; and test -f $SRC_DIR/bugit.fish
     source $SRC_DIR/bugit.fish
 end
 EOF
     done
-    chmod 644 "$ZSH_DIR/_bugit" "$FISH_DIR"/bugit*.fish
 }
 
 case "$1" in
