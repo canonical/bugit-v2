@@ -44,6 +44,27 @@ The `stable` channel is reserved for the original bugit at the moment.
 
 Run the app with `sudo bugit.bugit-v2 jira`, `sudo bugit.bugit-v2 lp`, or `sudo bugit.bugit-v2 local`
 
+### Shell Completion
+
+Bash completion works out of the box through snapd. For zsh and fish, the snap's install/post-refresh hooks put small loaders in `/usr/local/share/zsh/site-functions` and `/usr/local/share/fish/vendor_completions.d` (removed with the snap, see `snap/local/scripts/install_completions.sh`). Open a new shell after installing. If zsh still doesn't complete, run `rm ~/.zcompdump*` and restart it.
+
+If your shell doesn't search those directories, install the scripts manually:
+
+```sh
+# zsh, either put it somewhere in $fpath
+bugit.completion zsh > ~/.zfunc/_bugit  # with fpath=(~/.zfunc $fpath) before compinit
+# or source it in ~/.zshrc after compinit
+source <(bugit.completion zsh)
+
+# fish
+bugit.completion fish > ~/.config/fish/conf.d/bugit.fish
+
+# bash (optional) avoids the 'snap run' overhead of snapd's completion
+source <(bugit.completion bash)
+```
+
+The scripts in `src/bugit_v2/completions/` are generated from the typer apps listed in `snap/snapcraft.yaml`. After changing any CLI options or subcommands, regenerate them with `uv run python tools/generate_completions.py`.
+
 ### Local Snap
 
 1. Clone the repo
