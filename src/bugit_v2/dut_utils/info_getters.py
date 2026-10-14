@@ -6,14 +6,21 @@ https://git.launchpad.net/bugit/tree/bugit/bug_assistant.py
 """
 
 import asyncio
+import logging
 import os
 import platform
 import re
+import shlex
 from collections import Counter
+from collections.abc import Sequence
+from pathlib import Path
 
 from bugit_v2.checkbox_utils.checkbox_exec import get_checkbox_info
+from bugit_v2.utils import is_snap
 from bugit_v2.utils.async_subprocess import asp_check_output, asp_run
-from bugit_v2.utils.constants import NSENTER_PREFIX
+from bugit_v2.utils.constants import HOST_FS, NSENTER_PREFIX
+
+logger = logging.getLogger(__name__)
 
 
 async def get_thinkpad_ec_version(timeout: int | None = 30) -> str | None:
@@ -92,6 +99,117 @@ async def get_amd_gpu_info(timeout: int | None = 30) -> str | None:
     return vbios
 
 
+def _host_path(path: str) -> Path:
+    """Map an absolute host path to one readable from inside the snap"""
+    if is_snap():
+        return HOST_FS / path.lstrip("/")
+    return Path(path)
+
+
+def _parse_os_release(content: str) -> dict[str, str]:
+    os_release: dict[str, str] = {}
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", maxsplit=1)
+        try:
+            os_release[key] = shlex.split(value)[0] if value else ""
+        except (ValueError, IndexError):
+            os_release[key] = value.strip("\"'")
+    return os_release
+
+
+async def _read_host_os_release(timeout: int | None = 30) -> dict[str, str]:
+    try:
+        result = await asp_run(
+            [*NSENTER_PREFIX, "cat", "/etc/os-release"], timeout=timeout
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return _parse_os_release(result.stdout)
+    except (OSError, TimeoutError, RuntimeError) as e:
+        logger.warning("Failed to read host os-release with nsenter: %s", e)
+
+    for path in ("/etc/os-release", "/usr/lib/os-release"):
+        host_file = _host_path(path)
+        if host_file.is_file():
+            return _parse_os_release(host_file.read_text())
+    return {}
+
+
+async def _get_installed_host_packages(
+    packages: Sequence[str], timeout: int | None = 30
+) -> set[str]:
+    """Returns the subset of `packages` that are installed on the host"""
+    try:
+        # dpkg-query returns 1 if any package is unknown,
+        # but still prints the known ones, so don't check the return code
+        result = await asp_run(
+            [
+                *NSENTER_PREFIX,
+                "dpkg-query",
+                "--show",
+                "--showformat=${Package} ${db:Status-Abbrev}\n",
+                *packages,
+            ],
+            timeout=timeout,
+        )
+    except (OSError, TimeoutError, RuntimeError) as e:
+        logger.warning("Failed to query host packages: %s", e)
+        return set()
+
+    installed: set[str] = set()
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        # "ii" => desired=install, status=installed
+        if len(parts) >= 2 and parts[1].startswith("ii"):
+            installed.add(parts[0].split(":")[0])
+    return installed
+
+
+def _host_has_graphical_sessions() -> bool:
+    for path in ("/usr/share/wayland-sessions", "/usr/share/xsessions"):
+        session_dir = _host_path(path)
+        if session_dir.is_dir() and any(session_dir.glob("*.desktop")):
+            return True
+    return False
+
+
+async def get_release_info(timeout: int | None = 30) -> str:
+    """Get the ubuntu flavor (Desktop/Server/Core) and version of the host
+
+    :return: something like "Ubuntu Desktop 24.04 (Ubuntu 24.04.3 LTS)"
+    """
+    os_release = await _read_host_os_release(timeout)
+    if not os_release:
+        return "Failed to read /etc/os-release on the host"
+
+    os_id = os_release.get("ID", "")
+    version = os_release.get("VERSION_ID", "unknown version")
+    pretty_name = os_release.get("PRETTY_NAME", "")
+
+    if os_id == "ubuntu-core" or "Ubuntu Core" in os_release.get("NAME", ""):
+        flavor = "Core"
+    elif os_id == "ubuntu":
+        desktop_pkgs = ("ubuntu-desktop", "ubuntu-desktop-minimal")
+        installed = await _get_installed_host_packages(
+            (*desktop_pkgs, "ubuntu-server"), timeout
+        )
+        if installed.intersection(desktop_pkgs) or _host_has_graphical_sessions():
+            flavor = "Desktop"
+        elif "ubuntu-server" in installed:
+            flavor = "Server"
+        else:
+            flavor = "Server (no desktop environment detected)"
+    else:
+        return pretty_name or f"Non-Ubuntu OS: {os_id or 'unknown'} {version}"
+
+    release = f"Ubuntu {flavor} {version}"
+    if pretty_name:
+        release += f" ({pretty_name})"
+    return release
+
+
 async def get_standard_info(
     command_timeout: int | None = 30,
 ) -> dict[str, str]:
@@ -152,11 +270,18 @@ async def get_standard_info(
         if (ec_version := await get_thinkpad_ec_version(command_timeout)) is not None:
             standard_info["Embedded Controller Version"] = ec_version
 
+    async def release_info():
+        try:
+            standard_info["Release Info"] = await get_release_info(command_timeout)
+        except (OSError, TimeoutError, RuntimeError) as e:
+            standard_info["Release Info"] = f"Failed to get release info: {e}"
+
     await asyncio.gather(
         cpu(),
         dmi(),
         lspci(),
         ec(),
+        release_info(),
         return_exceptions=True,
     )
 

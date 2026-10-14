@@ -297,7 +297,7 @@ class BugReportScreen(Screen[BugReport]):
                     # as long as 1 output is too long, set it to true
                     self.job_output_too_long = False or self.job_output_too_long
                 else:
-                    self.job_output_too_long = True or self.job_output_too_long
+                    self.job_output_too_long = True
 
         elif checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION:
             job_output = checkbox_submission.get_job_output(job_id)
@@ -674,7 +674,7 @@ class BugReportScreen(Screen[BugReport]):
                     )
                     f.write(report.model_dump_json())
                 label.update("[green]Progress Saved")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.error(repr(e))
                 label.update(f"[red]Autosave failed! {escape_markup(repr(e)[:20])}")
 
@@ -1022,38 +1022,21 @@ class BugReportScreen(Screen[BugReport]):
         logger.debug(self.app.theme_variables)
         if cert_status == "blocker":
             cert_status_box.update(
-                "\n".join(
-                    [
-                        "[$error]Blocker[/]",
-                        "Suggested severity: Highest/Critical",
-                    ]
-                )
+                "[$error]Blocker[/]\nSuggested severity: Highest/Critical"
             )
             cert_status_box.styles.border = (
                 "round",
                 self.app.theme_variables["error"],
             )
         elif cert_status == "non-blocker":
-            cert_status_box.update(
-                "\n".join(
-                    [
-                        "[$warning]Non-Blocker[/]",
-                        "Suggested severity: High",
-                    ]
-                )
-            )
+            cert_status_box.update("[$warning]Non-Blocker[/]\nSuggested severity: High")
             cert_status_box.styles.border = (
                 "round",
                 self.app.theme_variables["warning"],
             )
         else:
             cert_status_box.update(
-                "\n".join(
-                    [
-                        "[$warning]Couldn't find this job in the test plan",
-                        "This might be a bug in bugit[/]",
-                    ]
-                )
+                "[$warning]Couldn't find this job in the test plan\nThis might be a bug in bugit[/]"
             )
             cert_status_box.styles.border = (
                 "round",
