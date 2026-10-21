@@ -14,11 +14,17 @@ This is a new UI for [bugit](https://launchpad.net/bugit) implemented with the [
 - "Real" text editor. The bug description box is now a full-fledged editor that allows familiar keyboard shortcuts like Ctrl+C Ctrl+V Ctrl+Z Ctrl+Shift+Z, etc. To see all the bindings, click the `^p palette` button or use Control+P to bring up the command palette and click Help
 - Fancy colors! Textual comes with a lot of themes and provides us with a nice framework to theme it ourselves.
 - Works through SSH. If you are dealing with ubuntu server/core, textual will still give you a pretty UI as long as the terminal you are viewing it from is a graphical terminal like gnome-terminal
-- **AI Log Collector (experimental)**: an opt-in log collector that uses an LLM (any OpenAI-compatible API) to analyse the bug description and decide, iteratively, which local commands to run to collect the most relevant logs — inspired by the [Sherlog](https://github.com/canonical/hackathon-oemqa-log-collector-05-13) hackathon project, but running entirely locally on the DUT instead of over SSH. It's hidden from the collector list until configured with:
+- **AI Log Collector (experimental)**: an opt-in log collector that uses an LLM (any OpenAI-compatible API) to analyze the bug description and decide how to collect the most relevant logs. It's hidden from the collector list until configured with:
   ```sh
   sudo snap set bugit ai-api-key=<key> ai-base-url=<url> ai-model=<model>
   ```
-  Guardrails: a cap on the number of tool-call iterations, a per-command timeout, a blocklist of destructive commands, and no LLM-initiated `sudo`. A `collection-manifest.txt` mapping output files to the commands that produced them is always written alongside the collected logs.
+  Guardrails:
+  - cap on the number of tool-call iterations
+  - per-command timeout
+  - blocklist of destructive commands
+  - no LLM-initiated `sudo`.
+
+  A `collection-manifest.txt` mapping output files to the commands that produced them is always written alongside the collected logs.
 
 To see more about textual itself, [check out their docs](https://textual.textualize.io/)
 
@@ -34,36 +40,20 @@ Use the edge channel for the latest commit on the main branch
 sudo snap install bugit --edge --devmode
 ```
 
-Or use the beta channel for point version releases
+Or use the stable channel for point version releases
 
 ```sh
-sudo snap install bugit --beta --devmode
+sudo snap install bugit --devmode
 ```
 
-The `stable` channel is reserved for the original bugit at the moment.
+Run the app with `bugit.bugit-v2 jira`, `bugit.bugit-v2 lp`, or `bugit.bugit-v2 local`
 
-Run the app with `sudo bugit.bugit-v2 jira`, `sudo bugit.bugit-v2 lp`, or `sudo bugit.bugit-v2 local`
+> [!IMPORTANT] Sudo config during installation
+> Bugit will put a password-less sudo config file at `/etc/sudoers.d/bugit-v2` during installation. You should NOT install bugit on your personal devices. Use bugit on devices-under-test only.
 
 ### Shell Completion
 
-Bash completion works out of the box through snapd. For zsh and fish, the snap's install/post-refresh hooks put small loaders in `/usr/local/share/zsh/site-functions` and `/usr/local/share/fish/vendor_completions.d` (removed with the snap, see `snap/local/scripts/install_completions.sh`). Open a new shell after installing. If zsh still doesn't complete, run `rm ~/.zcompdump*` and restart it.
-
-If your shell doesn't search those directories, install the scripts manually:
-
-```sh
-# zsh, either put it somewhere in $fpath
-bugit.completion zsh > ~/.zfunc/_bugit  # with fpath=(~/.zfunc $fpath) before compinit
-# or source it in ~/.zshrc after compinit
-source <(bugit.completion zsh)
-
-# fish
-bugit.completion fish > ~/.config/fish/conf.d/bugit.fish
-
-# bash (optional) avoids the 'snap run' overhead of snapd's completion
-source <(bugit.completion bash)
-```
-
-The scripts in `src/bugit_v2/completions/` are generated from the typer apps listed in `snap/snapcraft.yaml`. After changing any CLI options or subcommands, regenerate them with `uv run python tools/generate_completions.py`.
+Bugit comes with shell completion for bash, zsh, and fish.
 
 ### Local Snap
 
@@ -71,9 +61,9 @@ The scripts in `src/bugit_v2/completions/` are generated from the typer apps lis
 1. Install snapcraft `sudo snap install snapcraft --edge --classic`
 1. `snapcraft clean && snapcraft pack`
 1. Once snapcraft produces a `.snap` file, `sudo snap install ./bugit-v2_0.1_amd64.snap --dangerous --devmode` (replace the filename with the real one) to install it.
-1. Run the app with `sudo bugit.bugit-v2 jira` or `sudo bugit.bugit-v2 lp`
+1. Run the app with `bugit.bugit-v2 jira` or `bugit.bugit-v2 lp`
 
-To uninstall, `sudo snap remove bugit`
+To uninstall, `sudo snap remove bugit` or `sudo snap remove bugit --purge` to also delete any saved bug reports.
 
 ### Jira Server Configuration
 
@@ -88,7 +78,7 @@ Run `sudo snap unset bugit jira-server` to revert to the default
 
 ## How do I copy and paste?
 
-This varies across different terminal emulators so I'll use gnome-terminal as the example here since it comes with ubuntu by default (and by extension ptyxis that comes with 25.10).
+This varies across different terminal emulators so I'll use gnome-terminal as the example here since it comes with ubuntu by default (and by extension Ptyxis that comes with 25.10 and later).
 
 Copying from INSIDE the app to another place INSIDE the app: Use Ctrl+C like you would normally.
 
@@ -218,4 +208,4 @@ This app only looks pretty when it's used through a graphical terminal such as:
 - ghostty
 - ...
 
-If it's run in a virtual terminal (like the one you get from ctrl+alt+f4), it will still work but none of the styles/special symbols would appear. In that case use the original bugit or run the app through SSH.
+If it's run in a virtual terminal (like the one you get from ctrl+alt+f4), it will still work but none of the styles/special symbols would appear. In that case, run the app through SSH.
