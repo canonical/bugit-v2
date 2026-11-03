@@ -16,8 +16,9 @@ class AppArgs:
     checkbox_submission: (
         SimpleCheckboxSubmission | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
     ) = NullSelection.NO_CHECKBOX_SUBMISSION
-    # comment on an existing bug instead of making a new one
-    bug_to_reopen: str | None = None
+    # attach logs/comments to this existing bug instead of making a new one
+    # only used with the jira and lp submitters
+    bug_to_attach: str | None = None
     # hold onto these values to pre-fill them in the bug report
     cid: str | None = None  # has a validator
     sku: str | None = None

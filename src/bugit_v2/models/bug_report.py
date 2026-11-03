@@ -56,6 +56,7 @@ LogName = Literal[
     "snap-list",
     "snap-debug",
     "long-job-outputs",
+    "job-outputs",
     "oem-getlogs",
     "sosreport",
     "ai-log-collector",
