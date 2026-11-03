@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import threading
 import time
 from collections.abc import Generator, Mapping, Sequence
 from dataclasses import asdict
@@ -18,7 +19,9 @@ from bugit_v2.bug_report_submitters.jira_submitter import (
     JiraAuthModal,
     JiraBasicAuth,
     JiraSubmitterError,
+    build_attachment_comment,
 )
+from bugit_v2.models.attachment_request import AttachmentRequest
 from bugit_v2.models.bug_report import BugReport, Severity
 
 JIRA_SERVER_ADDRESS = os.getenv("JIRA_SERVER", "https://warthogs.atlassian.net")
@@ -35,6 +38,13 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
     allow_cache_credentials = False
     mock_issue: str | None = None
     allow_parallel_upload = True
+    supports_attach = True
+    attach_steps = 2
+    attach_request: AttachmentRequest | None = None
+
+    def __init__(self) -> None:
+        self.uploaded_filenames: list[str] = []
+        self._uploaded_filenames_lock = threading.Lock()
 
     # map the severity value inside the app to the ones on Jira
     severity_name_map: Mapping[Severity, str] = {
@@ -178,6 +188,39 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
         self.mock_issue = "mock_issue"
 
     @override
+    def attach_to_existing(
+        self, request: AttachmentRequest
+    ) -> Generator[str | AdvanceMessage, None, None]:
+        """Real auth and issue lookup, nothing is written to jira"""
+        self.attach_request = None
+        self.uploaded_filenames = []
+        if not self.auth:
+            raise JiraSubmitterError("Missing auth credentials")
+
+        yield "Starting Jira authentication..."
+        self.jira = JIRA(
+            server=JIRA_SERVER_ADDRESS,
+            basic_auth=(self.auth.email, self.auth.token),
+            validate=True,
+        )
+        if self.allow_cache_credentials:
+            with open(f"/tmp/{self.name}-credentials.json", "w") as f:
+                json.dump(asdict(self.auth), f)
+        yield AdvanceMessage("Jira auth is valid")
+
+        try:
+            issue = self.jira.issue(request.bug_id)
+        except JIRAError as e:
+            raise JiraSubmitterError(
+                f"Can't access {request.bug_id}. Original error: {e.status_code} {e.text}"
+            )
+        if os.getenv("MOCK_SUBMIT") == "random" and random.random() > 0.5:
+            raise RuntimeError("err during attach_to_existing()")
+        yield AdvanceMessage(f"Found {issue.key}")
+        self.mock_issue = issue.key
+        self.attach_request = request
+
+    @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:
         try:
             with open(f"/tmp/{self.name}-credentials.json") as f:
@@ -192,6 +235,9 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
     ) -> str | None:
         time.sleep(random.randint(1, 5))
         print("uploaded", attachment_file)
+        if self.attach_request is not None:
+            with self._uploaded_filenames_lock:
+                self.uploaded_filenames.append(filename or attachment_file.name)
 
     @property
     @override
@@ -201,5 +247,11 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
         return "http://example.com/"
 
     @override
-    def finalize(self) -> None:
-        return
+    def finalize(self) -> str | None:
+        if self.attach_request is None:
+            return None
+        comment = build_attachment_comment(
+            self.attach_request.comment, sorted(self.uploaded_filenames)
+        )
+        print("mock comment on", self.mock_issue, comment, sep="\n")
+        return f"Mock comment on {self.mock_issue}:\n{comment}"

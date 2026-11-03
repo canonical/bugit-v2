@@ -5,6 +5,7 @@ Implements the concrete Jira submitter that submits a bug report to Jira.
 import json
 import logging
 import os
+import threading
 from collections.abc import Generator, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -21,6 +22,10 @@ from textual.widgets import Button, Checkbox, Input, Label
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
     BugReportSubmitter,
+)
+from bugit_v2.models.attachment_request import (
+    ATTACH_PLACEHOLDER_COMMENT,
+    AttachmentRequest,
 )
 from bugit_v2.models.bug_report import (
     BugReport,
@@ -148,11 +153,21 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
     name = "jira_submitter"
     display_name = "Jira"
     steps = 5
+    supports_attach = True
+    attach_steps = 2
 
     jira: JIRA | None = None
     auth_modal = JiraAuthModal
     auth: JiraBasicAuth | None = None
     issue: Issue | None = None
+    # only set in attach mode
+    attach_request: AttachmentRequest | None = None
+
+    def __init__(self) -> None:
+        # names of the files uploaded in attach mode
+        # appended from multiple upload threads
+        self.uploaded_filenames: list[str] = []
+        self._uploaded_filenames_lock = threading.Lock()
 
     # map the severity value inside the app to the ones on Jira
     severity_name_map: Mapping[Severity, str] = {
@@ -240,6 +255,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
     def submit(
         self, bug_report: BugReport
     ) -> Generator[str | AdvanceMessage, None, None]:
+        self.attach_request = None
         issue_file_time_block = (
             f"[Stage]\n{pretty_issue_file_times[bug_report.issue_file_time]}"
         )
@@ -277,30 +293,8 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
 
                 bug_dict["description"] = content_str
 
-        if not self.auth:
-            raise JiraSubmitterError("Missing auth credentials")
-        if not JIRA_SERVER_ADDRESS:
-            raise JiraSubmitterError("JIRA_SERVER is not specified!")
-
         yield "Starting Jira authentication..."
-        self.jira = JIRA(
-            server=JIRA_SERVER_ADDRESS.rstrip("/"),
-            basic_auth=(self.auth.email, self.auth.token),
-            validate=True,
-        )
-
-        # immediately cache
-        if self.allow_cache_credentials:
-            with open(f"/tmp/{self.name}-credentials.json", "w") as f:
-                json.dump(asdict(self.auth), f)
-        yield AdvanceMessage(
-            "Jira auth is valid"
-            + (
-                " and credentials have been cached!"
-                if self.allow_cache_credentials
-                else ""
-            )
-        )
+        yield AdvanceMessage(self._login())
 
         self.project_exists(bug_report.project)
         yield AdvanceMessage(f"Project {bug_report.project} exists!")
@@ -320,8 +314,59 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
         else:
             yield AdvanceMessage("No platform tags were given, not assigning any tags")
 
+        if not self.jira:
+            raise JiraSubmitterError("Jira client is not initialized")
         self.issue = self.jira.create_issue(bug_dict)
         yield AdvanceMessage(f"Created {self.issue.key}")
+
+    @override
+    def attach_to_existing(
+        self, request: AttachmentRequest
+    ) -> Generator[str | AdvanceMessage, None, None]:
+        self.attach_request = None
+        self.uploaded_filenames = []
+
+        yield "Starting Jira authentication..."
+        yield AdvanceMessage(self._login())
+
+        if not self.jira:
+            raise JiraSubmitterError("Jira client is not initialized")
+        try:
+            self.issue = self.jira.issue(request.bug_id)
+        except JIRAError as e:
+            raise JiraSubmitterError(
+                f"Can't access {request.bug_id}. "
+                + "Does it exist and do you have permission to view it? "
+                + f"Original error: {e.status_code} {e.text}"
+            )
+
+        yield AdvanceMessage(f"Found {self.issue.key}: {self.issue.fields.summary}")
+        self.attach_request = request
+
+    def _login(self) -> str:
+        """Create the jira client and cache the credentials if allowed
+
+        :return: a success message
+        """
+        if not self.auth:
+            raise JiraSubmitterError("Missing auth credentials")
+        if not JIRA_SERVER_ADDRESS:
+            raise JiraSubmitterError("JIRA_SERVER is not specified!")
+
+        self.jira = JIRA(
+            server=JIRA_SERVER_ADDRESS.rstrip("/"),
+            basic_auth=(self.auth.email, self.auth.token),
+            validate=True,
+        )
+
+        # immediately cache
+        if self.allow_cache_credentials:
+            with open(f"/tmp/{self.name}-credentials.json", "w") as f:
+                json.dump(asdict(self.auth), f)
+
+        return "Jira auth is valid" + (
+            " and credentials have been cached!" if self.allow_cache_credentials else ""
+        )
 
     @override
     def get_cached_credentials(self) -> JiraBasicAuth | None:
@@ -342,7 +387,20 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
             raise JiraSubmitterError("Nothing has been submitted to Jira yet")
         # .add_attachment has a decorator that confuses the typechecker
         # go to its definition to see the expected arguments
-        self.jira.add_attachment(self.issue.id, str(attachment_file), filename)
+        attachment = self.jira.add_attachment(
+            self.issue.id, str(attachment_file), filename
+        )
+
+        if self.attach_request is not None:
+            # jira may rename the file, link to the name it actually used
+            uploaded_name = cast(
+                str,
+                getattr(attachment, "filename", None)
+                or filename
+                or attachment_file.name,
+            )
+            with self._uploaded_filenames_lock:
+                self.uploaded_filenames.append(uploaded_name)
 
     @property
     @override
@@ -354,5 +412,32 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
         return f"{self.jira.server_url}/browse/{self.issue.key}"
 
     @override
-    def finalize(self) -> None:
-        return
+    def finalize(self) -> str | None:
+        if self.attach_request is None:
+            return None
+        if not self.jira:
+            raise JiraSubmitterError("Jira client is not initialized")
+        if not self.issue:
+            raise JiraSubmitterError("No Jira issue has been fetched")
+
+        comment = self.jira.add_comment(
+            self.issue,
+            build_attachment_comment(
+                self.attach_request.comment, sorted(self.uploaded_filenames)
+            ),
+        )
+        return f"Posted comment {comment.id} on {self.issue.key}"
+
+
+def build_attachment_comment(user_comment: str, attachment_names: Sequence[str]) -> str:
+    """Jira wiki markup for the comment posted in 'comment' attach mode
+
+    :param user_comment: what the user typed, can be empty
+    :param attachment_names: names of the files as they appear on jira
+    """
+    lines = [user_comment.strip() or ATTACH_PLACEHOLDER_COMMENT]
+    if attachment_names:
+        lines += ["", "*Attachments*"]
+        # [^name] links to an attachment on the same issue
+        lines += [f"* [^{name}]" for name in attachment_names]
+    return "\n".join(lines)

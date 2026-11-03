@@ -8,6 +8,7 @@ import pydantic
 from bugit_v2.checkbox_utils.submission_extractor import read_simple_submission
 from bugit_v2.utils import is_snap
 from bugit_v2.utils.constants import (
+    ATTACH_AUTOSAVE_DIR,
     AUTOSAVE_DIR,
     DISK_CACHE_DIR,
     DUT_INFO_DIR,
@@ -78,9 +79,19 @@ def is_cid(cid: str) -> bool:
     return re.compile(r"\d{6}-\d{5}\b").fullmatch(cid) is not None
 
 
+def is_jira_issue_key(key: str) -> bool:
+    """STELLA-123, SOMERVILLE-4567, ..."""
+    return re.compile(r"[A-Z][A-Z0-9_]*-\d+").fullmatch(key) is not None
+
+
+def is_lp_bug_id(bug_id: str) -> bool:
+    return bug_id.isascii() and bug_id.isdigit()
+
+
 def ensure_all_directories_exist() -> None:
     for directory in (
         AUTOSAVE_DIR,
+        ATTACH_AUTOSAVE_DIR,
         VISUAL_CONFIG_DIR,
         DUT_INFO_DIR,
         DISK_CACHE_DIR,

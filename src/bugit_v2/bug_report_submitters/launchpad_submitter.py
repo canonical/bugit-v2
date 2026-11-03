@@ -21,10 +21,12 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
     BugReportSubmitter,
 )
+from bugit_v2.models.attachment_request import AttachmentRequest
 from bugit_v2.models.bug_report import BugReport, pretty_issue_file_times
 from bugit_v2.utils import is_prod
 
 LP_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
+DEFAULT_ATTACHMENT_COMMENT = "Automatically attached by bugit-v2"
 # 'staging' doesn't seem to work
 # only 'qastaging' and 'production' works
 VALID_SERVICE_ROOTS = ("production", "qastaging")
@@ -241,6 +243,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
     }
     display_name = "Launchpad"
     steps = 6
+    supports_attach = True
+    attach_steps = 2
     auth_modal = LaunchpadAuthModal
     # parallel upload will cause an irrecoverable segfault
     # and completely kill the shell
@@ -248,6 +252,10 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
 
     lp_client: Launchpad | None = None
     lp_bug_object: Any | None = None  # TODO: make a wrapper for this
+    # only set in attach mode
+    attach_request: AttachmentRequest | None = None
+    # whether the user's comment has been posted in attach mode
+    user_comment_posted: bool = False
 
     def check_project_existence(self, project_name: str) -> Any:
         if not self.lp_client:
@@ -289,12 +297,16 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
 
     @override
     def bug_exists(self, bug_id: str) -> bool:
-        return False
+        lp_client = self.lp_client or self._login()
+        try:
+            _ = lp_client.bugs[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
+                int(bug_id)
+            ]
+            return True
+        except Exception:
+            return False
 
-    @override
-    def submit(
-        self, bug_report: BugReport
-    ) -> Generator[str | AdvanceMessage, None, None]:
+    def _login(self) -> Launchpad:
         if SERVICE_ROOT not in VALID_SERVICE_ROOTS:
             raise RuntimeError(
                 "Invalid APPORT_LAUNCHPAD_INSTANCE, "
@@ -305,15 +317,14 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
         if not LP_AUTH_FILE_PATH.exists():
             raise RuntimeError("At this point auth should already be valid")
 
-        yield f"Logging into Launchpad: {SERVICE_ROOT}"
         try:
-            self.lp_client = Launchpad.login_with(
+            lp_client = Launchpad.login_with(
                 LP_APP_NAME,
                 SERVICE_ROOT,
                 credentials_file=LP_AUTH_FILE_PATH,
             )  # this blocks until ready
             # as weird as this looks it seems to force a lp refresh
-            print(self.lp_client.me)
+            print(lp_client.me)
         except Unauthorized as e:
             # delete the auth file, it expired
             LP_AUTH_FILE_PATH.unlink(True)
@@ -329,6 +340,46 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
                     ]
                 )
             )
+        self.lp_client = lp_client
+        return lp_client
+
+    @override
+    def attach_to_existing(
+        self, request: AttachmentRequest
+    ) -> Generator[str | AdvanceMessage, None, None]:
+        self.attach_request = None
+        self.user_comment_posted = False
+
+        yield f"Logging into Launchpad: {SERVICE_ROOT}"
+        lp_client = self._login()
+        yield AdvanceMessage("Launchpad auth succeeded")
+
+        try:
+            self.lp_bug_object = lp_client.bugs[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript]
+                int(request.bug_id)
+            ]
+        except Exception as e:
+            raise RuntimeError(
+                f"Can't access bug {request.bug_id}. "
+                + "Does it exist and do you have permission to view it? "
+                + f"Original error: {e!r}"
+            )
+        if not self.lp_bug_object:
+            raise RuntimeError("Unexpected null bug")
+
+        yield AdvanceMessage(
+            f"Found bug {request.bug_id}: {self.lp_bug_object.title}"  # pyright: ignore[reportUnknownMemberType]
+        )
+        self.attach_request = request
+
+    @override
+    def submit(
+        self, bug_report: BugReport
+    ) -> Generator[str | AdvanceMessage, None, None]:
+        self.attach_request = None
+
+        yield f"Logging into Launchpad: {SERVICE_ROOT}"
+        lp_client = self._login()
         yield AdvanceMessage("Launchpad auth succeeded")
 
         assignee = None
@@ -369,14 +420,14 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
                     )
 
         # actually create the bug
-        self.lp_bug_object = self.lp_client.bugs.createBug(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+        self.lp_bug_object = lp_client.bugs.createBug(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
             title=bug_report.title,
             description=description_to_submit,  # TODO: is there a length limit?
             tags=[
                 *bug_report.platform_tags,
                 *bug_report.additional_tags,
             ],  # length limit?
-            target=self.lp_client.projects[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript]
+            target=lp_client.projects[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript]
                 bug_report.project  # index access also has a side effect
             ],
         )
@@ -414,14 +465,26 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
     ) -> str | None:
         if not self.lp_bug_object:
             raise RuntimeError("No launchpad bug has been created or fetched")
+
+        comment = DEFAULT_ATTACHMENT_COMMENT
+        use_user_comment = (
+            self.attach_request is not None and not self.user_comment_posted
+        )
+        if self.attach_request is not None and use_user_comment:
+            # LP needs a comment for every attachment, so the user's comment
+            # rides along with the 1st one
+            comment = self.attach_request.comment.strip() or comment
+
         with open(attachment_file, "rb") as f:
             # this might explode on low memory systems
             # but idk how to work around it
             self.lp_bug_object.addAttachment(
-                comment="Automatically attached by bugit-v2",
+                comment=comment,
                 filename=filename or attachment_file.name,
                 data=f.read(),
             )
+        if use_user_comment:
+            self.user_comment_posted = True
 
     @property
     @override
@@ -441,5 +504,15 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
         return None
 
     @override
-    def finalize(self) -> None:
-        return
+    def finalize(self) -> str | None:
+        if self.attach_request is None or self.user_comment_posted:
+            return None
+        comment = self.attach_request.comment.strip()
+        if not comment:
+            return None
+        if not self.lp_bug_object:
+            raise RuntimeError("No launchpad bug has been created or fetched")
+        # nothing was uploaded, but the user still wants to say something
+        self.lp_bug_object.newMessage(content=comment)
+        self.user_comment_posted = True
+        return f"Posted comment on bug {self.attach_request.bug_id}"

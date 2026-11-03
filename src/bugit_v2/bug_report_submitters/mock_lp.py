@@ -12,11 +12,13 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
     BugReportSubmitter,
 )
 from bugit_v2.bug_report_submitters.launchpad_submitter import (
+    DEFAULT_ATTACHMENT_COMMENT,
     LP_APP_NAME,
     LP_AUTH_FILE_PATH,
     SERVICE_ROOT,
     LaunchpadAuthModal,
 )
+from bugit_v2.models.attachment_request import AttachmentRequest
 from bugit_v2.models.bug_report import BugReport
 
 # 'staging' doesn't seem to work
@@ -36,8 +38,12 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
         "lowest": "Wishlist",
     }
     steps = 6
+    supports_attach = True
+    attach_steps = 2
     lp_client: Launchpad | None = None
     auth_modal = LaunchpadAuthModal
+    attach_request: AttachmentRequest | None = None
+    user_comment_posted: bool = False
 
     def check_project_existence(self, project_name: str) -> Any:
         if not self.lp_client:
@@ -81,11 +87,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
     def bug_exists(self, bug_id: str) -> bool:
         return False
 
-    @override
-    def submit(
-        self, bug_report: BugReport
-    ) -> Generator[str | AdvanceMessage, None, None]:
-
+    def _login(self) -> Launchpad:
         if SERVICE_ROOT not in VALID_SERVICE_ROOTS:
             raise RuntimeError(
                 "Invalid APPORT_LAUNCHPAD_INSTANCE, "
@@ -96,15 +98,14 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
         if not LP_AUTH_FILE_PATH.exists():
             raise RuntimeError("At this point auth should already be valid")
 
-        yield f"Logging into Launchpad: {SERVICE_ROOT}"
         try:
-            self.lp_client = Launchpad.login_with(
+            lp_client = Launchpad.login_with(
                 LP_APP_NAME,
                 SERVICE_ROOT,
                 credentials_file=LP_AUTH_FILE_PATH,
             )  # this blocks until ready
             # as weird as this looks it seems to force a lp refresh
-            print(self.lp_client.me)  # pyright: ignore[reportUnknownArgumentType]
+            print(lp_client.me)  # pyright: ignore[reportUnknownArgumentType]
         except Unauthorized as e:
             # delete the auth file, it expired
             LP_AUTH_FILE_PATH.unlink(True)
@@ -120,6 +121,42 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
                     ]
                 )
             )
+        self.lp_client = lp_client
+        return lp_client
+
+    @override
+    def attach_to_existing(
+        self, request: AttachmentRequest
+    ) -> Generator[str | AdvanceMessage, None, None]:
+        """Real auth and bug lookup, nothing is written to launchpad"""
+        self.attach_request = None
+        self.user_comment_posted = False
+
+        yield f"Logging into Launchpad: {SERVICE_ROOT}"
+        lp_client = self._login()
+        yield AdvanceMessage("Launchpad auth succeeded")
+
+        try:
+            bug = lp_client.bugs[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
+                int(request.bug_id)
+            ]
+        except Exception as e:
+            raise RuntimeError(
+                f"Can't access bug {request.bug_id}. Original error: {e!r}"
+            )
+        yield AdvanceMessage(
+            f"Found bug {request.bug_id}: {bug.title}"  # pyright: ignore[reportUnknownMemberType]
+        )
+        self.attach_request = request
+
+    @override
+    def submit(
+        self, bug_report: BugReport
+    ) -> Generator[str | AdvanceMessage, None, None]:
+        self.attach_request = None
+
+        yield f"Logging into Launchpad: {SERVICE_ROOT}"
+        lp_client = self._login()
         yield AdvanceMessage("Launchpad auth succeeded")
 
         assignee = None
@@ -147,7 +184,7 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
                 *bug_report.platform_tags,
                 *bug_report.additional_tags,
             ],  # length limit?
-            target=self.lp_client.projects[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript]
+            target=lp_client.projects[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript]
                 bug_report.project  # index access also has a side effect
             ],
         )
@@ -195,8 +232,19 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
     def upload_attachment(
         self, attachment_file: Path, filename: str | None = None
     ) -> str | None:
-        return super().upload_attachment(attachment_file)
+        comment = DEFAULT_ATTACHMENT_COMMENT
+        if self.attach_request is not None and not self.user_comment_posted:
+            comment = self.attach_request.comment.strip() or comment
+            self.user_comment_posted = True
+        print("mock uploaded", filename or attachment_file.name, "with comment", comment)
+        return None
 
     @override
-    def finalize(self) -> None:
-        return
+    def finalize(self) -> str | None:
+        if self.attach_request is None or self.user_comment_posted:
+            return None
+        comment = self.attach_request.comment.strip()
+        if not comment:
+            return None
+        self.user_comment_posted = True
+        return f"Mock comment on bug {self.attach_request.bug_id}:\n{comment}"
