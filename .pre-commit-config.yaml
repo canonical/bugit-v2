@@ -12,7 +12,7 @@ repos:
     rev: 5.13.2
     hooks:
       - id: isort
-        args: ["--profile", "black", "-l", "79"]
+        args: ["--profile", "black"]
   - repo: https://github.com/psf/black-pre-commit-mirror
     rev: 25.1.0
     hooks:
