@@ -4,10 +4,7 @@ from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any, Literal, cast, final, override
 
-from launchpadlib.credentials import (
-    Credentials,
-    RequestTokenAuthorizationEngine,
-)
+from launchpadlib.credentials import Credentials, RequestTokenAuthorizationEngine
 from launchpadlib.launchpad import Launchpad
 from launchpadlib.uris import LPNET_WEB_ROOT, QASTAGING_WEB_ROOT
 from lazr.restfulclient.errors import HTTPError, Unauthorized
@@ -303,7 +300,8 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
                 int(bug_id)
             ]
             return True
-        except Exception:
+        except KeyError:
+            # launchpadlib turns 404 into KeyError, auth/network errors propagate
             return False
 
     def _login(self) -> Launchpad:
@@ -358,11 +356,13 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
             self.lp_bug_object = lp_client.bugs[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript]
                 int(request.bug_id)
             ]
-        except Exception as e:
+        except KeyError:
             raise RuntimeError(
-                f"Can't access bug {request.bug_id}. "
-                + "Does it exist and do you have permission to view it? "
-                + f"Original error: {e!r}"
+                f"Bug {request.bug_id} doesn't exist or you don't have permission to view it"
+            )
+        except HTTPError as e:
+            raise RuntimeError(
+                f"Can't access bug {request.bug_id}. Original error: {e!r}"
             )
         if not self.lp_bug_object:
             raise RuntimeError("Unexpected null bug")
