@@ -22,42 +22,66 @@ from textual.widgets import Button, Checkbox, Footer, Label, Rule
 from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.models.app_args import AppArgs
+from bugit_v2.models.attachment_request import SerializableAttachmentRequest
 from bugit_v2.models.bug_report import SerializableBugReport
 from bugit_v2.utils import pretty_date
-from bugit_v2.utils.constants import AUTOSAVE_DIR
+from bugit_v2.utils.constants import ATTACH_AUTOSAVE_DIR, AUTOSAVE_DIR
 
 type SaveType = Literal["session", "submission"]
+type Autosave = SerializableBugReport | SerializableAttachmentRequest
+
+COMMENT_PREVIEW_LEN = 60
 
 logger = logging.getLogger(__name__)
 
 
 @final
-class RecoverFromAutoSaveScreen(Screen[SerializableBugReport | None]):
+class RecoverFromAutoSaveScreen(Screen[Autosave | None]):
+    """
+    Lists the recovery files of the bug report editor, or the attachment
+    editor if app_args.bug_to_attach is set. In attach mode only the drafts
+    for the same submitter and bug are shown.
+    """
 
     CSS_PATH = "styles.tcss"
 
     is_relative = reactive[bool](True, recompose=True)
     lock_delete = reactive[bool](True, recompose=True)
-    valid_autosave_data: dict[str, SerializableBugReport]
+    valid_autosave_data: dict[str, Autosave]
     save_type: SaveType
 
     def __init__(
         self,
         save_type: SaveType,
         app_args: AppArgs,
-        autosave_dir: Path = AUTOSAVE_DIR,
+        autosave_dir: Path | None = None,
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
     ) -> None:
-        self.autosave_dir = autosave_dir
+        self.attach_mode = app_args.bug_to_attach is not None
+        self.app_args = app_args
+        self.autosave_dir = autosave_dir or (
+            ATTACH_AUTOSAVE_DIR if self.attach_mode else AUTOSAVE_DIR
+        )
         self.valid_autosave_data = {}
         self.save_type = save_type
 
-        for file in os.listdir(autosave_dir):
-            with open(autosave_dir / file) as f:
+        for file in os.listdir(self.autosave_dir):
+            with open(self.autosave_dir / file) as f:
                 try:
-                    autosave = SerializableBugReport.model_validate_json(f.read())
+                    autosave: Autosave
+                    if self.attach_mode:
+                        autosave = SerializableAttachmentRequest.model_validate_json(
+                            f.read()
+                        )
+                        if (
+                            autosave.submitter != app_args.submitter
+                            or autosave.bug_id != app_args.bug_to_attach
+                        ):
+                            continue
+                    else:
+                        autosave = SerializableBugReport.model_validate_json(f.read())
                     match (
                         save_type,
                         autosave.checkbox_submission,
@@ -100,8 +124,21 @@ class RecoverFromAutoSaveScreen(Screen[SerializableBugReport | None]):
         yield SimpleHeader()
         with Vertical(classes="w100 h100 center"):
             with VerticalGroup(classes="round_box lrp2"):
-                yield Label("[b][$primary]Resume from a Recovery File")
-                yield Label("These were automatically saved by the bug report editor")
+                if self.attach_mode:
+                    yield Label(
+                        Content.from_markup(
+                            "[b][$primary]Resume an Attachment Draft for $bug",
+                            bug=self.app_args.bug_to_attach,
+                        )
+                    )
+                    yield Label(
+                        "These were automatically saved by the attachment editor"
+                    )
+                else:
+                    yield Label("[b][$primary]Resume from a Recovery File")
+                    yield Label(
+                        "These were automatically saved by the bug report editor"
+                    )
                 if self.save_type == "submission":
                     yield Label(
                         "[$warning]Only the recovery files originated from this checkbox submission are shown"
@@ -125,7 +162,11 @@ class RecoverFromAutoSaveScreen(Screen[SerializableBugReport | None]):
                     )
                     with Right():
                         yield Button(
-                            "Start a New Bug Report (Don't recover)",
+                            (
+                                "Start a New Attachment (Don't recover)"
+                                if self.attach_mode
+                                else "Start a New Bug Report (Don't recover)"
+                            ),
                             id="no_recovery",
                             tooltip="This will not delete any of the existing recovery files",
                             compact=True,
@@ -189,7 +230,7 @@ class RecoverFromAutoSaveScreen(Screen[SerializableBugReport | None]):
         if filename not in self.valid_autosave_data:
             raise RuntimeError(f"Unknown autosave filename: {filename!r}")
         autosave = self.valid_autosave_data[filename]
-        lines: list[str] = []
+        lines: list[str | Content] = []
         if self.is_relative:
             lines.append(
                 "Saved "
@@ -207,6 +248,9 @@ class RecoverFromAutoSaveScreen(Screen[SerializableBugReport | None]):
                 ).strftime("%Y-%m-%dT%H:%M:%SZ"),
             )
 
+        if isinstance(autosave, SerializableAttachmentRequest):
+            lines.append(self._comment_preview(autosave.comment))
+
         if session_path := autosave.checkbox_session:
             lines.append(f"[grey]{os.path.basename(session_path)}")
         elif checkbox_submission_path := autosave.checkbox_submission:
@@ -219,4 +263,17 @@ class RecoverFromAutoSaveScreen(Screen[SerializableBugReport | None]):
         else:
             lines.append("[i][grey]No job selected")
 
-        return Content("\n").join(Content.from_markup(line) for line in lines)
+        return Content("\n").join(
+            line if isinstance(line, Content) else Content.from_markup(line)
+            for line in lines
+        )
+
+    @staticmethod
+    def _comment_preview(comment: str) -> Content:
+        first_line = comment.strip().split("\n", 1)[0]
+        if not first_line:
+            return Content.from_markup("[i][grey]No comment")
+        if len(first_line) > COMMENT_PREVIEW_LEN or "\n" in comment.strip():
+            first_line = first_line[:COMMENT_PREVIEW_LEN].rstrip() + "..."
+        # the comment is user input, don't interpret it as markup
+        return Content.from_markup("$comment", comment=first_line)
