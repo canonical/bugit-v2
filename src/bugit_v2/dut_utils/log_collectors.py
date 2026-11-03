@@ -12,29 +12,27 @@ import os
 import shutil
 import subprocess
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Final, Literal
 
-from bugit_v2.dut_utils.ai_log_collector import (
-    COMMAND_TIMEOUT as AI_COMMAND_TIMEOUT,
-)
-from bugit_v2.dut_utils.ai_log_collector import (
-    MAX_ITERATIONS as AI_MAX_ITERATIONS,
-)
+from bugit_v2.dut_utils.ai_log_collector import COMMAND_TIMEOUT as AI_COMMAND_TIMEOUT
+from bugit_v2.dut_utils.ai_log_collector import MAX_ITERATIONS as AI_MAX_ITERATIONS
 from bugit_v2.dut_utils.ai_log_collector import ai_collect
-from bugit_v2.models.bug_report import BugReport, LogName
+from bugit_v2.models.attachment_request import CollectorInput
+from bugit_v2.models.bug_report import LogName
 from bugit_v2.utils import host_is_ubuntu_core, is_snap
 from bugit_v2.utils.ai_config import get_ai_config
 from bugit_v2.utils.async_subprocess import asp_check_call, asp_check_output
-from bugit_v2.utils.constants import (
-    HOST_FS,
-    MAX_JOB_OUTPUT_LEN,
-    NSENTER_PREFIX,
-)
+from bugit_v2.utils.constants import HOST_FS, MAX_JOB_OUTPUT_LEN, NSENTER_PREFIX
 
 logger = logging.getLogger(__name__)
 
 COMMAND_TIMEOUT = 10 * 60  # 10 minutes
+
+# new_bug: the bug report editor, attach: attaching to an existing bug
+CollectorMode = Literal["new_bug", "attach"]
+ALL_COLLECTOR_MODES: Final[frozenset[CollectorMode]] = frozenset(("new_bug", "attach"))
 NVIDIA_BUG_REPORT_PATH = (
     (HOST_FS / "usr/bin/nvidia-bug-report.sh")
     if is_snap()
@@ -48,7 +46,7 @@ class LogCollector:
     name: LogName
     # the function that actually collects the logs
     collect: Callable[
-        [Path, BugReport, Callable[[str], None] | None],
+        [Path, CollectorInput, Callable[[str], None] | None],
         Awaitable[
             str | None
         ],  # (target_dir, bug_report, on_output) -> optional result string
@@ -72,10 +70,14 @@ class LogCollector:
     # whether to make this collector visible on screen
     # if true, then collect_by_default will dictate if this log collector is run
     hidden: bool = False
+    # which editors can use this collector
+    available_in: frozenset[CollectorMode] = field(default=ALL_COLLECTOR_MODES)
 
 
 async def pack_checkbox_session(
-    target_dir: Path, bug_report: BugReport, _on_output: Callable[[str], None] | None
+    target_dir: Path,
+    bug_report: CollectorInput,
+    _on_output: Callable[[str], None] | None,
 ) -> str:
     if bug_report.checkbox_session is None:
         raise RuntimeError("Can't use this collector if there's no checkbox session")
@@ -90,7 +92,7 @@ async def pack_checkbox_session(
 
 
 async def nvidia_bug_report(
-    target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
+    target_dir: Path, _: CollectorInput, on_output: Callable[[str], None] | None
 ) -> str:
     return await asp_check_output(
         [
@@ -106,7 +108,7 @@ async def nvidia_bug_report(
 
 async def journal_logs(
     target_dir: Path,
-    _: BugReport,
+    _: CollectorInput,
     on_output: Callable[[str], None] | None,
     num_days: int = 7,
 ) -> None:
@@ -143,7 +145,7 @@ async def journal_logs(
 
 
 async def acpidump(
-    target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
+    target_dir: Path, _: CollectorInput, on_output: Callable[[str], None] | None
 ) -> None:
     await asp_check_call(
         [
@@ -158,7 +160,7 @@ async def acpidump(
 
 
 async def dmesg_of_current_boot(
-    target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
+    target_dir: Path, _: CollectorInput, on_output: Callable[[str], None] | None
 ) -> str:
     with open("/proc/sys/kernel/random/boot_id") as boot_id_file:
         boot_id = boot_id_file.read().strip().replace("-", "")
@@ -173,7 +175,7 @@ async def dmesg_of_current_boot(
 
 
 async def snap_list(
-    target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
+    target_dir: Path, _: CollectorInput, on_output: Callable[[str], None] | None
 ):
     with open(target_dir / "snap_list.log", "w") as f:
         await asp_check_call(
@@ -185,7 +187,7 @@ async def snap_list(
 
 
 async def snap_debug(
-    target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
+    target_dir: Path, _: CollectorInput, on_output: Callable[[str], None] | None
 ):
     script_path = importlib.resources.files("bugit_v2.dut_utils") / "snap_debug.sh"
     with open(target_dir / "snap_debug.log", "w") as f:
@@ -198,7 +200,9 @@ async def snap_debug(
 
 
 async def pack_checkbox_submission(
-    target_dir: Path, bug_report: BugReport, _on_output: Callable[[str], None] | None
+    target_dir: Path,
+    bug_report: CollectorInput,
+    _on_output: Callable[[str], None] | None,
 ):
     if bug_report.checkbox_submission is None:
         raise RuntimeError("Can't use this collector if there's no checkbox submission")
@@ -214,7 +218,9 @@ async def pack_checkbox_submission(
 
 
 async def long_job_outputs(
-    target_dir: Path, bug_report: BugReport, _on_output: Callable[[str], None] | None
+    target_dir: Path,
+    bug_report: CollectorInput,
+    _on_output: Callable[[str], None] | None,
 ):
     """
     Only used when the job's stdout is way too long for the description
@@ -248,8 +254,56 @@ async def long_job_outputs(
         return f"Added job {','.join(added_keys)} to {target_dir}"
 
 
+async def job_outputs(
+    target_dir: Path,
+    bug_report: CollectorInput,
+    _on_output: Callable[[str], None] | None,
+) -> str:
+    """
+    Write the selected job's stdout/stderr/comments to files.
+    Used when attaching to an existing bug since there's no description to put
+    the job output in
+    """
+    if bug_report.job_id is None:
+        raise RuntimeError("Can't use this collector if there's no job id")
+
+    outputs: dict[str, str] = {}
+    if bug_report.checkbox_session is not None:
+        if not bug_report.checkbox_session.session_path.exists():
+            raise RuntimeError(
+                f"{bug_report.checkbox_session.session_path} was deleted after the job was selected!"
+            )
+        job_output = bug_report.checkbox_session.get_job_output(bug_report.job_id)
+        if job_output:
+            outputs = {k: str(v) for k, v in job_output.items()}
+    elif bug_report.checkbox_submission is not None:
+        for result in bug_report.checkbox_submission.base.results:
+            if result.full_id == bug_report.job_id:
+                outputs = {
+                    "output": result.io_log or "",
+                    "comments": result.comments or "",
+                }
+                break
+    else:
+        raise RuntimeError(
+            "Can't use this collector without a checkbox session or submission"
+        )
+
+    written: list[str] = []
+    for k, v in outputs.items():
+        if not v.strip():
+            continue
+        filename = f"job_{k}.txt"
+        (target_dir / filename).write_text(v)
+        written.append(filename)
+
+    if not written:
+        raise RuntimeError(f"Job {bug_report.job_id} has no output or comments")
+    return f"Added {', '.join(written)} to {target_dir}"
+
+
 async def oem_getlogs(
-    target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
+    target_dir: Path, _: CollectorInput, on_output: Callable[[str], None] | None
 ):
     if not target_dir.exists():
         raise RuntimeError(f"Target directory {target_dir} does not exist")
@@ -281,7 +335,7 @@ async def oem_getlogs(
 
 
 async def sosreport(
-    target_dir: Path, _: BugReport, on_output: Callable[[str], None] | None
+    target_dir: Path, _: CollectorInput, on_output: Callable[[str], None] | None
 ):
     if host_is_ubuntu_core():
         raise RuntimeError("SOS Report cannot run on ubuntu core")
@@ -305,7 +359,7 @@ async def sosreport(
 
 async def slow(
     target_dir: Path,
-    bug_report: BugReport,
+    bug_report: CollectorInput,
     on_output: Callable[[str], None] | None,
     secs: int,
 ):
@@ -419,6 +473,17 @@ real_collectors: Sequence[LogCollector] = (
         # hidden entirely unless an OpenAI-compatible API has been configured
         # via 'sudo snap set bugit ai-api-key=... ai-base-url=... ai-model=...'
         hidden=get_ai_config() is None,
+        # needs the title and description of a new bug
+        available_in=frozenset(("new_bug",)),
+    ),
+    LogCollector(
+        "job-outputs",
+        job_outputs,
+        "Job Outputs (stdout, stderr, comments)",
+        # pre-selection is decided by the attach editor based on the job
+        collect_by_default=False,
+        # new bugs put the job output in the description
+        available_in=frozenset(("attach",)),
     ),
     # hidden collectors
     LogCollector(
@@ -428,6 +493,8 @@ real_collectors: Sequence[LogCollector] = (
         "Long Job Outputs",
         collect_by_default=True,
         hidden=True,
+        # superseded by job-outputs in attach mode
+        available_in=frozenset(("new_bug",)),
     ),
 )
 

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 from launchpadlib.launchpad import Launchpad
 from launchpadlib.uris import LPNET_WEB_ROOT, QASTAGING_WEB_ROOT
-from lazr.restfulclient.errors import Unauthorized
+from lazr.restfulclient.errors import HTTPError, Unauthorized
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
     AdvanceMessage,
@@ -140,7 +140,11 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
             bug = lp_client.bugs[  # pyright: ignore[reportIndexIssue, reportOptionalSubscript, reportUnknownVariableType]
                 int(request.bug_id)
             ]
-        except Exception as e:
+        except KeyError:
+            raise RuntimeError(
+                f"Bug {request.bug_id} doesn't exist or you don't have permission to view it"
+            )
+        except HTTPError as e:
             raise RuntimeError(
                 f"Can't access bug {request.bug_id}. Original error: {e!r}"
             )

@@ -7,12 +7,7 @@ from typing import Final, Literal, cast, final, override
 
 from textual import on, work
 from textual.app import ComposeResult
-from textual.containers import (
-    HorizontalGroup,
-    Right,
-    VerticalGroup,
-    VerticalScroll,
-)
+from textual.containers import HorizontalGroup, Right, VerticalGroup, VerticalScroll
 from textual.markup import escape as escape_markup
 from textual.reactive import var
 from textual.screen import Screen
@@ -411,17 +406,16 @@ class BugReportScreen(Screen[BugReport]):
                         cert_status_label.border_title = "Certification Status"
                         yield cert_status_label
 
-                    if self.session is NullSelection.NO_SESSION:
+                    collectors = [
+                        c
+                        for c in LOG_NAME_TO_COLLECTOR.values()
+                        if not c.hidden and "new_bug" in c.available_in
                         # don't even include the session collector if there's no session
-                        collectors = [
-                            c
-                            for c in LOG_NAME_TO_COLLECTOR.values()
-                            if c.name != "checkbox-session" and not c.hidden
-                        ]
-                    else:
-                        collectors = [
-                            c for c in LOG_NAME_TO_COLLECTOR.values() if not c.hidden
-                        ]
+                        and not (
+                            self.session is NullSelection.NO_SESSION
+                            and c.name == "checkbox-session"
+                        )
+                    ]
 
                     with VerticalGroup():
                         yield SelectionList[LogName](
