@@ -157,9 +157,7 @@ class MockJiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
 
         if bug_report.assignee:
             self.assignee_exists_and_unique(bug_report.assignee)
-            yield AdvanceMessage(
-                f"Assignee [u]{bug_report.assignee}[/u] exists and is unique!"
-            )
+            yield AdvanceMessage(f"Assignee {bug_report.assignee} exists and is unique!")
         else:
             yield AdvanceMessage("Assignee unspecified, marking the bug as unassigned")
 

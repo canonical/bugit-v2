@@ -129,13 +129,13 @@ class MockLaunchpadSubmitter(BugReportSubmitter[Path]):
 
         if bug_report.assignee:
             assignee = self.check_assignee_existence(bug_report.assignee)
-            yield AdvanceMessage(f"Assignee [u]{bug_report.assignee}[/u] exists")
+            yield AdvanceMessage(f"Assignee {bug_report.assignee} exists")
         else:
             yield AdvanceMessage("Assignee unspecified, marking the bug as unassigned")
 
         if bug_report.series:
             series = self.check_series_existence(bug_report.series)
-            yield AdvanceMessage(f"Series [u]{bug_report.series} exists![/]")
+            yield AdvanceMessage(f"Series {bug_report.series} exists!")
         else:
             yield AdvanceMessage("Series unspecified, skipping")
 

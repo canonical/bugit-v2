@@ -308,9 +308,7 @@ class JiraSubmitter(BugReportSubmitter[JiraBasicAuth]):
         if bug_report.assignee:
             user_id = self.assignee_exists_and_unique(bug_report.assignee)
             bug_dict["assignee"] = {"id": user_id}
-            yield AdvanceMessage(
-                f"Assignee [u]{bug_report.assignee}[/u] exists and is unique!"
-            )
+            yield AdvanceMessage(f"Assignee {bug_report.assignee} exists and is unique!")
         else:
             yield AdvanceMessage("Assignee unspecified, marking the bug as unassigned")
 

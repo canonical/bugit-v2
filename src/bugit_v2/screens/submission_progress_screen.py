@@ -236,15 +236,11 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             self.collector_status_timer.stop()
         for key, worker in self.attachment_workers.items():
             if worker.is_running:
-                self._log_collector(
-                    f"Unmount, cancelling collector {escape_markup(str(key))}"
-                )
+                self._log_collector(f"Unmount, cancelling collector {key}")
                 worker.cancel()
         for key, worker in self.upload_workers.items():
             if worker.is_running:
-                self._log_with_time(
-                    f"Unmount, cancelling uploader {escape_markup(str(key))}"
-                )
+                self._log_with_time(f"Unmount, cancelling uploader {key}")
                 worker.cancel()
 
     def start_parallel_log_collection(self) -> None:
@@ -271,9 +267,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     target_file_name = slugify(str(file.parent)) + "_" + file.name
                 shutil.copy(file, self.attachment_dir / target_file_name)
             except Exception as e:
-                self._log_collector(
-                    f"FAIL! Failed to copy {escape_markup(str(file))}: {escape_markup(repr(e))}"
-                )
+                self._log_collector(f"FAIL! Failed to copy {file}: {repr(e)}")
                 logger.exception(f"Failed to copy {file}")
 
         # get the log collectors running first
@@ -297,9 +291,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     if now - last_logged_at < min_log_interval:
                         return
                     last_logged_at = now
-                    self._log_collector(
-                        f"{collector.display_name} | {escape_markup(stripped)}"
-                    )
+                    self._log_collector(f"{collector.display_name} | {stripped}")
 
                 try:
                     rv = await collector.collect(
@@ -311,8 +303,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                             " ".join(
                                 [
                                     "OK!",
-                                    f"{escape_markup(collector.display_name)}:",
-                                    escape_markup(rv.strip()),
+                                    f"{collector.display_name}:",
+                                    rv.strip(),
                                 ]
                             )
                         )
@@ -321,7 +313,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                             " ".join(
                                 [
                                     "OK!",
-                                    f"{escape_markup(collector.display_name)}:",
+                                    f"{collector.display_name}:",
                                     "Finished collection!",
                                 ]
                             )
@@ -330,8 +322,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     self._log_collector(
                         " ".join(
                             [
-                                f"FAIL! {escape_markup(collector.display_name)} failed:",
-                                escape_markup(repr(e)),
+                                f"FAIL! {collector.display_name} failed:",
+                                repr(e),
                             ]
                         )
                     )
@@ -372,7 +364,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             self._log_collector(msg)
 
         self._log_collector(
-            "[blue]Slow collectors will print a status report every 30 seconds"
+            "Slow collectors will print a status report every 30 seconds"
         )
 
     def start_parallel_attachment_upload(self) -> None:
@@ -383,9 +375,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         def upload_one(f: Path):
             try:
                 if f.stat().st_size == 0:
-                    self._log_with_time(
-                        f"WARN! {escape_markup(str(f))} is an empty file. Skipping"
-                    )
+                    self._log_with_time(f"WARN! {f} is an empty file. Skipping")
                     return
 
                 if not f.is_file():
@@ -395,15 +385,11 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
                 if rv and rv.strip():
                     # only show non-empty, non-null messages
-                    self._log_with_time(
-                        f"OK! Uploaded {escape_markup(f.name)}: {escape_markup(rv.strip())}"
-                    )
+                    self._log_with_time(f"OK! Uploaded {f.name}: {rv.strip()}")
                 else:
-                    self._log_with_time(f"OK! Uploaded {escape_markup(f.name)}")
+                    self._log_with_time(f"OK! Uploaded {f.name}")
             except Exception as e:
-                self._log_with_time(
-                    f"FAIL! failed to upload {escape_markup(str(f))}: {escape_markup(repr(e))}"
-                )
+                self._log_with_time(f"FAIL! failed to upload {f}: {repr(e)}")
                 raise  # mark the worker as failed
             finally:
                 self._call_on_app_thread(progress_bar.advance)
@@ -417,7 +403,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 thread=True,  # not async
                 exit_on_error=False,  # hold onto the err, don't crash
             )
-            self._log_with_time(f"Uploading: {escape_markup(file.name)}")
+            self._log_with_time(f"Uploading: {file.name}")
 
     def start_sequential_attachment_upload(self) -> None:
         if not self.activity_log_widget:
@@ -429,26 +415,20 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             for f in self.attachment_dir.iterdir():
                 try:
                     if f.stat().st_size == 0:
-                        self._log_with_time(
-                            f"WARN! {escape_markup(str(f))} is an empty file. Skipping"
-                        )
+                        self._log_with_time(f"WARN! {f} is an empty file. Skipping")
                         continue
 
-                    self._log_with_time(f"Uploading: {escape_markup(f.name)}")
+                    self._log_with_time(f"Uploading: {f.name}")
                     rv = self.submitter.upload_attachment(f)
 
                     if rv and rv.strip():
                         # only show non-empty, non-null messages
-                        self._log_with_time(
-                            f"OK! Uploaded {escape_markup(f.name)}: {escape_markup(rv.strip())}"
-                        )
+                        self._log_with_time(f"OK! Uploaded {f.name}: {rv.strip()}")
                     else:
-                        self._log_with_time(f"OK! Uploaded {escape_markup(f.name)}")
+                        self._log_with_time(f"OK! Uploaded {f.name}")
                 except Exception as e:
                     failed_attachments.append(f.name)
-                    self._log_with_time(
-                        f"FAIL! failed to upload {escape_markup(str(f))}: {escape_markup(repr(e))}"
-                    )
+                    self._log_with_time(f"FAIL! failed to upload {f}: {repr(e)}")
                     logger.exception(f"Failed to upload {f}")
                 finally:
                     self._call_on_app_thread(progress_bar.advance)
@@ -478,15 +458,10 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             match step_result:
                 case str():
                     # general logs
-                    self._log_with_time(
-                        f"{escape_markup(display_name)}: {escape_markup(step_result)}"
-                    )
+                    self._log_with_time(f"{display_name}: {step_result}")
                 case AdvanceMessage():
                     # messages that will advance the progress bar
-                    self._log_with_time(
-                        f"OK! {escape_markup(display_name)}: "
-                        + escape_markup(step_result.message)
-                    )
+                    self._log_with_time(f"OK! {display_name}: " + step_result.message)
                     self._call_on_app_thread(progress_bar.advance)
 
         running_collectors = [
@@ -508,12 +483,10 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         else:
             if num_attachments > 0:
                 self._log_with_time(
-                    f"[blue]Finished bug creation, uploading {num_attachments} attachment(s)..."
+                    f"Finished bug creation, uploading {num_attachments} attachment(s)..."
                 )
             else:
-                self._log_with_time(
-                    "[blue]Finished bug creation, no attachments to upload"
-                )
+                self._log_with_time("Finished bug creation, no attachments to upload")
 
     def is_finished(self) -> bool:
         """
@@ -609,7 +582,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     async def cancel_all_unfinished_collectors(self, event: Button.Pressed):
         for key, worker in self.attachment_workers.items():
             if worker.is_running:
-                self._log_collector(f"Cancelling collector {escape_markup(str(key))}")
+                self._log_collector(f"Cancelling collector {key}")
                 worker.cancel()
                 self.attachment_worker_checker_timers[key].stop()
                 self.query_exactly_one("#progress", ProgressBar).advance()
@@ -865,7 +838,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     self._launch_upload_workers()
             case WorkerState.ERROR:
                 self._log_collector(
-                    f"[red]Collector {event.worker.name} failed! {escape_markup(repr(event.worker.error))}"
+                    f"FAIL! Collector {event.worker.name} failed! {repr(event.worker.error)}"
                 )
             case _:
                 pass
@@ -907,14 +880,14 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             rv = self.submitter.finalize()
             finalize_ok = True
             if rv:
-                self._log_with_time(f"FINALIZE OK {escape_markup(rv)}")
+                self._log_with_time(f"FINALIZE OK {rv}")
             else:
                 self._log_with_time(
-                    f"FINALIZE OK {escape_markup(self.submitter.display_name or self.submitter.name)}"
+                    f"FINALIZE OK {self.submitter.display_name or self.submitter.name}"
                 )
         except Exception as e:
             finalize_ok = False
-            self._log_with_time(f"FINALIZE FAIL!: {escape_markup(repr(e))}")
+            self._log_with_time(f"FINALIZE FAIL!: {repr(e)}")
             logger.exception(
                 f"Failed to finalize {self.submitter.display_name or self.submitter.name}"
             )
