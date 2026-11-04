@@ -71,8 +71,8 @@ jobs:
 
   qemu-armhf:
     name: QEMU build (armhf)
-    # the multiarch action builds inside docker, so use a GitHub-hosted runner
-    runs-on: ubuntu-latest
+    # the multiarch action builds inside docker, which these runners ship with
+    runs-on: [self-hosted, self-hosted-linux-amd64-noble-medium]
     environment: snap-store
     timeout-minutes: 600
     steps:
