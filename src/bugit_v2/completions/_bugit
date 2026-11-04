@@ -18,6 +18,8 @@ _bugit__bugit_v2() {
             'jira:Submit a bug to Jira'
             'lp:Submit a bug to Launchpad'
             'local:Pack the bug report to a local file'
+            'attach-jira:Attach logs and a comment to an existing Jira issue'
+            'attach-lp:Attach logs and a comment to an existing Launchpad bug'
         )
         _describe -t commands command commands && ret=0
         ;;
@@ -27,6 +29,8 @@ _bugit__bugit_v2() {
         'jira') _bugit__bugit_v2__jira && ret=0 ;;
         'lp') _bugit__bugit_v2__lp && ret=0 ;;
         'local') _bugit__bugit_v2__local && ret=0 ;;
+        'attach-jira') _bugit__bugit_v2__attach_jira && ret=0 ;;
+        'attach-lp') _bugit__bugit_v2__attach_lp && ret=0 ;;
         esac
         ;;
     esac
@@ -70,6 +74,22 @@ _bugit__bugit_v2__local() {
         '*'{-pt,--platform-tags=}'[Platform Tags]:platform-tags: ' \
         '*'{-t,--tags=}'[Additional tags on Jira/Launchpad]:tags: ' \
         '(-h --help)'{-h,--help}'[Show this message and exit]'
+}
+
+_bugit__bugit_v2__attach_jira() {
+    _arguments \
+        '(-s --checkbox-submission)'{-s,--checkbox-submission=}'[The .tar.xz file submitted by checkbox after a test session has finished]:checkbox-submission:_files' \
+        '(-cb --checkbox-bin-path)'{-cb,--checkbox-bin-path=}'[Override the path to the checkbox executable]:checkbox-bin-path:_files' \
+        '(-h --help)'{-h,--help}'[Show this message and exit]' \
+        ':bug-id: '
+}
+
+_bugit__bugit_v2__attach_lp() {
+    _arguments \
+        '(-s --checkbox-submission)'{-s,--checkbox-submission=}'[The .tar.xz file submitted by checkbox after a test session has finished]:checkbox-submission:_files' \
+        '(-cb --checkbox-bin-path)'{-cb,--checkbox-bin-path=}'[Override the path to the checkbox executable]:checkbox-bin-path:_files' \
+        '(-h --help)'{-h,--help}'[Show this message and exit]' \
+        ':bug-id: '
 }
 
 _bugit__submit() {
