@@ -1,9 +1,11 @@
 name: Weekly promote edge to beta
 
 on:
-  schedule:
-    # Monday 04:00 UTC, after the daily edge build
-    - cron: "0 4 * * 1"
+  # run after the daily build so promotion never races its uploads
+  workflow_run:
+    workflows: ["Daily snap build to edge"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -14,7 +16,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check:
+    # weekly: only promote after a successful scheduled daily run on Monday
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'schedule')
+    runs-on: [self-hosted, self-hosted-linux-amd64-noble-medium]
+    outputs:
+      promote: ${{ steps.day.outputs.promote }}
+    steps:
+      - id: day
+        env:
+          RUN_STARTED_AT: ${{ github.event.workflow_run.run_started_at }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] \
+            || [ "$(date -u -d "$RUN_STARTED_AT" +%u)" = 1 ]; then
+            echo "promote=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Daily build did not start on a Monday, skipping"
+          fi
+
   promote:
+    needs: check
+    if: needs.check.outputs.promote == 'true'
     runs-on: [self-hosted, self-hosted-linux-amd64-noble-medium]
     environment: snap-store
     steps:

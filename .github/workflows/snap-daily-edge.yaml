@@ -72,9 +72,6 @@ jobs:
     runs-on: [self-hosted, self-hosted-linux-amd64-noble-medium]
     environment: snap-store
     timeout-minutes: 600
-    env:
-      # name of the temporary Launchpad repo/recipe, stable across re-runs
-      BUILD_ID: bugit-${{ github.run_id }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -89,9 +86,11 @@ jobs:
         env:
           LP_CREDENTIALS: ${{ secrets.LP_CREDENTIALS }}
         run: |
-          mkdir -p ~/.local/share/snapcraft
-          printf '%s\n' "$LP_CREDENTIALS" \
-            > ~/.local/share/snapcraft/launchpad-credentials
+          creds_file="$HOME/.local/share/snapcraft/launchpad-credentials"
+          mkdir -p "$(dirname "$creds_file")"
+          # replace any file left by an earlier run, created as 0600
+          rm -f "$creds_file"
+          (umask 077 && printf '%s\n' "$LP_CREDENTIALS" > "$creds_file")
           git config --global user.email "robot@lists.canonical.com"
           git config --global user.name "Bugit bot"
 
@@ -99,8 +98,11 @@ jobs:
         run: |
           snapcraft remote-build \
             --launchpad-accept-public-upload \
-            --build-for armhf \
-            --build-id "$BUILD_ID"
+            --build-for armhf
+
+      - name: Remove Launchpad credentials
+        if: always()
+        run: rm -f "$HOME/.local/share/snapcraft/launchpad-credentials"
 
       - uses: actions/upload-artifact@v7
         with:
