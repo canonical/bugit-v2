@@ -2,7 +2,7 @@ import os
 import shutil
 from collections.abc import Generator
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import final, override
 
 from bugit_v2.bug_report_submitters.bug_report_submitter import (
@@ -113,6 +113,39 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
             raise FileNotFoundError("Report archive not created")
         return str(self.archive_path)
 
+    @staticmethod
+    def _is_writable(directory: Path) -> bool:
+        try:
+            with NamedTemporaryFile(dir=directory):
+                return True
+        except OSError:
+            return False
+
+    def _get_output_dir(self) -> Path:
+        """Try to write the final tarball to cwd, and if that fails,
+        use home or SNAP_USER_COMMON
+
+        :raises PermissionError: all fallbacks are not writable
+        :return: fallback path
+        """
+        try:
+            cwd = Path.cwd()
+            if self._is_writable(cwd):
+                return cwd
+        except OSError:
+            # cwd may not exist in the snap's mount namespace
+            pass
+
+        if "SNAP_USER_COMMON" in os.environ:
+            fallback = Path(os.environ["SNAP_USER_COMMON"])
+        else:
+            fallback = Path.home()
+        if not self._is_writable(fallback):
+            raise PermissionError(
+                f"Neither the current directory nor {fallback} is writable"
+            )
+        return fallback
+
     @override
     def finalize(self) -> str:
         if not self.archive_name:
@@ -121,9 +154,10 @@ class LocalFileSubmitter(BugReportSubmitter[None]):
         working_dir = Path(self.working_dir.name)
 
         try:
+            output_dir = self._get_output_dir()
             self.archive_path = Path(
                 shutil.make_archive(
-                    self.archive_name,
+                    str(output_dir / self.archive_name),
                     root_dir=working_dir / self.WRAPPER_DIR,
                     format="gztar",
                 )
