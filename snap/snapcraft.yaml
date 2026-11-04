@@ -165,7 +165,7 @@ parts:
       - flex
       - autopoint
     override-build: |
-      snapcraftctl build
+      craftctl build
       ./autogen.sh
       ./configure --disable-all-programs --disable-year2038 --enable-nsenter \
         --enable-setpriv --enable-static-programs=nsenter
