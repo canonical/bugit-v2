@@ -8,7 +8,7 @@
 _bugit_spec() {
     case "$1" in
     'bugit-v2')
-        subcmds='jira lp local'
+        subcmds='jira lp local attach-jira attach-lp'
         opts='--version -h --help'
         valopts=''
         once='--version -h|--help'
@@ -34,6 +34,20 @@ _bugit_spec() {
         valopts='-s=file --checkbox-submission=file -cb=file --checkbox-bin-path=file -c=text --cid=text -k=text --sku=text -p=text --project=text -a=text --assignee=text -pt=text --platform-tags=text -t=text --tags=text'
         once='-s|--checkbox-submission -cb|--checkbox-bin-path -c|--cid -k|--sku -p|--project -a|--assignee -h|--help'
         args=''
+        ;;
+    'bugit-v2 attach-jira')
+        subcmds=''
+        opts='-s --checkbox-submission -cb --checkbox-bin-path -h --help'
+        valopts='-s=file --checkbox-submission=file -cb=file --checkbox-bin-path=file'
+        once='-s|--checkbox-submission -cb|--checkbox-bin-path -h|--help'
+        args='text'
+        ;;
+    'bugit-v2 attach-lp')
+        subcmds=''
+        opts='-s --checkbox-submission -cb --checkbox-bin-path -h --help'
+        valopts='-s=file --checkbox-submission=file -cb=file --checkbox-bin-path=file'
+        once='-s|--checkbox-submission -cb|--checkbox-bin-path -h|--help'
+        args='text'
         ;;
     'submit')
         subcmds='jira lp'

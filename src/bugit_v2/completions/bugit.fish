@@ -6,7 +6,7 @@
 function __bugit_subcmds --argument-names path
     switch $path
         case 'bugit-v2'
-            printf '%s\n' 'jira' 'lp' 'local'
+            printf '%s\n' 'jira' 'lp' 'local' 'attach-jira' 'attach-lp'
         case 'submit'
             printf '%s\n' 'jira' 'lp'
         case 'dut-info'
@@ -22,6 +22,10 @@ function __bugit_valopts --argument-names path
             printf '%s\n' '-s' '--checkbox-submission' '-cb' '--checkbox-bin-path' '-c' '--cid' '-k' '--sku' '-p' '--project' '-a' '--assignee' '-pt' '--platform-tags' '-t' '--tags'
         case 'bugit-v2 local'
             printf '%s\n' '-s' '--checkbox-submission' '-cb' '--checkbox-bin-path' '-c' '--cid' '-k' '--sku' '-p' '--project' '-a' '--assignee' '-pt' '--platform-tags' '-t' '--tags'
+        case 'bugit-v2 attach-jira'
+            printf '%s\n' '-s' '--checkbox-submission' '-cb' '--checkbox-bin-path'
+        case 'bugit-v2 attach-lp'
+            printf '%s\n' '-s' '--checkbox-submission' '-cb' '--checkbox-bin-path'
         case 'dut-info set'
             printf '%s\n' '-c' '--cid' '-k' '--sku' '-p' '--project' '-ja' '--jira-assignee' '-la' '--lp-assignee' '-pt' '--platform-tags' '-t' '--tags'
     end
@@ -81,6 +85,8 @@ complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2'" -s 'h' -l 'help' -d 'Sho
 complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2'" -a 'jira' -d 'Submit a bug to Jira'
 complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2'" -a 'lp' -d 'Submit a bug to Launchpad'
 complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2'" -a 'local' -d 'Pack the bug report to a local file'
+complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2'" -a 'attach-jira' -d 'Attach logs and a comment to an existing Jira issue'
+complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2'" -a 'attach-lp' -d 'Attach logs and a comment to an existing Launchpad bug'
 complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2 jira'" -s 's' -l 'checkbox-submission' -r -F -d 'The .tar.xz file submitted by checkbox after a test session has finished'
 complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2 jira'" -o 'cb' -l 'checkbox-bin-path' -r -F -d 'Override the path to the checkbox executable'
 complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2 jira'" -s 'c' -l 'cid' -r -f -d 'Canonical ID (CID) of the device under test'
@@ -108,6 +114,12 @@ complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2 local'" -s 'a' -l 'assigne
 complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2 local'" -o 'pt' -l 'platform-tags' -r -f -d 'Platform Tags'
 complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2 local'" -s 't' -l 'tags' -r -f -d 'Additional tags on Jira/Launchpad'
 complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2 local'" -s 'h' -l 'help' -d 'Show this message and exit'
+complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2 attach-jira'" -s 's' -l 'checkbox-submission' -r -F -d 'The .tar.xz file submitted by checkbox after a test session has finished'
+complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2 attach-jira'" -o 'cb' -l 'checkbox-bin-path' -r -F -d 'Override the path to the checkbox executable'
+complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2 attach-jira'" -s 'h' -l 'help' -d 'Show this message and exit'
+complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2 attach-lp'" -s 's' -l 'checkbox-submission' -r -F -d 'The .tar.xz file submitted by checkbox after a test session has finished'
+complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2 attach-lp'" -o 'cb' -l 'checkbox-bin-path' -r -F -d 'Override the path to the checkbox executable'
+complete -c 'bugit.bugit-v2' -n "__bugit_at 'bugit-v2 attach-lp'" -s 'h' -l 'help' -d 'Show this message and exit'
 
 # bugit-v2
 complete -c 'bugit-v2' -f
@@ -116,6 +128,8 @@ complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2'" -s 'h' -l 'help' -d 'Show this
 complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2'" -a 'jira' -d 'Submit a bug to Jira'
 complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2'" -a 'lp' -d 'Submit a bug to Launchpad'
 complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2'" -a 'local' -d 'Pack the bug report to a local file'
+complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2'" -a 'attach-jira' -d 'Attach logs and a comment to an existing Jira issue'
+complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2'" -a 'attach-lp' -d 'Attach logs and a comment to an existing Launchpad bug'
 complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2 jira'" -s 's' -l 'checkbox-submission' -r -F -d 'The .tar.xz file submitted by checkbox after a test session has finished'
 complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2 jira'" -o 'cb' -l 'checkbox-bin-path' -r -F -d 'Override the path to the checkbox executable'
 complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2 jira'" -s 'c' -l 'cid' -r -f -d 'Canonical ID (CID) of the device under test'
@@ -143,6 +157,12 @@ complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2 local'" -s 'a' -l 'assignee' -r 
 complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2 local'" -o 'pt' -l 'platform-tags' -r -f -d 'Platform Tags'
 complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2 local'" -s 't' -l 'tags' -r -f -d 'Additional tags on Jira/Launchpad'
 complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2 local'" -s 'h' -l 'help' -d 'Show this message and exit'
+complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2 attach-jira'" -s 's' -l 'checkbox-submission' -r -F -d 'The .tar.xz file submitted by checkbox after a test session has finished'
+complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2 attach-jira'" -o 'cb' -l 'checkbox-bin-path' -r -F -d 'Override the path to the checkbox executable'
+complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2 attach-jira'" -s 'h' -l 'help' -d 'Show this message and exit'
+complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2 attach-lp'" -s 's' -l 'checkbox-submission' -r -F -d 'The .tar.xz file submitted by checkbox after a test session has finished'
+complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2 attach-lp'" -o 'cb' -l 'checkbox-bin-path' -r -F -d 'Override the path to the checkbox executable'
+complete -c 'bugit-v2' -n "__bugit_at 'bugit-v2 attach-lp'" -s 'h' -l 'help' -d 'Show this message and exit'
 
 # bugit.submit
 complete -c 'bugit.submit' -f
