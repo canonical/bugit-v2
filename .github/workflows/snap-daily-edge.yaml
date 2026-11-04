@@ -69,61 +69,34 @@ jobs:
           snap: ${{ steps.build.outputs.snap }}
           release: latest/edge
 
-  remote-armhf:
-    name: Launchpad remote-build (armhf)
+  qemu-armhf:
+    name: QEMU build (armhf)
+    # the multiarch action builds inside docker, which these runners ship with
     runs-on: [self-hosted, self-hosted-linux-amd64-noble-medium]
     environment: snap-store
     timeout-minutes: 600
     steps:
       - uses: actions/checkout@v7
         with:
-          # remote-build refuses to run in shallow clones
-          fetch-depth: 0
           persist-credentials: false
 
-      - name: Install snapcraft
-        run: sudo snap install snapcraft --classic
+      - uses: docker/setup-qemu-action@v4
 
-      - name: Add Launchpad credentials
-        env:
-          LP_CREDENTIALS: ${{ secrets.LP_CREDENTIALS }}
-        run: |
-          creds_file="$HOME/.local/share/snapcraft/launchpad-credentials"
-          mkdir -p "$(dirname "$creds_file")"
-          # replace any file left by an earlier run, created as 0600
-          rm -f "$creds_file"
-          (umask 077 && printf '%s\n' "$LP_CREDENTIALS" > "$creds_file")
-          git config --global user.email "robot@lists.canonical.com"
-          git config --global user.name "Bugit bot"
-
-      - name: Remote build
-        run: |
-          snapcraft remote-build \
-            --launchpad-accept-public-upload \
-            --build-for armhf
-
-      - name: Remove Launchpad credentials
-        if: always()
-        run: rm -f "$HOME/.local/share/snapcraft/launchpad-credentials"
+      - id: build
+        uses: canonical/snapcraft-multiarch-action@v1
+        with:
+          architecture: armhf
 
       - uses: actions/upload-artifact@v7
         with:
           name: bugit_armhf
-          path: "*.snap"
-
-      - uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: snapcraft-logs-armhf
-          path: |
-            ~/.local/state/snapcraft/log/
-            *.txt
+          path: ${{ steps.build.outputs.snap }}
 
       - name: Publish to latest/edge
         if: env.STORE_UPLOAD == 'true'
+        uses: canonical/action-publish@v1.2.0
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        run: |
-          for snap in *.snap; do
-            snapcraft upload "$snap" --release latest/edge
-          done
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: latest/edge
