@@ -11,8 +11,10 @@ on:
 permissions:
   contents: read
 
+# shared with the other snap workflow so edge uploads and beta promotion
+# never overlap
 concurrency:
-  group: ${{ github.workflow }}
+  group: snap-store-publish
   cancel-in-progress: false
 
 jobs:
