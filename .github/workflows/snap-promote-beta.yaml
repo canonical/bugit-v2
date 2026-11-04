@@ -1,0 +1,33 @@
+name: Weekly promote edge to beta
+
+on:
+  schedule:
+    # Monday 04:00 UTC, after the daily edge build
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: [self-hosted, self-hosted-linux-amd64-noble-medium]
+    environment: snap-store
+    steps:
+      - name: Install snapcraft
+        run: sudo snap install snapcraft --classic
+
+      - name: Promote latest/edge to latest/beta
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          snapcraft status bugit --track latest
+          snapcraft promote bugit \
+            --from-channel latest/edge \
+            --to-channel latest/beta \
+            --yes
+          snapcraft status bugit --track latest

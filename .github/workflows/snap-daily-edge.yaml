@@ -1,0 +1,125 @@
+name: Daily snap build to edge
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      store_upload:
+        description: "Upload the built snaps to latest/edge"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  # scheduled runs have no inputs, so default to uploading
+  STORE_UPLOAD: ${{ github.event_name == 'schedule' || inputs.store_upload }}
+
+jobs:
+  native:
+    name: Native build (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: self-hosted-linux-amd64-noble-medium
+          - arch: arm64
+            runner: self-hosted-linux-arm64-noble-medium
+    runs-on: [self-hosted, "${{ matrix.runner }}"]
+    environment: snap-store
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - id: build
+        uses: snapcore/action-build@v1
+        with:
+          snapcraft-args: --use-lxd
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bugit_${{ matrix.arch }}
+          path: ${{ steps.build.outputs.snap }}
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: snapcraft-logs-${{ matrix.arch }}
+          path: |
+            ~/.cache/snapcraft/log/
+            ~/.local/state/snapcraft/log/
+
+      - name: Publish to latest/edge
+        if: env.STORE_UPLOAD == 'true'
+        uses: canonical/action-publish@v1.2.0
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.build.outputs.snap }}
+          release: latest/edge
+
+  remote-armhf:
+    name: Launchpad remote-build (armhf)
+    runs-on: [self-hosted, self-hosted-linux-amd64-noble-medium]
+    environment: snap-store
+    timeout-minutes: 600
+    env:
+      # name of the temporary Launchpad repo/recipe, stable across re-runs
+      BUILD_ID: bugit-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # remote-build refuses to run in shallow clones
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install snapcraft
+        run: sudo snap install snapcraft --classic
+
+      - name: Add Launchpad credentials
+        env:
+          LP_CREDENTIALS: ${{ secrets.LP_CREDENTIALS }}
+        run: |
+          mkdir -p ~/.local/share/snapcraft
+          printf '%s\n' "$LP_CREDENTIALS" \
+            > ~/.local/share/snapcraft/launchpad-credentials
+          git config --global user.email "robot@lists.canonical.com"
+          git config --global user.name "Bugit bot"
+
+      - name: Remote build
+        run: |
+          snapcraft remote-build \
+            --launchpad-accept-public-upload \
+            --build-for armhf \
+            --build-id "$BUILD_ID"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bugit_armhf
+          path: "*.snap"
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: snapcraft-logs-armhf
+          path: |
+            ~/.local/state/snapcraft/log/
+            *.txt
+
+      - name: Publish to latest/edge
+        if: env.STORE_UPLOAD == 'true'
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          for snap in *.snap; do
+            snapcraft upload "$snap" --release latest/edge
+          done
