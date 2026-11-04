@@ -27,6 +27,7 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 from bugit_v2.components.confirm_dialog import ConfirmScreen
 from bugit_v2.components.header import SimpleHeader
 from bugit_v2.dut_utils.log_collectors import LOG_NAME_TO_COLLECTOR
+from bugit_v2.models.attachment_request import AttachmentRequest
 from bugit_v2.models.bug_report import BugReport, LogName
 from bugit_v2.utils import is_prod, is_snap, slugify
 from bugit_v2.utils.constants import HOST_FS
@@ -45,10 +46,12 @@ class WorkerName(enum.StrEnum):
 @final
 class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
     """
-    The progress screen shown while submission/log collection is happening
+    The progress screen shown while submission/log collection is happening.
+    Handles both new bug reports and attachments to existing bugs
     """
 
-    bug_report: BugReport
+    # a new bug to create, or files/comments to attach to an existing bug
+    payload: BugReport | AttachmentRequest
 
     finished = var(False)
 
@@ -128,7 +131,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
     def __init__(
         self,
-        bug_report: BugReport,
+        payload: BugReport | AttachmentRequest,
         submitter: BugReportSubmitter[TAuth],
         mode: Literal["app", "screen"] = "screen",
         attachment_dir: Path | None = None,
@@ -137,9 +140,18 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         id: str | None = None,
         classes: str | None = None,
     ) -> None:
-        self.bug_report = bug_report
+        self.payload = payload
         self.submitter = submitter
         self.mode = mode
+        if isinstance(payload, AttachmentRequest):
+            if mode != "screen":
+                raise ValueError(
+                    "Attaching to existing bugs is only supported in screen mode"
+                )
+            if not submitter.supports_attach:
+                raise ValueError(
+                    f"{submitter.display_name or submitter.name} can't attach to existing bugs"
+                )
 
         if attachment_dir and attachment_dir.exists() and attachment_dir.is_dir():
             self.attachment_dir = attachment_dir
@@ -202,7 +214,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                     prompt = ConfirmScreen[ReturnScreenChoice](
                         "[red]Authentication form returned nothing[/]",
                         sub_prompt="Click this button to go back to the editor and try again",
-                        choices=(("Return to Report Editor", "report_editor"),),
+                        choices=((f"Return to {self._editor_name}", "report_editor"),),
                         focus_id_on_mount="report_editor",
                     )
                 else:
@@ -256,7 +268,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
         # the additional files are also technically "logs"
         # run the workaround in this function, not the uploaders
-        for file in self.bug_report.additional_files:
+        for file in self.payload.additional_files:
             # workaround, if sysfs nodes are selected and we don't copy
             # uploads will hang forever
             # so we must copy them and "finish" writing the file
@@ -279,7 +291,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         # get the log collectors running first
         # all log collectors are allowed to fail. If they do, write a message
         # to the screen to tell the user how to get the logs manually
-        for log_name in self.bug_report.logs_to_include:
+        for log_name in self.payload.logs_to_include:
 
             async def run_collect(log: LogName):
                 collector = LOG_NAME_TO_COLLECTOR[log]
@@ -303,7 +315,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
                 try:
                     rv = await collector.collect(
-                        self.attachment_dir, self.bug_report, stream_line
+                        self.attachment_dir, self.payload, stream_line
                     )
                     if rv and rv.strip():
                         # only show non-empty, non-null messages
@@ -474,7 +486,12 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
         display_name = self.submitter.display_name or self.submitter.name
 
-        for step_result in self.submitter.submit(self.bug_report):
+        steps = (
+            self.submitter.attach_to_existing(self.payload)
+            if isinstance(self.payload, AttachmentRequest)
+            else self.submitter.submit(self.payload)
+        )
+        for step_result in steps:
             match step_result:
                 case str():
                     # general logs
@@ -495,7 +512,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         num_attachments = sum(1 for _ in self.attachment_dir.iterdir())
         if len(running_collectors) > 0:
             self._log_with_time(
-                f"Finished bug creation. Waiting for {len(running_collectors)} log collector(s) to finish"
+                f"Finished {self._bug_step_name}. Waiting for {len(running_collectors)} log collector(s) to finish"
             )
             for c in running_collectors:
                 if c.name in LOG_NAME_TO_COLLECTOR:
@@ -508,11 +525,11 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         else:
             if num_attachments > 0:
                 self._log_with_time(
-                    f"[blue]Finished bug creation, uploading {num_attachments} attachment(s)..."
+                    f"[blue]Finished {self._bug_step_name}, uploading {num_attachments} attachment(s)..."
                 )
             else:
                 self._log_with_time(
-                    "[blue]Finished bug creation, no attachments to upload"
+                    f"[blue]Finished {self._bug_step_name}, no attachments to upload"
                 )
 
     def is_finished(self) -> bool:
@@ -620,6 +637,24 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
         event.button.styles.width = "auto"
         await self._update_collector_status()
 
+    @property
+    def _submitter_steps(self) -> int:
+        if isinstance(self.payload, AttachmentRequest):
+            return self.submitter.attach_steps
+        return self.submitter.steps
+
+    @property
+    def _bug_step_name(self) -> str:
+        if isinstance(self.payload, AttachmentRequest):
+            return f"preparing {self.payload.bug_id}"
+        return "bug creation"
+
+    @property
+    def _editor_name(self) -> str:
+        if isinstance(self.payload, AttachmentRequest):
+            return "Attachment Editor"
+        return "Report Editor"
+
     @override
     def compose(self) -> ComposeResult:
         yield SimpleHeader()
@@ -629,8 +664,8 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 with HorizontalGroup(classes="w100"):
                     yield Label("Submission Progress", classes="mr1")
                     yield ProgressBar(
-                        total=self.submitter.steps
-                        + len(self.bug_report.logs_to_include) * 2,  # collect + upload
+                        total=self._submitter_steps
+                        + len(self.payload.logs_to_include) * 2,  # collect + upload
                         id="progress",
                         show_eta=False,
                     )
@@ -667,14 +702,14 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 yield Center(Label(classes="wa", id="finish_message"))
                 with Center(), HorizontalGroup(classes="wa center"):
                     if self.mode == "screen":
-                        if self.bug_report.checkbox_session:
+                        if self.payload.checkbox_session:
                             yield Button(
                                 "Select another session",
                                 classes="mr1",
                                 id="session",
                             )
                             yield Button("Select another job", classes="mr1", id="job")
-                        if self.bug_report.checkbox_submission:
+                        if self.payload.checkbox_submission:
                             yield Button("Select another job", classes="mr1", id="job")
                     yield Button("Quit", id="quit")
 
@@ -824,7 +859,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                                 sub_prompt=f"[red]{escape_markup(str(event.worker.error))}",
                                 choices=(
                                     (
-                                        "Return to Report Editor",
+                                        f"Return to {self._editor_name}",
                                         "report_editor",
                                     ),
                                 ),
@@ -897,7 +932,7 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
 
         progress_bar = self.query_exactly_one("#progress", ProgressBar)
         progress_bar.total = (
-            self.submitter.steps
+            self._submitter_steps
             + len(self.attachment_workers)
             + len(self.upload_workers)
         )
@@ -919,7 +954,13 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 f"Failed to finalize {self.submitter.display_name or self.submitter.name}"
             )
 
-        finish_message_lines = ["[green]Submission finished![/]"]
+        finish_message_lines = [
+            (
+                f"[green]Finished attaching to {escape_markup(self.payload.bug_id)}![/]"
+                if isinstance(self.payload, AttachmentRequest)
+                else "[green]Submission finished![/]"
+            )
+        ]
 
         all_upload_ok = all(
             w.state == WorkerState.SUCCESS for w in self.upload_workers.values()

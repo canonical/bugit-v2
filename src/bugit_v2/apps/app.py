@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Annotated, final, override
+from typing import Annotated, Literal, final, override
 
 import typer
 from cysystemd import journal
@@ -18,12 +18,8 @@ from textual.types import CSSPathType
 from textual.widgets import Label
 
 from bugit_v2.bug_report_submitters.jira_submitter import JiraSubmitter
-from bugit_v2.bug_report_submitters.launchpad_submitter import (
-    LaunchpadSubmitter,
-)
-from bugit_v2.bug_report_submitters.local_file_submitter import (
-    LocalFileSubmitter,
-)
+from bugit_v2.bug_report_submitters.launchpad_submitter import LaunchpadSubmitter
+from bugit_v2.bug_report_submitters.local_file_submitter import LocalFileSubmitter
 from bugit_v2.bug_report_submitters.mock_jira import MockJiraSubmitter
 from bugit_v2.bug_report_submitters.mock_lp import MockLaunchpadSubmitter
 from bugit_v2.checkbox_utils.checkbox_exec import (
@@ -42,15 +38,13 @@ from bugit_v2.models.app_state import (
 from bugit_v2.models.dut_info import DutInfo, get_saved_dut_info
 from bugit_v2.models.visual_customization import VisualConfig
 from bugit_v2.utils import get_bugit_version, is_prod, is_snap
-from bugit_v2.utils.constants import (
-    LOGO_ASCII_ART,
-    VISUAL_CONFIG_DIR,
-    NullSelection,
-)
+from bugit_v2.utils.constants import LOGO_ASCII_ART, VISUAL_CONFIG_DIR, NullSelection
 from bugit_v2.utils.validations import (
     checkbox_submission_check,
     ensure_all_directories_exist,
     is_cid,
+    is_jira_issue_key,
+    is_lp_bug_id,
     sudo_devmode_check,
 )
 
@@ -194,14 +188,14 @@ class BugitApp(App[None]):
 
     @override
     def format_title(self, title: str, sub_title: str) -> Content:
-        match (title, sub_title, self.args.bug_to_reopen):
+        match (title, sub_title, self.args.bug_to_attach):
             case (str(t), str(s), str(b)):
                 return Content.assemble(
                     Content(t),
                     (" - ", "dim"),
                     Content(s).stylize("$secondary"),
                     (" - ", "dim"),
-                    Content(f"Reopen {b}").stylize("dim"),
+                    Content(f"Attach to {b}").stylize("dim"),
                 )
             case (str(t), str(s), None) if s:
                 return Content.assemble(
@@ -276,43 +270,47 @@ def common(
     pass
 
 
+CheckboxSubmissionOption = Annotated[
+    Path | None,
+    typer.Option(
+        "-s",
+        "--checkbox-submission",
+        help=(
+            "The .tar.xz file submitted by checkbox after a test session has finished. "
+            + "If this option is specified, "
+            + "Bugit will read from this file instead of checkbox sessions "
+            + "and enter the editor directly"
+        ),
+        exists=True,
+        dir_okay=False,
+        file_okay=True,
+        readable=True,
+        resolve_path=True,
+    ),
+]
+CheckboxBinPathOption = Annotated[
+    Path | None,
+    typer.Option(
+        "-cb",
+        "--checkbox-bin-path",
+        help="Override the path to the checkbox executable. "
+        + "Use this option if bugit can't find your checkbox installation",
+        dir_okay=False,
+        file_okay=True,
+        resolve_path=True,
+        readable=True,
+        callback=executable_check,
+    ),
+]
+
+
 @cli_app.command("local", help="Pack the bug report to a local file")
 @cli_app.command("lp", help="Submit a bug to Launchpad")
 @cli_app.command("jira", help="Submit a bug to Jira")
 def main(
     ctx: typer.Context,
-    checkbox_submission: Annotated[
-        Path | None,
-        typer.Option(
-            "-s",
-            "--checkbox-submission",
-            help=(
-                "The .tar.xz file submitted by checkbox after a test session has finished. "
-                + "If this option is specified, "
-                + "Bugit will read from this file instead of checkbox sessions "
-                + "and enter the editor directly"
-            ),
-            exists=True,
-            dir_okay=False,
-            file_okay=True,
-            readable=True,
-            resolve_path=True,
-        ),
-    ] = None,
-    checkbox_bin_path: Annotated[
-        Path | None,
-        typer.Option(
-            "-cb",
-            "--checkbox-bin-path",
-            help="Override the path to the checkbox executable. "
-            + "Use this option if bugit can't find your checkbox installation",
-            dir_okay=False,
-            file_okay=True,
-            resolve_path=True,
-            readable=True,
-            callback=executable_check,
-        ),
-    ] = None,
+    checkbox_submission: CheckboxSubmissionOption = None,
+    checkbox_bin_path: CheckboxBinPathOption = None,
     cid: Annotated[
         str | None,
         typer.Option(
@@ -402,11 +400,9 @@ def main(
     get_checkbox_info()  # populate cache
 
     BugitApp(
-        # reopen is disabled for now
         AppArgs(
             submitter=ctx.command.name,
             checkbox_submission=cbs,
-            bug_to_reopen=None,
             cid=cid or saved_dut_info.cid,
             sku=sku or saved_dut_info.sku,
             project=project or saved_dut_info.project,
@@ -421,6 +417,89 @@ def main(
             tags=tags or saved_dut_info.tags,
         )
     ).run()
+
+
+def jira_issue_key_check(value: str) -> str:
+    value = value.strip().upper()
+    if not is_jira_issue_key(value):
+        raise typer.BadParameter(
+            f"Invalid Jira issue key: '{value}'. "
+            + "It should look like STELLA-123 (uppercase project key, dash, number)"
+        )
+    return value
+
+
+def lp_bug_id_check(value: str) -> str:
+    value = value.strip()
+    if not is_lp_bug_id(value):
+        raise typer.BadParameter(
+            f"Invalid Launchpad bug ID: '{value}'. It should be a number like 2091234"
+        )
+    return value
+
+
+def run_attach(
+    submitter: Literal["jira", "lp"],
+    bug_id: str,
+    checkbox_submission: Path | None,
+    checkbox_bin_path: Path | None,
+) -> None:
+    sudo_devmode_check()
+    ensure_all_directories_exist()
+
+    if checkbox_submission:
+        print(f"Decompressing checkbox submission at {checkbox_submission}")
+    cbs = checkbox_submission_check(checkbox_submission)
+
+    print("Waiting for checkbox...")
+    set_checkbox_bin_path_override(checkbox_bin_path)
+    get_checkbox_info()  # populate cache
+
+    BugitApp(
+        AppArgs(
+            submitter=submitter,
+            checkbox_submission=cbs,
+            bug_to_attach=bug_id,
+        )
+    ).run()
+
+
+@cli_app.command(
+    "attach-jira",
+    help="Attach logs and a comment to an existing Jira issue",
+)
+def attach_jira(
+    bug_id: Annotated[
+        str,
+        typer.Argument(
+            metavar="ISSUE_KEY",
+            help="The Jira issue to attach to, like STELLA-123",
+            callback=jira_issue_key_check,
+        ),
+    ],
+    checkbox_submission: CheckboxSubmissionOption = None,
+    checkbox_bin_path: CheckboxBinPathOption = None,
+):
+    run_attach("jira", bug_id, checkbox_submission, checkbox_bin_path)
+
+
+@cli_app.command(
+    "attach-lp",
+    help="Attach logs and a comment to an existing Launchpad bug",
+)
+def attach_lp(
+    bug_id: Annotated[
+        str,
+        typer.Argument(
+            metavar="BUG_ID",
+            help="The Launchpad bug number to attach to, like 2091234",
+            callback=lp_bug_id_check,
+        ),
+    ],
+    checkbox_submission: CheckboxSubmissionOption = None,
+    checkbox_bin_path: CheckboxBinPathOption = None,
+):
+    run_attach("lp", bug_id, checkbox_submission, checkbox_bin_path)
 
 
 if __name__ == "__main__":
