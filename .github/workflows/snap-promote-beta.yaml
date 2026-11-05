@@ -1,4 +1,4 @@
-name: Weekly promote edge to beta
+name: Weekly release edge to beta
 
 on:
   # run after the daily build so promotion never races its uploads
@@ -11,7 +11,7 @@ on:
 permissions:
   contents: read
 
-# shared with the other snap workflow so edge uploads and beta promotion
+# shared with the other snap workflow so edge uploads and beta releases
 # never overlap
 concurrency:
   group: snap-store-publish
@@ -39,22 +39,31 @@ jobs:
             echo "Daily build did not start on a Monday, skipping"
           fi
 
-  promote:
+  resolve:
     needs: check
     if: needs.check.outputs.promote == 'true'
     runs-on: [self-hosted, self-hosted-linux-amd64-noble-medium]
-    environment: snap-store
+    outputs:
+      sha: ${{ steps.edge.outputs.sha }}
     steps:
-      - name: Install snapcraft
-        run: sudo snap install snapcraft --classic
-
-      - name: Promote latest/edge to latest/beta
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+      # the store can't change a revision's version on promotion, so instead
+      # rebuild the commit currently in edge (2.11+git<sha>) as plain 2.11
+      - id: edge
         run: |
-          snapcraft status bugit --track latest
-          snapcraft promote bugit \
-            --from-channel latest/edge \
-            --to-channel latest/beta \
-            --yes
-          snapcraft status bugit --track latest
+          version="$(snap info bugit | awk '$1 == "latest/edge:" { print $2 }')"
+          echo "latest/edge version: $version"
+          sha="${version##*+git}"
+          if ! [[ "$version" == *+git* && "$sha" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "::error::Cannot find a commit in edge version '$version'"
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: resolve
+    uses: ./.github/workflows/snap-build.yaml
+    with:
+      ref: ${{ needs.resolve.outputs.sha }}
+      append-commit: false
+      channel: latest/beta
+    secrets: inherit

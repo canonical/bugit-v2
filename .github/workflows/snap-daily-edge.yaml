@@ -13,90 +13,20 @@ on:
 permissions:
   contents: read
 
-# shared with the other snap workflow so edge uploads and beta promotion
+# shared with the other snap workflow so edge uploads and beta releases
 # never overlap
 concurrency:
   group: snap-store-publish
   cancel-in-progress: false
 
-env:
-  # scheduled runs have no inputs, so default to uploading
-  STORE_UPLOAD: ${{ github.event_name == 'schedule' || inputs.store_upload }}
-
 jobs:
-  native:
-    name: Native build (${{ matrix.arch }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            runner: self-hosted-linux-amd64-noble-medium
-          - arch: arm64
-            runner: self-hosted-linux-arm64-noble-medium
-    runs-on: [self-hosted, "${{ matrix.runner }}"]
-    environment: snap-store
-    timeout-minutes: 180
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - id: build
-        uses: snapcore/action-build@v1
-        with:
-          snapcraft-args: --use-lxd
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: bugit_${{ matrix.arch }}
-          path: ${{ steps.build.outputs.snap }}
-
-      - uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: snapcraft-logs-${{ matrix.arch }}
-          path: |
-            ~/.cache/snapcraft/log/
-            ~/.local/state/snapcraft/log/
-
-      - name: Publish to latest/edge
-        if: env.STORE_UPLOAD == 'true'
-        uses: canonical/action-publish@v1.2.0
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        with:
-          snap: ${{ steps.build.outputs.snap }}
-          release: latest/edge
-
-  qemu-armhf:
-    name: QEMU build (armhf)
-    # the multiarch action builds inside docker, which these runners ship with
-    runs-on: [self-hosted, self-hosted-linux-amd64-noble-medium]
-    environment: snap-store
-    timeout-minutes: 600
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: docker/setup-qemu-action@v4
-
-      - id: build
-        uses: canonical/snapcraft-multiarch-action@v1
-        with:
-          architecture: armhf
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: bugit_armhf
-          path: ${{ steps.build.outputs.snap }}
-
-      - name: Publish to latest/edge
-        if: env.STORE_UPLOAD == 'true'
-        uses: canonical/action-publish@v1.2.0
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        with:
-          snap: ${{ steps.build.outputs.snap }}
-          release: latest/edge
+  build:
+    # edge snaps are versioned like 2.11+gitb35def8, the beta workflow reads
+    # the commit back from this version to rebuild the same source
+    uses: ./.github/workflows/snap-build.yaml
+    with:
+      append-commit: true
+      channel: latest/edge
+      # scheduled runs have no inputs, so default to uploading
+      upload: ${{ github.event_name == 'schedule' || inputs.store_upload }}
+    secrets: inherit

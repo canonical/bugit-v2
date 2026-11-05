@@ -9,8 +9,10 @@ grade: stable
 summary: Cool new bugit
 description: |
   This snap is a fresh new UI for bugit
+# this is the release version used by beta and stable
+# edge will append a commit hash at the end when built with the github CI
 version: "2.11"
-# allows us to go to --stable
+# 'strict' allows us to go to --stable
 # but --devmode still required during installation
 confinement: strict
 license: GPL-3.0+
