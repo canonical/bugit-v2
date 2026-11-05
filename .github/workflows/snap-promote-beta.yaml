@@ -46,17 +46,29 @@ jobs:
     outputs:
       sha: ${{ steps.edge.outputs.sha }}
     steps:
+      # full history so the short sha from the edge version can be resolved,
+      # actions/checkout only accepts full shas or branch/tag names as ref
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
       # the store can't change a revision's version on promotion, so instead
       # rebuild the commit currently in edge (2.11+git<sha>) as plain 2.11
       - id: edge
         run: |
           version="$(snap info bugit | awk '$1 == "latest/edge:" { print $2 }')"
           echo "latest/edge version: $version"
-          sha="${version##*+git}"
-          if ! [[ "$version" == *+git* && "$sha" =~ ^[0-9a-f]{7,40}$ ]]; then
+          short="${version##*+git}"
+          if ! [[ "$version" == *+git* && "$short" =~ ^[0-9a-f]{7,40}$ ]]; then
             echo "::error::Cannot find a commit in edge version '$version'"
             exit 1
           fi
+          if ! sha="$(git rev-parse --verify --quiet "${short}^{commit}")"; then
+            echo "::error::Commit '$short' from edge version not found"
+            exit 1
+          fi
+          echo "Resolved $short to $sha"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
   release:
