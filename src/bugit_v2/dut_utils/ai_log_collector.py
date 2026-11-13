@@ -40,6 +40,29 @@ logger = logging.getLogger(__name__)
 MAX_ITERATIONS = 60  # safety cap on agentic tool-call turns
 COMMAND_TIMEOUT = 60  # seconds, matches Sherlog's SSH command timeout
 
+# Guardrail against the agent prematurely declaring the collection "done":
+# smaller/quantized models in particular have been observed calling `finish`
+# immediately, or after only a token command, without ever writing the
+# baseline logs the system prompt asks for. We require at least this many
+# successfully-run (non-rejected) commands, AND the baseline files below
+# actually present on disk, before a `finish` call is honored. If either
+# check fails, the call is rejected (as a tool error) and the loop
+# continues so the model can keep collecting.
+MIN_COMMANDS_BEFORE_FINISH = 2
+REQUIRED_BASELINE_FILES = ("journal-kernel.txt", "journal-tail.txt", "finding.log")
+
+# Guardrail against the *opposite* failure mode: the agent never calling
+# `finish` at all, instead looping on `run_command` indefinitely (observed
+# empirically -- a stress test with a long, open-ended "investigate
+# thoroughly" style bug report ran 25+ turns, each returning a valid new
+# run_command call, without ever choosing to finish). Left unchecked this
+# burns through all MAX_ITERATIONS turns (and their real command-execution
+# time), which looks to an observer like the collector is perpetually
+# "waiting for the next AI response" with no end in sight. Once this many
+# commands have actually run, a one-time reminder is injected telling the
+# model to wrap up with `finish` unless a specific, named gap remains.
+NUDGE_TO_FINISH_AFTER_COMMANDS = 15
+
 # Default system prompt template, written out to AI_SYSTEM_PROMPT_FILE the
 # first time it's needed so users can subsequently edit it without touching
 # source code. `{target_dir}` and `{max_iterations}` are substituted at
@@ -53,7 +76,9 @@ DEFAULT_SYSTEM_PROMPT_TEMPLATE = (
     '3. **No Sudo / No Destruction:** Do NOT use `sudo`, do NOT install packages, and do NOT run reboot, shutdown, or destructive commands.\n'
     '4. **Sysfs Paths:** When checking hardware states via `/sys/`, suppress errors by appending `2>/dev/null` (e.g., `cat /sys/class/net/*/operstate > {target_dir}/sysfs-net.txt 2>/dev/null`).\n'
     '5. **Log Findings:** Before finishing, write your key findings to `{target_dir}/finding.log`.\n'
-    '6. **Finish:** When all logs are collected, call the `finish` tool with a summary of the collected files and what the user should inspect first.\n'
+    '6. **Finish:** When all logs are collected, call the `finish` tool with a summary of the collected files and what the user should inspect first. '
+    'The `finish` call will be REJECTED (as a tool error) if you have not actually run `journalctl -k --no-pager > {target_dir}/journal-kernel.txt`, '
+    '`journalctl --no-pager -n 200 > {target_dir}/journal-tail.txt`, and written `{target_dir}/finding.log` yet -- do these first, every time, before finishing.\n'
     '## WHAT TO COLLECT\n'
     'Always collect these baseline logs:\n'
     '- `journalctl -k --no-pager > {target_dir}/journal-kernel.txt`\n'
@@ -111,6 +136,36 @@ _DESTRUCTIVE_PATTERNS: tuple[re.Pattern[str], ...] = (
 class CommandLogEntry(TypedDict):
     command: str
     file: str | None
+
+
+def _finish_rejection_reason(
+    target_dir: Path, command_log: list[CommandLogEntry]
+) -> str | None:
+    """Return a reason to reject a premature `finish` call, or None if it's OK.
+
+    Checks that a minimum number of commands actually ran (rejected/blocked
+    commands don't count) and that the baseline log files the system prompt
+    requires are actually present on disk. This exists because the agent
+    (especially under smaller/quantized models) has been observed calling
+    `finish` with status "success" right away, or after a single trivial
+    command, having collected little to nothing.
+    """
+    if len(command_log) < MIN_COMMANDS_BEFORE_FINISH:
+        return (
+            f"Only {len(command_log)} command(s) have been run so far "
+            f"(minimum {MIN_COMMANDS_BEFORE_FINISH} required). Collect the "
+            "baseline logs and any bug-specific logs before finishing."
+        )
+    missing = [
+        name for name in REQUIRED_BASELINE_FILES if not (target_dir / name).exists()
+    ]
+    if missing:
+        return (
+            "The following required file(s) are missing from "
+            f"{target_dir}: {', '.join(missing)}. Collect/write them before "
+            "calling finish."
+        )
+    return None
 
 
 def _is_destructive(command: str) -> str | None:
@@ -303,8 +358,28 @@ async def ai_collect(
 
     command_log: list[CommandLogEntry] = []
     summary = ""
+    nudged_to_finish = False
 
     for iteration in range(MAX_ITERATIONS):
+        if (
+            not nudged_to_finish
+            and len(command_log) >= NUDGE_TO_FINISH_AFTER_COMMANDS
+        ):
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        f"You have already run {len(command_log)} commands. "
+                        "That is almost certainly enough to diagnose this bug. "
+                        "Call `finish` now with your findings, unless there is "
+                        "one specific, named category of log you still need -- "
+                        "in which case collect only that, then call `finish` "
+                        "on your very next turn."
+                    ),
+                }
+            )
+            nudged_to_finish = True
+
         response = await asyncio.to_thread(
             client.chat.completions.create,
             model=ai_config.model,
@@ -347,6 +422,18 @@ async def ai_collect(
                 fn_args = {}
 
             if fn_name == "finish":
+                rejection = _finish_rejection_reason(target_dir, command_log)
+                if rejection:
+                    if on_output is not None:
+                        on_output(f"[FINISH REJECTED] {rejection}")
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": f"[REJECTED] {rejection}",
+                        }
+                    )
+                    continue
                 summary = fn_args.get("summary", "")
                 messages.append(
                     {"role": "tool", "tool_call_id": tool_call.id, "content": "done"}
