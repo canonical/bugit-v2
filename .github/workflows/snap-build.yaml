@@ -81,8 +81,12 @@ jobs:
           snap: ${{ steps.build.outputs.snap }}
           release: ${{ inputs.channel }}
 
-  qemu-armhf:
-    name: QEMU build (armhf)
+  qemu:
+    name: QEMU build (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [armhf, riscv64]
     # the multiarch action builds inside docker, which these runners ship with
     runs-on: [self-hosted, self-hosted-linux-amd64-noble-medium]
     environment: snap-store
@@ -102,15 +106,20 @@ jobs:
           grep -E "^version: \"[^\"]+\+git${sha}\"$" snap/snapcraft.yaml
 
       - uses: docker/setup-qemu-action@v4
+        with:
+          # the default binfmt image breaks riscv64 snapcraft builds, see
+          # https://github.com/tonistiigi/binfmt/issues/215
+          # https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/2096782
+          image: tonistiigi/binfmt:master
 
       - id: build
         uses: canonical/snapcraft-multiarch-action@v1
         with:
-          architecture: armhf
+          architecture: ${{ matrix.arch }}
 
       - uses: actions/upload-artifact@v7
         with:
-          name: bugit_armhf
+          name: bugit_${{ matrix.arch }}
           path: ${{ steps.build.outputs.snap }}
 
       - name: Publish to ${{ inputs.channel }}
