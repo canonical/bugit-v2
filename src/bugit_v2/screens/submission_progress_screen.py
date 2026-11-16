@@ -630,6 +630,38 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
             return "Attachment Editor"
         return "Report Editor"
 
+    def _finish_headline(self, all_ok: bool) -> str:
+        if isinstance(self.payload, AttachmentRequest):
+            bug_id = escape_markup(self.payload.bug_id)
+            if all_ok:
+                return f"[green]Finished attaching to {bug_id}![/]"
+            return f"[$warning]Attached to {bug_id} with errors[/]"
+        if all_ok:
+            return "[green]Submission finished![/]"
+        return "[$warning]Submission finished with errors[/]"
+
+    def _finalize_failure_lines(self) -> list[str]:
+        if not isinstance(self.payload, AttachmentRequest):
+            return [
+                "[red]Failed to finalize the bug, check the bug page "
+                + "and the submitter output above.[/]"
+            ]
+
+        bug_id = escape_markup(self.payload.bug_id)
+        prog = "bugit.bugit-v2" if is_snap() else "bugit-v2"
+        lines = [
+            f"[red]The comment was not posted. Check {bug_id} "
+            + "before posting it manually.[/]"
+        ]
+        if comment := self.payload.comment.strip():
+            lines += ["Your comment:", f"[$secondary]{escape_markup(comment)}[/]"]
+        lines.append(
+            "The draft is also saved, run "
+            + f"[$accent]{prog} attach-{self.payload.submitter} {bug_id}[/] "
+            + "to recover it."
+        )
+        return lines
+
     @override
     def compose(self) -> ComposeResult:
         yield SimpleHeader()
@@ -929,42 +961,37 @@ class SubmissionProgressScreen[TAuth](Screen[ReturnScreenChoice]):
                 f"Failed to finalize {self.submitter.display_name or self.submitter.name}"
             )
 
-        finish_message_lines = [
-            (
-                f"[green]Finished attaching to {escape_markup(self.payload.bug_id)}![/]"
-                if isinstance(self.payload, AttachmentRequest)
-                else "[green]Submission finished![/]"
-            )
-        ]
-
         all_upload_ok = all(
             w.state == WorkerState.SUCCESS for w in self.upload_workers.values()
         )
-        if all_upload_ok and finalize_ok:
-            # only cleanup if everything was uploaded
-            finish_message_lines.insert(
-                1,
-                f"URL: [$primary]{self.submitter.bug_url}[/]",
-            )
-            if is_prod():
-                shutil.rmtree(self.attachment_dir, ignore_errors=True)
+        all_ok = all_upload_ok and finalize_ok
+        finish_message_lines = [self._finish_headline(all_ok)]
 
-        if not (all_upload_ok and finalize_ok) and self.attachment_dir.exists():
+        try:
+            finish_message_lines.append(
+                f"URL: [$primary]{escape_markup(self.submitter.bug_url)}[/]"
+            )
+        except Exception:
+            logger.exception("Failed to get the bug URL")
+
+        if all_ok and is_prod():
+            shutil.rmtree(self.attachment_dir, ignore_errors=True)
+
+        if not all_upload_ok and self.attachment_dir.exists():
             if is_snap():
                 attachment_dir = (
                     "/tmp/snap-private-tmp/snap.bugit-v2/tmp" / self.attachment_dir
                 )
             else:
                 attachment_dir = self.attachment_dir
-            finish_message_lines.insert(
-                1,
-                "\n".join(
-                    [
-                        "[red]But some files failed to upload.[/]",
-                        f"[red]You can manually reupload the files at: {attachment_dir}[/]",
-                    ]
-                ),
-            )
+            finish_message_lines += [
+                "[red]Some files failed to upload.[/]",
+                "[red]You can manually reupload the files at: "
+                + f"{escape_markup(str(attachment_dir))}[/]",
+            ]
+
+        if not finalize_ok:
+            finish_message_lines += self._finalize_failure_lines()
 
         if self.mode == "screen":
             finish_message_lines.append(
