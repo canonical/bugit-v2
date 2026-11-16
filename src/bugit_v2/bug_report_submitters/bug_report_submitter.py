@@ -5,6 +5,7 @@ from pathlib import Path
 
 from textual.screen import ModalScreen
 
+from bugit_v2.models.attachment_request import AttachmentRequest
 from bugit_v2.models.bug_report import BugReport, Severity
 
 
@@ -47,6 +48,10 @@ class BugReportSubmitter[TAuth](abc.ABC):
     # Whether this concrete submitter can safely upload all attachments in
     # parallel. If false, attachments will be uploaded sequentially
     allow_parallel_upload: bool = False
+    # Whether this submitter implements attach_to_existing
+    supports_attach: bool = False
+    # number of AdvanceMessages yielded by attach_to_existing
+    attach_steps: int = 0
 
     @abc.abstractmethod
     def submit(
@@ -59,6 +64,23 @@ class BugReportSubmitter[TAuth](abc.ABC):
                 what message to yield. The number of steps here should match
                 the number in self.steps
         """
+
+    def attach_to_existing(
+        self, request: AttachmentRequest
+    ) -> Generator[str | AdvanceMessage, None, None]:
+        """Prepare to attach files/comments to an existing bug
+
+        This is the counterpart of self.submit. After it finishes,
+        self.upload_attachment, self.finalize and self.bug_url should all
+        target the existing bug in request.bug_id
+
+        :param request: what to attach and where
+        :yield: Same as self.submit, but the number of AdvanceMessages should
+                match self.attach_steps
+        """
+        raise NotImplementedError(
+            f"{self.display_name or self.name} can't attach to existing bugs"
+        )
 
     @abc.abstractmethod
     def bug_exists(self, bug_id: str) -> bool:
@@ -97,7 +119,8 @@ class BugReportSubmitter[TAuth](abc.ABC):
     @abc.abstractmethod
     def bug_url(self) -> str:
         """
-        Returns the url of the newly created bug
+        Returns the url of the newly created bug, or the existing bug
+        when attaching to one
 
         Concrete submitters should raise if the bug hasn't been created or if
         submit() failed

@@ -7,27 +7,28 @@ from typing import Any, Literal, override
 
 from textual.screen import Screen
 
-from bugit_v2.bug_report_submitters.bug_report_submitter import (
-    BugReportSubmitter,
-)
+from bugit_v2.bug_report_submitters.bug_report_submitter import BugReportSubmitter
 from bugit_v2.checkbox_utils.checkbox_session import (
     AbstractCheckboxSession,
     CheckboxSession,
 )
 from bugit_v2.checkbox_utils.models import SimpleCheckboxSubmission
 from bugit_v2.models.app_args import AppArgs
+from bugit_v2.models.attachment_request import (
+    AttachmentRequest,
+    SerializableAttachmentRequest,
+)
 from bugit_v2.models.bug_report import BugReport, SerializableBugReport
+from bugit_v2.screens.attach_to_bug_screen import AttachToBugScreen
 from bugit_v2.screens.bug_report_screen import BugReportScreen
 from bugit_v2.screens.job_selection_screen import JobSelectionScreen
-from bugit_v2.screens.recover_from_autosave_screen import (
-    RecoverFromAutoSaveScreen,
-)
+from bugit_v2.screens.recover_from_autosave_screen import RecoverFromAutoSaveScreen
 from bugit_v2.screens.session_selection_screen import SessionSelectionScreen
 from bugit_v2.screens.submission_progress_screen import (
     RETURN_SCREEN_CHOICES,
     SubmissionProgressScreen,
 )
-from bugit_v2.utils.constants import AUTOSAVE_DIR, NullSelection
+from bugit_v2.utils.constants import ATTACH_AUTOSAVE_DIR, AUTOSAVE_DIR, NullSelection
 
 
 @dataclass(slots=True)
@@ -50,6 +51,27 @@ class AppContext:
     checkbox_submission: (
         SimpleCheckboxSubmission | Literal[NullSelection.NO_CHECKBOX_SUBMISSION]
     ) = field(default=NullSelection.NO_CHECKBOX_SUBMISSION, repr=False)
+    # Attach mode only (args.bug_to_attach is set)
+    # Initial state of the attachment editor, only used for backup right now
+    attachment_request_init_state: AttachmentRequest | None = None
+    # The finished attachment request ready to be fed to the submitter
+    attachment_request_to_submit: AttachmentRequest | None = None
+
+    @property
+    def attach_mode(self) -> bool:
+        return self.args.bug_to_attach is not None
+
+    def has_autosaves(self) -> bool:
+        return (
+            len(os.listdir(ATTACH_AUTOSAVE_DIR if self.attach_mode else AUTOSAVE_DIR))
+            != 0
+        )
+
+    def get_editor_state(self) -> "AppState":
+        """The editor to go to after session/job selection"""
+        if self.attach_mode:
+            return AttachEditorState(self)
+        return ReportEditorState(self)
 
 
 class AppState(abc.ABC):
@@ -115,6 +137,16 @@ class RecoverFromAutosaveState(AppState):
             else:
                 return JobSelectionState(self.context)
 
+        if isinstance(screen_result, SerializableAttachmentRequest):
+            request = screen_result.to_attachment_request()
+            self.context.attachment_request_init_state = request
+            self.context.session = request.checkbox_session or NullSelection.NO_SESSION
+            self.context.job_id = request.job_id or NullSelection.NO_JOB
+            self.context.checkbox_submission = (
+                request.checkbox_submission or NullSelection.NO_CHECKBOX_SUBMISSION
+            )
+            return AttachEditorState(self.context)
+
         # recover from existing report path
         if not isinstance(screen_result, SerializableBugReport):
             raise TypeError(
@@ -161,7 +193,7 @@ class SessionSelectionState(AppState):
     @override
     def go_back(self) -> "AppState | None":
         # only possible screen is recovery screen
-        if len(os.listdir(AUTOSAVE_DIR)) != 0:
+        if self.context.has_autosaves():
             return RecoverFromAutosaveState(self.context)
 
     @override
@@ -170,7 +202,7 @@ class SessionSelectionState(AppState):
         match screen_result:
             case NullSelection.NO_SESSION:
                 self.context.session = NullSelection.NO_SESSION
-                return ReportEditorState(self.context)
+                return self.context.get_editor_state()
             case Path():
                 # switch CheckboxSession implementations here
                 # by constructing a different concrete class
@@ -205,7 +237,7 @@ class JobSelectionState(AppState):
         # then we definitely came from the recovery screen
         if (
             self.context.checkbox_submission is not NullSelection.NO_CHECKBOX_SUBMISSION
-        ) and len(os.listdir(AUTOSAVE_DIR)) != 0:
+        ) and self.context.has_autosaves():
             return RecoverFromAutosaveState(self.context)
         else:
             self.context.job_id = None
@@ -220,7 +252,7 @@ class JobSelectionState(AppState):
                 f"Unexpected return value from job selection: {screen_result!r}"
             )
         self.context.job_id = screen_result
-        return ReportEditorState(self.context)
+        return self.context.get_editor_state()
 
     @override
     def get_screen_constructor(self):
@@ -276,49 +308,7 @@ class ReportEditorState(AppState):
             bug_report_source = self.context.bug_report_init_state.source
 
         self.context.bug_report_init_state = None
-
-        match (
-            self.context.session,
-            self.context.job_id,
-            self.context.checkbox_submission,
-        ):
-            case (
-                NullSelection.NO_SESSION | None,
-                NullSelection.NO_JOB | None,
-                NullSelection.NO_CHECKBOX_SUBMISSION,
-            ):
-                # came from nothing => go back to recovery
-                return RecoverFromAutosaveState(self.context)
-            case (
-                CheckboxSession(),
-                str() | NullSelection.NO_JOB | None,
-                NullSelection.NO_CHECKBOX_SUBMISSION as cbs,
-            ) | (
-                NullSelection.NO_SESSION,
-                str() | NullSelection.NO_JOB | None,
-                SimpleCheckboxSubmission() as cbs,
-            ):
-                # submission and job => back to job selection
-                # selected session and job => go back to job selection
-                if bug_report_source == "editor":
-                    return JobSelectionState(self.context)
-                else:
-                    self.context.job_id = None
-                    if cbs is NullSelection.NO_CHECKBOX_SUBMISSION:
-                        self.context.session = None
-                    else:
-                        self.context.session = NullSelection.NO_SESSION
-                    return RecoverFromAutosaveState(self.context)
-            case _:
-                raise RuntimeError(
-                    "Impossible context when returning from editor {}".format(
-                        (
-                            self.context.session,
-                            self.context.job_id,
-                            type(self.context.checkbox_submission),
-                        )
-                    )
-                )
+        return _go_back_from_editor(self.context, bug_report_source)
 
     @override
     def go_forward(self, screen_result: object) -> AppState:
@@ -345,11 +335,107 @@ class ReportEditorState(AppState):
         )
 
 
+class AttachEditorState(AppState):
+    @override
+    def assertions(self) -> None:
+        if not self.context.attach_mode:
+            raise RuntimeError(
+                "Entered the attachment editor without a bug to attach to"
+            )
+        if self.context.attachment_request_to_submit is not None:
+            raise RuntimeError(
+                "Impossible to have a complete attachment request during editing"
+            )
+
+    @override
+    def go_back(self) -> "AppState | None":
+        source = (
+            self.context.attachment_request_init_state.source
+            if self.context.attachment_request_init_state is not None
+            else "editor"
+        )
+        self.context.attachment_request_init_state = None
+        return _go_back_from_editor(self.context, source)
+
+    @override
+    def go_forward(self, screen_result: object) -> AppState:
+        if not isinstance(screen_result, AttachmentRequest):
+            raise TypeError(
+                f"Unexpected screen result from attachment editor: {screen_result!r}"
+            )
+        self.context.attachment_request_to_submit = screen_result
+        return SubmissionProgressState(self.context)
+
+    @override
+    def get_screen_constructor(self):
+        return lambda: AttachToBugScreen(
+            self.context.session or NullSelection.NO_SESSION,
+            self.context.checkbox_submission,
+            self.context.job_id or NullSelection.NO_JOB,
+            self.context.args,
+            self.context.attachment_request_init_state,
+        )
+
+
+def _go_back_from_editor(
+    context: AppContext, source: Literal["editor", "recovery"]
+) -> AppState:
+    """Where to go when leaving either editor with the back button
+
+    :param source: whether the editor's content was restored from an autosave
+    """
+    match (
+        context.session,
+        context.job_id,
+        context.checkbox_submission,
+    ):
+        case (
+            NullSelection.NO_SESSION | None,
+            NullSelection.NO_JOB | None,
+            NullSelection.NO_CHECKBOX_SUBMISSION,
+        ):
+            # came from nothing => go back to recovery
+            return RecoverFromAutosaveState(context)
+        case (
+            CheckboxSession(),
+            str() | NullSelection.NO_JOB | None,
+            NullSelection.NO_CHECKBOX_SUBMISSION as cbs,
+        ) | (
+            NullSelection.NO_SESSION,
+            str() | NullSelection.NO_JOB | None,
+            SimpleCheckboxSubmission() as cbs,
+        ):
+            # submission and job => back to job selection
+            # selected session and job => go back to job selection
+            if source == "editor":
+                return JobSelectionState(context)
+            else:
+                context.job_id = None
+                if cbs is NullSelection.NO_CHECKBOX_SUBMISSION:
+                    context.session = None
+                else:
+                    context.session = NullSelection.NO_SESSION
+                return RecoverFromAutosaveState(context)
+        case _:
+            raise RuntimeError(
+                "Impossible context when returning from editor {}".format(
+                    (
+                        context.session,
+                        context.job_id,
+                        type(context.checkbox_submission),
+                    )
+                )
+            )
+
+
 class SubmissionProgressState(AppState):
     @override
     def assertions(self) -> None:
-        if not self.context.bug_report_to_submit:
-            raise RuntimeError("No bug report to submit")
+        if not (
+            self.context.bug_report_to_submit
+            or self.context.attachment_request_to_submit
+        ):
+            raise RuntimeError("Nothing to submit")
 
     @override
     def go_back(self) -> "AppState | None":
@@ -362,32 +448,43 @@ class SubmissionProgressState(AppState):
                 f"Unexpected screen result from submission progress: {screen_result!r}"
             )
         backup = self.context.bug_report_to_submit
+        attach_backup = self.context.attachment_request_to_submit
         self.context.bug_report_to_submit = None
+        self.context.attachment_request_to_submit = None
         # this is where we get the select a new session/job buttons
         match screen_result:
             case "job":
                 self.context.job_id = None
                 self.context.bug_report_init_state = None
+                self.context.attachment_request_init_state = None
                 return JobSelectionState(self.context)
             case "quit":
                 return QuitState(self.context)
             case "report_editor":
                 # this is only used when a submission step fails
+                if attach_backup is not None:
+                    self.context.attachment_request_init_state = attach_backup
+                    return AttachEditorState(self.context)
                 self.context.bug_report_init_state = backup
                 return ReportEditorState(self.context)
             case "session":
                 self.context.session = None
                 self.context.job_id = None
                 self.context.bug_report_init_state = None
+                self.context.attachment_request_init_state = None
                 return SessionSelectionState(self.context)
 
     @override
     def get_screen_constructor(self):
         def c():
-            if not self.context.bug_report_to_submit:
-                raise RuntimeError("No bug report to submit")
+            payload = (
+                self.context.attachment_request_to_submit
+                or self.context.bug_report_to_submit
+            )
+            if not payload:
+                raise RuntimeError("Nothing to submit")
             return SubmissionProgressScreen(
-                self.context.bug_report_to_submit,
+                payload,
                 self.context.submitter(),
                 # self.context.args, # optional
             )

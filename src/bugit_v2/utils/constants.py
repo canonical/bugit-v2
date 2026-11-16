@@ -84,6 +84,11 @@ AUTOSAVE_DIR = (
     Path(os.getenv("SNAP_USER_DATA", str(Path().home().absolute() / ".cache")))
     / "bugit-v2-autosave"
 )
+# drafts made by the attach-to-existing-bug editor
+ATTACH_AUTOSAVE_DIR = (
+    Path(os.getenv("SNAP_USER_DATA", str(Path().home().absolute() / ".cache")))
+    / "bugit-v2-attach-autosave"
+)
 VISUAL_CONFIG_DIR = (
     Path(os.getenv("SNAP_USER_DATA", str(Path().home().absolute() / ".config")))
     / "bugit-v2-visual-config"

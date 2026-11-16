@@ -31,6 +31,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TypedDict, cast
 
+from bugit_v2.models.attachment_request import CollectorInput
 from bugit_v2.models.bug_report import BugReport
 from bugit_v2.utils.ai_config import get_ai_config
 from bugit_v2.utils.constants import AI_SYSTEM_PROMPT_FILE
@@ -46,31 +47,31 @@ COMMAND_TIMEOUT = 60  # seconds, matches Sherlog's SSH command timeout
 # prompt-build time via str.format(); any other literal `{`/`}` a user adds
 # should be avoided or doubled (`{{`/`}}`) to not confuse str.format().
 DEFAULT_SYSTEM_PROMPT_TEMPLATE = (
-    'You are a Linux log collection agent running non-interactively on a device to diagnose a described bug.\n'
-    '## STRICT EXECUTION RULES\n'
-    '1. **Tool Usage:** You MUST use the `run_command` tool to execute commands. Do not output raw commands in text.\n'
-    '2. **Output Location:** All command output MUST be saved directly to `{target_dir}` using file redirects (e.g., `journalctl -k --no-pager > {target_dir}/journal-kernel.txt`).\n'
-    '3. **No Sudo / No Destruction:** Do NOT use `sudo`, do NOT install packages, and do NOT run reboot, shutdown, or destructive commands.\n'
-    '4. **Sysfs Paths:** When checking hardware states via `/sys/`, suppress errors by appending `2>/dev/null` (e.g., `cat /sys/class/net/*/operstate > {target_dir}/sysfs-net.txt 2>/dev/null`).\n'
-    '5. **Log Findings:** Before finishing, write your key findings to `{target_dir}/finding.log`.\n'
-    '6. **Finish:** When all logs are collected, call the `finish` tool with a summary of the collected files and what the user should inspect first.\n'
-    '## WHAT TO COLLECT\n'
-    'Always collect these baseline logs:\n'
-    '- `journalctl -k --no-pager > {target_dir}/journal-kernel.txt`\n'
-    '- `journalctl --no-pager -n 200 > {target_dir}/journal-tail.txt`\n'
-    'Then, collect specific logs based on the bug keywords:\n'
-    '- **Network / Wi-Fi:** `journalctl -u NetworkManager --no-pager -n 300` and `ip link show`'
+    "You are a Linux log collection agent running non-interactively on a device to diagnose a described bug.\n"
+    "## STRICT EXECUTION RULES\n"
+    "1. **Tool Usage:** You MUST use the `run_command` tool to execute commands. Do not output raw commands in text.\n"
+    "2. **Output Location:** All command output MUST be saved directly to `{target_dir}` using file redirects (e.g., `journalctl -k --no-pager > {target_dir}/journal-kernel.txt`).\n"
+    "3. **No Sudo / No Destruction:** Do NOT use `sudo`, do NOT install packages, and do NOT run reboot, shutdown, or destructive commands.\n"
+    "4. **Sysfs Paths:** When checking hardware states via `/sys/`, suppress errors by appending `2>/dev/null` (e.g., `cat /sys/class/net/*/operstate > {target_dir}/sysfs-net.txt 2>/dev/null`).\n"
+    "5. **Log Findings:** Before finishing, write your key findings to `{target_dir}/finding.log`.\n"
+    "6. **Finish:** When all logs are collected, call the `finish` tool with a summary of the collected files and what the user should inspect first.\n"
+    "## WHAT TO COLLECT\n"
+    "Always collect these baseline logs:\n"
+    "- `journalctl -k --no-pager > {target_dir}/journal-kernel.txt`\n"
+    "- `journalctl --no-pager -n 200 > {target_dir}/journal-tail.txt`\n"
+    "Then, collect specific logs based on the bug keywords:\n"
+    "- **Network / Wi-Fi:** `journalctl -u NetworkManager --no-pager -n 300` and `ip link show`"
     '- **Suspend / Wake:** `journalctl --no-pager | grep -i -A5 -B5 "suspend entry|suspend exit|PM: suspend|PM: resume"`\n'
     '- **Display / GPU / Wayland:** `journalctl -k --no-pager | grep -i "drm|gpu|i915|amdgpu"` and compositor logs like `journalctl _COMM=gnome-shell --no-pager -n 300` or `sway` or `kwin_wayland`.\n'
-    '- **Audio:** `journalctl -u pulseaudio --no-pager -n 100` or `journalctl -u pipewire --no-pager -n 100`\n'
-    '- **Bluetooth:** `journalctl -u bluetooth --no-pager -n 200`\n'
+    "- **Audio:** `journalctl -u pulseaudio --no-pager -n 100` or `journalctl -u pipewire --no-pager -n 100`\n"
+    "- **Bluetooth:** `journalctl -u bluetooth --no-pager -n 200`\n"
     '- **Disk / Storage:** `journalctl -k --no-pager | grep -i "ata|nvme|scsi|disk|error"`\n'
     '- **Crash / Panic:** `journalctl -k --no-pager | grep -i "BUG|panic|oops|warning|error" -A 10 -B 2`\n'
-    '## YOUR WORKFLOW\n'
-    '1. Identify the bug type from the users description.\n'
-    '2. Use the `run_command` tool to collect baselines and bug-specific logs, redirecting all output to `{target_dir}`.\n'
-    '3. Use the `run_command` tool to echo a brief summary of clues to `{target_dir}/finding.log`.\n'
-    '4. Call the `finish` tool with a summary of the files you collected. You have a maximum of {max_iterations} turns.\n'
+    "## YOUR WORKFLOW\n"
+    "1. Identify the bug type from the users description.\n"
+    "2. Use the `run_command` tool to collect baselines and bug-specific logs, redirecting all output to `{target_dir}`.\n"
+    "3. Use the `run_command` tool to echo a brief summary of clues to `{target_dir}/finding.log`.\n"
+    "4. Call the `finish` tool with a summary of the files you collected. You have a maximum of {max_iterations} turns.\n"
 )
 
 
@@ -94,7 +95,10 @@ def _load_system_prompt_template(
 # Patterns that must never be executed, regardless of what the LLM asks for.
 # Matched case-insensitively against the full command string.
 _DESTRUCTIVE_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\brm\b(?=[^|;&\n]*(?:\s-(?:[^\s]*r[^\s]*)|\s--recursive\b))(?=[^|;&\n]*(?:\s-(?:[^\s]*f[^\s]*)|\s--force\b)).*", re.IGNORECASE),  # rm -rf / -r -f / --recursive --force
+    re.compile(
+        r"\brm\b(?=[^|;&\n]*(?:\s-(?:[^\s]*r[^\s]*)|\s--recursive\b))(?=[^|;&\n]*(?:\s-(?:[^\s]*f[^\s]*)|\s--force\b)).*",
+        re.IGNORECASE,
+    ),  # rm -rf / -r -f / --recursive --force
     re.compile(r"\bmkfs(\.\w+)?\b", re.IGNORECASE),
     re.compile(r"\bdd\b.*\bof=\s*/dev/", re.IGNORECASE),
     re.compile(r"\bwipefs\b", re.IGNORECASE),
@@ -125,9 +129,7 @@ def _is_destructive(command: str) -> str | None:
 # used to figure out which file a command produced, for the manifest.
 def _detect_output_file(command: str, target_dir: Path) -> str | None:
     pattern = re.compile(
-        r">\s*[\"']?"
-        + re.escape(str(target_dir))
-        + r"/([^\s\"';&|>]+)"
+        r">\s*[\"']?" + re.escape(str(target_dir)) + r"/([^\s\"';&|>]+)"
     )
     m = pattern.search(command)
     return m.group(1).strip() if m else None
@@ -267,9 +269,14 @@ def _bug_description_text(bug_report: BugReport) -> str:
 
 async def ai_collect(
     target_dir: Path,
-    bug_report: BugReport,
+    bug_report: CollectorInput,
     on_output: Callable[[str], None] | None,
 ) -> str:
+    if not isinstance(bug_report, BugReport):
+        raise TypeError(
+            "AI Log Collector needs a bug title and description, "
+            + "it can't be used when attaching to an existing bug"
+        )
     ai_config = get_ai_config()
     if ai_config is None:
         raise RuntimeError(
@@ -400,4 +407,6 @@ async def ai_collect(
     manifest_content = _build_manifest_content(target_dir, bug_description, command_log)
     (target_dir / "collection-manifest.txt").write_text(manifest_content)
 
-    return summary or f"AI Log Collector finished; see {target_dir}/collection-manifest.txt"
+    return (
+        summary or f"AI Log Collector finished; see {target_dir}/collection-manifest.txt"
+    )
