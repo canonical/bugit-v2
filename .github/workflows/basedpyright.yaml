@@ -28,7 +28,7 @@ jobs:
 
       - name: Install dependencies with uv
         run: |
-          uv sync --python 3.12 -U
+          uv sync --python 3.12 --locked
 
       - name: Run basedpyright
         run: |
