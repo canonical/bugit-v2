@@ -13,14 +13,17 @@ Usage (from the repo root):
 """
 
 import argparse
+import enum
 import importlib
+import io
 import re
 import sys
 import tomllib
+import types
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
+from pathlib import Path, PurePath
+from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
 import typer
 import typer.main
@@ -95,7 +98,7 @@ def clean_help(text: str | None) -> str:
 # checked by duck typing instead of isinstance()
 
 
-def value_kind(param_type: Any) -> str:
+def _click_value_kind(param_type: Any) -> str:
     if hasattr(param_type, "choices"):
         return "choice"
     if hasattr(param_type, "file_okay") and hasattr(param_type, "dir_okay"):
@@ -105,8 +108,61 @@ def value_kind(param_type: Any) -> str:
     return "text"
 
 
-def choices_of(param_type: Any) -> list[str]:
+def _click_choices(param_type: Any) -> list[str]:
     return [str(c) for c in getattr(param_type, "choices", [])]
+
+
+def _bare_annotation(annotation: Any) -> Any:
+    """Strip Annotated[], Optional[] and list[] etc. down to the value type"""
+    while True:
+        origin = get_origin(annotation)
+        args = [a for a in get_args(annotation) if a is not type(None)]
+        if origin is Annotated or (
+            origin in (Union, types.UnionType, list, tuple, set, frozenset)
+            and len(set(args)) == 1
+        ):
+            annotation = args[0]
+        else:
+            return annotation
+
+
+def _annotation_choices(annotation: Any) -> list[str]:
+    if get_origin(annotation) is Literal:
+        return [str(a) for a in get_args(annotation)]
+    if isinstance(annotation, type) and issubclass(annotation, enum.Enum):
+        return [str(m.value) for m in annotation]
+    return []
+
+
+# typer < 0.29 converts every param to a click.ParamType (p.type), newer
+# versions only keep the python annotation + parameter info (p.type_descriptor)
+
+
+def value_kind(p: Any) -> str:
+    if (td := getattr(p, "type_descriptor", None)) is None:
+        return _click_value_kind(p.type)
+    info = td.parameter_info
+    if getattr(info, "click_type", None) is not None:
+        return _click_value_kind(info.click_type)
+    annotation = _bare_annotation(td.annotation)
+    if _annotation_choices(annotation):
+        return "choice"
+    if isinstance(annotation, type):
+        if issubclass(annotation, PurePath):
+            if info.dir_okay and not info.file_okay:
+                return "dir"
+            return "file"
+        if issubclass(annotation, io.IOBase):  # typer.FileText etc.
+            return "file"
+    return "text"
+
+
+def choices_of(p: Any) -> list[str]:
+    if (td := getattr(p, "type_descriptor", None)) is None:
+        return _click_choices(p.type)
+    if (click_type := getattr(td.parameter_info, "click_type", None)) is not None:
+        return _click_choices(click_type)
+    return _annotation_choices(_bare_annotation(td.annotation))
 
 
 def build_cmd(command: Any, path: list[str], parent_ctx: Any = None) -> Cmd:
@@ -131,9 +187,9 @@ def build_cmd(command: Any, path: list[str], parent_ctx: Any = None) -> Cmd:
                 Opt(
                     names=names,
                     help=clean_help(p.help),
-                    kind=None if is_flag else value_kind(p.type),
+                    kind=None if is_flag else value_kind(p),
                     metavar=(p.name or names[-1]).replace("_", "-"),
-                    choices=choices_of(p.type),
+                    choices=choices_of(p),
                     multiple=bool(p.multiple or p.count),
                 )
             )
@@ -141,8 +197,8 @@ def build_cmd(command: Any, path: list[str], parent_ctx: Any = None) -> Cmd:
             args.append(
                 Arg(
                     name=(p.name or "arg").replace("_", "-"),
-                    kind=value_kind(p.type),
-                    choices=choices_of(p.type),
+                    kind=value_kind(p),
+                    choices=choices_of(p),
                     variadic=p.nargs == -1,
                 )
             )
