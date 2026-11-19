@@ -70,3 +70,25 @@ if [ -n "$AI_MODEL" ]; then
 else
     rm -f "$SNAP_DATA/ai-model"
 fi
+
+# MCP server (`bugit-v2.mcp` daemon), see src/bugit_v2/mcp_server
+#   sudo snap set bugit mcp.bind-address=0.0.0.0 mcp.api-key=<key>
+# A random API key is generated when none is set.
+MCP_BIND="$(snapctl get mcp.bind-address)"
+MCP_KEY="$(snapctl get mcp.api-key)"
+
+if [ -n "$MCP_BIND" ]; then
+    if ! printf '%s' "$MCP_BIND" | grep -Eq '^[0-9A-Fa-f:.]+$'; then
+        echo "mcp.bind-address must be an IP address, e.g. 127.0.0.1 or 0.0.0.0 (got: '$MCP_BIND')" >&2
+        exit 1
+    fi
+    echo "$MCP_BIND" > "$SNAP_DATA/mcp-bind-address"
+else
+    rm -f "$SNAP_DATA/mcp-bind-address"
+fi
+
+if [ -n "$MCP_KEY" ]; then
+    (umask 077; printf '%s' "$MCP_KEY" > "$SNAP_DATA/mcp-api-key")
+elif [ ! -s "$SNAP_DATA/mcp-api-key" ]; then
+    (umask 077; head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$SNAP_DATA/mcp-api-key")
+fi

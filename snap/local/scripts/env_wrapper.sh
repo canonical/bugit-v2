@@ -42,5 +42,13 @@ if [ -f "$SNAP_DATA/ai-model" ]; then
 	export AI_MODEL="$(cat "$SNAP_DATA/ai-model")"
 fi
 
+# MCP daemon settings, see snap/hooks/configure
+if [ -f "$SNAP_DATA/mcp-api-key" ]; then
+	export BUGIT_MCP_API_KEY_FILE="$SNAP_DATA/mcp-api-key"
+fi
+if [ -f "$SNAP_DATA/mcp-bind-address" ]; then
+	export BUGIT_MCP_BIND_ADDRESS="$(cat "$SNAP_DATA/mcp-bind-address")"
+fi
+
 # https://github.com/snapcrafters/get-iplayer/blob/candidate/snap/local/scripts/launcher
 exec "$@"

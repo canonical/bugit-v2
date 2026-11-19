@@ -1,3 +1,21 @@
+# Unreleased
+
+## Added
+
+- `bugit-v2 mcp`: headless MCP server (SSE, Bearer API key) that lets an AI agent triage Checkbox failures, collect and grep logs (PII-redacted), search for duplicates and file bugs after explicit human approval
+- MCP drafts follow the bugit-v2 report format and fields; new read-only `get_draft` tool previews the final report
+- `local` MCP tracker that files reports to a directory on the device without a login, plus a copy-paste quick start prompt in the README
+- Socket-activated `bugit.mcp` snap daemon, configured with `snap set bugit mcp.bind-address=... mcp.api-key=...`
+
+- MCP: `list_failed_tests` tool (failures with test plan and time); `draft_bug` accepts `cid`/`sku`; the playbook now asks the user only to select a failure and to approve the draft
+- MCP: new `update_draft` tool to correct a draft after `get_draft`; the playbook now offers approve / edit / reject
+- MCP: `draft_bug` defaults project, assignee, platform tags and tags from `bugit.dut-info`, and the daemon (root) now finds the dut-info saved by the DUT user
+- `bugit` skill: credentials are stored with `credentials.sh` (hidden prompt, mode 600) instead of the chat; `BUGIT_PLATFORM_TAGS` in `configure.sh`
+
+- MCP: `draft_bug` logs a warning when no saved dut-info is found (CID/SKU stay blank); the daemon reads the dut-info saved by the DUT user
+- `bugit` skill: `configure.sh` rejects an invalid Launchpad assignee, CID, SKU, project, Jira assignee or platform tag up front with a clear message and an example
+
+
 # 0.2.8
 
 ## Added

@@ -76,6 +76,66 @@ sudo snap set bugit jira-server=<your_url>
 Run `sudo snap unset bugit jira-server` to revert to the default
 (`https://warthogs.atlassian.net`).
 
+## MCP Server (AI agents)
+
+`bugit-v2 mcp` runs a headless [MCP](https://modelcontextprotocol.io) server over SSE
+(`/sse`) for AI agents. Every request needs `Authorization: Bearer <api-key>`.
+
+```bash
+bugit-v2 mcp --api-key SECRET --bind-address 127.0.0.1 --port 8000
+# or via env: BUGIT_MCP_API_KEY, BUGIT_MCP_BIND_ADDRESS, BUGIT_MCP_PORT
+```
+
+As a snap, the daemon is socket-activated on port 8000 and exits when idle:
+
+```bash
+sudo snap set bugit mcp.bind-address=0.0.0.0 mcp.api-key=SECRET  # key is generated if unset
+sudo snap start bugit.mcp
+```
+
+Client config:
+
+```json
+{
+  "mcpServers": {
+    "bugit-v2": {
+      "url": "http://<host>:8000/sse",
+      "headers": { "Authorization": "Bearer SECRET" }
+    }
+  }
+}
+```
+
+Start with the `bug_triage_playbook` prompt. Logs returned to the model are
+redacted (emails, IPs, MACs, username). Drafts use the same report layout as the TUI (`[Summary]`, `[Steps to Reproduce]`, ..., `[Additional Information]`, then `[Stage]` and `[Job Output]` on submit) and carry the same fields (severity, stage, platform tags, impacted features/vendors, assignee, LP status/series). `get_draft()` previews exactly what will be filed. Nothing is filed without a `draft_bug()`
+followed by an approved `confirm_submission()`. Log the user into Launchpad/Jira
+via `check_auth_status()` / `get_login_url()`. Use `tracker="local"` to file to a
+directory on the device (`report.md` + `logs.tar.gz`) without any login.
+
+### Copilot CLI: `/bugit <ip>`
+
+The `.github/skills/bugit` skill configures the MCP server on a DUT over SSH
+(sets `mcp.bind-address`, stores project/assignee/CID/SKU with `bugit.dut-info set` and the Jira credentials in bugit's own cache,
+reads the API key, detects port and SSE/HTTP transport),
+registers `bugit-<ip>` in `~/.copilot/mcp-config.json`, then runs the triage
+workflow: pick a failure (listed as `[testplan @ time] test_id`), then approve the draft. The SSH password is prompted at runtime and never stored. Needs `sshpass` and `jq`.
+To use it from any directory, copy it to `~/.copilot/skills/bugit`.
+A possible duplicate found by `search_bugs` is shown as a warning after the draft preview; a draft is always produced and the user decides whether to file.
+
+### Quick start prompt
+
+Once the MCP server is configured in your agent, paste this to start:
+
+```text
+Use the bugit MCP server to help me file a bug for a failed Checkbox test.
+Start by running its `bug_triage_playbook` prompt and follow it (if prompts
+aren't supported, use the tools in order: list_checkbox_submissions,
+get_failed_test_cases, start_log_collection, check_job_status, grep_log,
+search_bugs, draft_bug, get_draft). Ask me which failure to investigate, and
+which tracker/project to use (tracker "local" needs no login). Show me the full
+get_draft preview and only call confirm_submission after I explicitly approve.
+```
+
 ## How do I copy and paste?
 
 This varies across different terminal emulators so I'll use gnome-terminal as the example here since it comes with ubuntu by default (and by extension Ptyxis that comes with 25.10 and later).

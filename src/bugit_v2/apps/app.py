@@ -502,5 +502,31 @@ def attach_lp(
     run_attach("lp", bug_id, checkbox_submission, checkbox_bin_path)
 
 
+@cli_app.command(
+    "mcp",
+    help="Run a headless MCP server (SSE) so an AI agent can triage bugs",
+)
+def mcp_server_cmd(
+    api_key: Annotated[
+        str | None,
+        typer.Option(help="Bearer API key clients must send. Env: BUGIT_MCP_API_KEY"),
+    ] = None,
+    bind_address: Annotated[
+        str | None, typer.Option(help="Address to listen on (default 127.0.0.1)")
+    ] = None,
+    port: Annotated[int | None, typer.Option(help="Port to listen on (default 8000)")] = None,
+):
+    from bugit_v2.mcp_server.cli import resolve_config, run
+
+    try:
+        cfg = resolve_config(
+            os.environ, api_key=api_key, bind_address=bind_address, port=port
+        )
+    except ValueError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(2) from e
+    run(cfg)
+
+
 if __name__ == "__main__":
     cli_app(prog_name="bugit.bugit-v2" if is_snap() else "bugit-v2")
