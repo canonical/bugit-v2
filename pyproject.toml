@@ -6,15 +6,15 @@ authors = [{ name = "Zhongning Li", email = "zhongning.li@canonical.com" }]
 requires-python = ">=3.12,<4.0.0"
 readme = "README.md"
 dependencies = [
-    "textual(>=8.2,<=9.0)",
-    "pyyaml>=6.0.2",
-    "jira (>=3.10.5,<4.0.0)",
-    "launchpadlib (>=2.1.0,<3.0.0)",
-    "pydantic[email]>=2.11.7,<3.0.0",
-    "typer>=0.16.1",
+    "textual>=8.2.8",
+    "pyyaml>=6.0.3",
+    "jira>=3.10.5",
+    "launchpadlib>=2.3.0",
+    "pydantic[email]>=2.14.3,<3.0.0",
+    "typer>=0.29.2",
     "systemd>=0.17.1",
-    "ijson>=3.5.0",
-    "openai>=1.0.0",
+    "ijson>=3.6.0",
+    "openai>=3.55.1",
 ]
 
 [project.scripts]
@@ -22,13 +22,13 @@ bugit-v2 = "bugit_v2.apps.app:cli_app"
 
 [dependency-groups]
 dev = [
-    "isort>=9,<10",
-    "textual-dev>=1.7.0,<2",
-    "pre-commit>=4.2.0,<5",
-    "black>=26.1,<27",
-    "basedpyright>=1.31.1,<2",
+    "isort>=9.0.2",
+    "textual-dev>=1.8.0",
+    "pre-commit>=4.7.0",
+    "black>=26.10.1",
+    "basedpyright>=1.40.2",
     "async-timeout>=5.0.1",
-    "ruff>=0.12.11",
+    "ruff>=0.17.5",
 ]
 
 [tool.hatch.build.targets.sdist]
