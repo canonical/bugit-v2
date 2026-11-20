@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -29,10 +30,10 @@ SPEC_TOOLS = {
     "list_collected_logs",
     "grep_log",
     "tail_log",
-    "search_bugs",
     "draft_bug",
     "confirm_submission",
     "get_draft",  # read-only preview of the bugit-v2 formatted report
+    "triage_failures",  # grep_log + draft_bug in one call
 }
 
 
@@ -40,16 +41,20 @@ class FakeTracker:
     def __init__(self) -> None:
         self.submitted: list[Draft] = []
 
-    def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
-        return [{"id": "1", "title": f"dup of {query}", "url": "u"}]
-
     def submit(self, draft: Draft, logs_dir: Path | None) -> dict[str, Any]:
         self.submitted.append(draft)
         return {"url": "http://bug/9", "id": "9"}
 
 
 SAVED_DUT_INFO: dict[str, DutInfo | None] = {
-    "v": DutInfo(cid="202401-12345", sku="SKU9", project="saved", platform_tags=["pt1"], jira_assignee="a@b.com", lp_assignee="lpuser")
+    "v": DutInfo(
+        cid="202401-12345",
+        sku="SKU9",
+        project="saved",
+        platform_tags=["pt1"],
+        jira_assignee="a@b.com",
+        lp_assignee="lpuser",
+    )
 }
 
 
@@ -114,7 +119,11 @@ async def call(server, name: str, **args):
     result = await server.call_tool(name, args)
     # FastMCP returns (content, structured) or content depending on version
     content = result[0] if isinstance(result, tuple) else result
-    if isinstance(result, tuple) and isinstance(result[1], dict) and "result" in result[1]:
+    if (
+        isinstance(result, tuple)
+        and isinstance(result[1], dict)
+        and "result" in result[1]
+    ):
         return result[1]["result"]
     text = content[0].text
     try:
@@ -132,7 +141,10 @@ async def test_tool_descriptions_are_llm_instructions(env):
     server, *_ = env
     tools = {t.name: t for t in await server.list_tools()}
     assert "confirm_submission" in tools
-    assert "ALWAYS" in tools["confirm_submission"].description or "explicit" in tools["confirm_submission"].description.lower()
+    assert (
+        "ALWAYS" in tools["confirm_submission"].description
+        or "explicit" in tools["confirm_submission"].description.lower()
+    )
     for t in tools.values():
         assert len(t.description or "") > 40, t.name
 
@@ -146,19 +158,20 @@ async def test_playbook_prompt(env):
     assert "Canonical bugit-v2 SRE Assistant" in text
     for tool in (
         "list_failed_tests",
-            "start_log_collection",
+        "start_log_collection",
         "check_job_status",
         "grep_log",
         "tail_log",
-        "search_bugs",
         "draft_bug",
+        "triage_failures",
         "confirm_submission",
     ):
         assert f"`{tool}()`" in text
     assert "Call `confirm_submission()` only after an explicit approval" in text
     assert "TWICE" in text and "<testplan_id> @ <failed_at>" in text
-    assert "WARNING" in text and "ALWAYS call `draft_bug()`" in text
+    assert "ALWAYS call `draft_bug()`" in text
     assert "`get_draft()`" in text
+
 
 async def test_unknown_log_name_is_rejected(env):
     server, _, _ = env
@@ -178,7 +191,9 @@ async def test_full_workflow(env):
 
     job_id = await call(server, "start_log_collection", context_test_case="wifi/connect")
     async with asyncio.timeout(3):
-        while (st := await call(server, "check_job_status", job_id=job_id))["status"] == "running":
+        while (st := await call(server, "check_job_status", job_id=job_id))[
+            "status"
+        ] == "running":
             await asyncio.sleep(0.01)
     assert st["status"] == "completed"
 
@@ -188,13 +203,12 @@ async def test_full_workflow(env):
     ctx_file = (jobs.job_dir(job_id) / "ctx.txt").read_text()
     assert ctx_file == "wifi/connect|session:s1"
 
-    out = await call(server, "grep_log", job_id=job_id, filename="dmesg.log", keyword="acpi")
+    out = await call(
+        server, "grep_log", job_id=job_id, filename="dmesg.log", keyword="acpi"
+    )
     assert "AE_NOT_FOUND" in out and "alice" not in out and "10.0.0.5" not in out
     out = await call(server, "tail_log", job_id=job_id, filename="dmesg.log", lines=1)
     assert out == "end"
-
-    dups = await call(server, "search_bugs", query="AE_NOT_FOUND")
-    assert dups[0]["title"] == "dup of AE_NOT_FOUND"
 
     draft_id = await call(
         server,
@@ -235,12 +249,16 @@ async def test_user_decline_via_elicitation_blocks_submission(env, monkeypatch):
         return False
 
     monkeypatch.setattr(srv, "ask_user_approval", decline)
-    draft_id = await call(server, "draft_bug", title="t", description="d", tags=[], logs_job_id=None)
+    draft_id = await call(
+        server, "draft_bug", title="t", description="d", tags=[], logs_job_id=None
+    )
     with pytest.raises(Exception, match="declined|approv"):
         await server.call_tool("confirm_submission", {"draft_id": draft_id})
     assert tracker.submitted == []
     # the draft survives a decline so the user can change their mind
-    monkeypatch.setattr(srv, "ask_user_approval", lambda ctx, message: asyncio.sleep(0, True))
+    monkeypatch.setattr(
+        srv, "ask_user_approval", lambda ctx, message: asyncio.sleep(0, True)
+    )
     await call(server, "confirm_submission", draft_id=draft_id)
     assert len(tracker.submitted) == 1
 
@@ -256,7 +274,9 @@ async def _collect(server, test_case="wifi/connect"):
     await call(server, "get_failed_test_cases", submission_id="session:s1")
     job_id = await call(server, "start_log_collection", context_test_case=test_case)
     async with asyncio.timeout(3):
-        while (await call(server, "check_job_status", job_id=job_id))["status"] == "running":
+        while (await call(server, "check_job_status", job_id=job_id))[
+            "status"
+        ] == "running":
             await asyncio.sleep(0.01)
     return job_id
 
@@ -293,14 +313,35 @@ async def test_draft_from_sections_follows_bugit_layout(env):
 
 async def test_failed_tests_and_cid_sku_override(env):
     server, tracker, _ = env
-    rows = await call(server, "list_failed_tests")
-    assert [(r["submission_id"], r["test_id"]) for r in rows] == [("session:s1", "wifi/connect")]
-    assert "testplan_id" in rows[0] and "failed_at" in rows[0]
+    groups = await call(server, "list_failed_tests")
+    assert [
+        (g["submission_id"], [t["test_id"] for t in g["tests"]]) for g in groups
+    ] == [("session:s1", ["wifi/connect"])]
+    assert "testplan_id" in groups[0] and "modified" in groups[0]
+    assert "failed_at" in groups[0]["tests"][0]
     draft_id = await call(
         server, "draft_bug", title="T", summary="s", cid="202402-22222", sku="X-1"
     )
     await call(server, "confirm_submission", draft_id=draft_id)
     assert "CID: 202402-22222\nSKU: X-1" in tracker.submitted[0].description
+
+
+async def test_failed_tests_grouped_by_submission_newest_first(env, tmp_path):
+    server, *_ = env
+    make_session(
+        tmp_path / "sessions",
+        "s2",
+        {"gfx/glxgears": "fail"},
+        mtime=time.time() + 100,
+    )
+    groups = await call(server, "list_failed_tests")
+    assert [g["submission_id"] for g in groups] == ["session:s2", "session:s1"]
+    assert [t["test_id"] for t in groups[0]["tests"]] == ["gfx/glxgears"]
+    assert [t["test_id"] for t in groups[1]["tests"]] == ["wifi/connect"]
+    for g in groups:
+        assert g["testplan_id"] and g["modified"]
+        for t in g["tests"]:
+            assert t["outcome"] and t["failed_at"]
 
 
 async def test_cid_sku_blank_and_warned_without_saved_dut_info(env, monkeypatch, caplog):
@@ -343,7 +384,9 @@ async def test_confirmation_prompt_shows_the_same_preview(env, monkeypatch):
 async def test_invalid_severity_is_rejected_for_the_agent(env):
     server, *_ = env
     with pytest.raises(Exception, match="severity"):
-        await server.call_tool("draft_bug", {"title": "T", "summary": "s", "severity": "urgent"})
+        await server.call_tool(
+            "draft_bug", {"title": "T", "summary": "s", "severity": "urgent"}
+        )
 
 
 async def test_draft_needs_a_summary_or_description(env):
@@ -371,7 +414,12 @@ async def test_update_draft_changes_only_what_was_given(env):
         server, "draft_bug", title="T", summary="s", actual_result="bad", severity="low"
     )
     same_id = await call(
-        server, "update_draft", draft_id=draft_id, actual_result="worse", title="T2", cid="202402-22222"
+        server,
+        "update_draft",
+        draft_id=draft_id,
+        actual_result="worse",
+        title="T2",
+        cid="202402-22222",
     )
     assert same_id == draft_id
     preview = await call(server, "get_draft", draft_id=draft_id)
@@ -379,7 +427,9 @@ async def test_update_draft_changes_only_what_was_given(env):
     assert "[Summary]\ns\n" in preview and "[Actual Result]\nworse\n" in preview
     assert "CID: 202402-22222" in preview
     with pytest.raises(Exception, match="severity"):
-        await server.call_tool("update_draft", {"draft_id": draft_id, "severity": "urgent"})
+        await server.call_tool(
+            "update_draft", {"draft_id": draft_id, "severity": "urgent"}
+        )
     await call(server, "confirm_submission", draft_id=draft_id)
     assert tracker.submitted[0].title == "T2"
 
@@ -387,11 +437,81 @@ async def test_update_draft_changes_only_what_was_given(env):
 async def test_severity_and_attached_logs_can_be_chosen_after_drafting(env):
     server, tracker, _ = env
     job_id = await _collect(server)
-    draft_id = await call(server, "draft_bug", title="T", summary="s", logs_job_id=job_id)
+    draft_id = await call(
+        server, "draft_bug", title="T", summary="s", logs_job_id=job_id
+    )
     assert "Attached logs: none" in await call(server, "get_draft", draft_id=draft_id)
     name = (await call(server, "list_collected_logs", job_id=job_id))[0]["name"]
-    await call(server, "update_draft", draft_id=draft_id, severity="medium", attach_logs=[name])
+    await call(
+        server, "update_draft", draft_id=draft_id, severity="medium", attach_logs=[name]
+    )
     preview = await call(server, "get_draft", draft_id=draft_id)
     assert "Severity: Medium" in preview and f"Attached logs: {name}" in preview
     await call(server, "confirm_submission", draft_id=draft_id)
     assert tracker.submitted[0].attach_logs == [name]
+
+
+def _io_log(server_jobs, job_id: str, test_id: str, stderr: str) -> None:
+    d = server_jobs.job_dir(job_id) / "checkbox_session" / "io-logs"
+    d.mkdir(parents=True, exist_ok=True)
+    name = test_id.replace("::", "__").replace("/", "_")
+    (d / f"{name}.stderr").write_text(stderr)
+
+
+async def test_triage_failures_drafts_one_bug_for_every_test(env):
+    server, tracker, jobs = env
+    job_id = await _collect(server)
+    tests = ["ns::graphics/2_glxgears", "ns::graphics/2_vkcube"]
+    for t in tests:
+        _io_log(
+            jobs, job_id, t, "Traceback\n  File x\nAssertionError: no card for alice\n"
+        )
+
+    out = await call(server, "triage_failures", job_id=job_id, test_ids=tests)
+
+    assert out["errors"] == {t: ["AssertionError: no card for <USER>"] for t in tests}
+    assert out["warnings"] == []
+    assert out["logs"] == {
+        t: {"stderr": "Traceback\n  File x\nAssertionError: no card for <USER>\n", "stdout": ""}
+        for t in tests
+    }  # fmt: skip
+    assert out["preview"] == await call(server, "get_draft", draft_id=out["draft_id"])
+    assert (
+        "Title: 2 graphics tests fail: AssertionError: no card for <USER>"
+        in out["preview"]
+    )
+    assert (
+        "[Affected Test Cases]\nns::graphics/2_glxgears\nns::graphics/2_vkcube\n"
+        in out["preview"]
+    )
+    assert "[Failure Rate]\n2/2 tests in 1/1 runs" in out["preview"]
+    assert tracker.submitted == []
+    # the test list survives edits of other sections
+    await call(server, "update_draft", draft_id=out["draft_id"], summary="new")
+    assert "ns::graphics/2_vkcube" in await call(
+        server, "get_draft", draft_id=out["draft_id"]
+    )
+
+
+async def test_triage_failures_overrides_fallbacks_and_warnings(env):
+    server, *_ = env
+    job_id = await _collect(server)
+    out = await call(
+        server, "triage_failures", job_id=job_id,
+        test_ids=["wifi/connect", "gone/test"], title="My title", severity="low",
+    )  # fmt: skip
+    # no collected io-log: falls back to the session output (no keyword match -> last lines)
+    assert out["errors"] == {"wifi/connect": ["err of wifi/connect"], "gone/test": []}
+    assert out["logs"]["wifi/connect"]["stderr"] == "err of wifi/connect"
+    assert out["logs"]["gone/test"] == {"stdout": "", "stderr": ""}
+    assert "No error output found for gone/test" in out["warnings"]
+    assert "Title: My title" in out["preview"] and "Severity: Low" in out["preview"]
+
+
+async def test_triage_failures_needs_a_known_job_and_tests(env):
+    server, *_ = env
+    with pytest.raises(Exception, match="Unknown job_id"):
+        await call(server, "triage_failures", job_id="nope", test_ids=["a"])
+    job_id = await _collect(server)
+    with pytest.raises(Exception, match="at least one"):
+        await call(server, "triage_failures", job_id=job_id, test_ids=[" "])

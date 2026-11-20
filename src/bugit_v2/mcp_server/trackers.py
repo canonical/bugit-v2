@@ -83,37 +83,13 @@ def _run_submitter(
 class LaunchpadTracker:
     def __init__(
         self,
-        client_factory: Callable[[], Any],
         submitter_factory: Callable[[], Any],
         default_project: str | None = None,
         report_source: ReportSource | None = None,
     ) -> None:
-        self._client_factory = client_factory
         self._submitter_factory = submitter_factory
         self._default_project = default_project
         self._report_source = report_source
-
-    def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
-        client = self._client_factory()
-        target = (
-            client.projects[self._default_project]
-            if self._default_project
-            else client.distributions["ubuntu"]
-        )
-        tasks = target.searchTasks(search_text=query, status=_ALL_LP_STATUSES)
-        out: list[dict[str, Any]] = []
-        for task in tasks:
-            if len(out) >= limit:
-                break
-            out.append(
-                {
-                    "id": str(task.bug.id),
-                    "title": task.bug.title,
-                    "status": task.status,
-                    "url": task.web_link,
-                }
-            )
-        return out
 
     def submit(self, draft: Draft, logs_dir: Path | None) -> dict[str, Any]:
         report = _report(draft, draft.project or self._default_project, self._report_source)
@@ -124,40 +100,15 @@ class LaunchpadTracker:
 class JiraTracker:
     def __init__(
         self,
-        client_factory: Callable[[], Any],
         submitter_factory: Callable[[], Any],
-        server: str,
         default_project: str | None = None,
         credentials: Callable[[], tuple[str, str] | None] = lambda: None,
         report_source: ReportSource | None = None,
     ) -> None:
         self._report_source = report_source
-        self._client_factory = client_factory
         self._submitter_factory = submitter_factory
-        self._server = server.rstrip("/")
         self._default_project = default_project
         self._credentials = credentials
-
-    @staticmethod
-    def _jql_quote(s: str) -> str:
-        return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
-
-    def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
-        clauses = []
-        if self._default_project:
-            clauses.append(f"project = {self._jql_quote(self._default_project)}")
-        clauses.append(f"text ~ {self._jql_quote(query)}")
-        jql = " AND ".join(clauses) + " ORDER BY created DESC"
-        issues = self._client_factory().search_issues(jql, maxResults=limit)
-        return [
-            {
-                "id": i.key,
-                "title": i.fields.summary,
-                "status": i.fields.status.name,
-                "url": f"{self._server}/browse/{i.key}",
-            }
-            for i in issues
-        ]
 
     def submit(self, draft: Draft, logs_dir: Path | None) -> dict[str, Any]:
         creds = self._credentials()
@@ -180,23 +131,6 @@ class LocalTracker:
     def __init__(self, reports_dir: Path) -> None:
         self._dir = reports_dir
 
-    def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
-        out: list[dict[str, Any]] = []
-        q = query.lower()
-        for report in sorted(self._dir.glob("*/report.md")):
-            text = report.read_text()
-            if q in text.lower() and len(out) < limit:
-                title = text.splitlines()[0].removeprefix("# ") if text else ""
-                out.append(
-                    {
-                        "id": report.parent.name,
-                        "title": title,
-                        "status": "New",
-                        "url": report.parent.as_uri(),
-                    }
-                )
-        return out
-
     def submit(self, draft: Draft, logs_dir: Path | None) -> dict[str, Any]:
         self._dir.mkdir(parents=True, exist_ok=True)
         bug_id = uuid.uuid4().hex[:8]
@@ -213,18 +147,3 @@ class LocalTracker:
         if logs_dir is not None:
             _pack_logs(logs_dir, target / "logs.tar.gz", draft.attach_logs or None)
         return {"url": target.as_uri(), "id": bug_id, "path": str(target), "tracker": "local"}
-
-
-_ALL_LP_STATUSES = [
-    "New",
-    "Incomplete",
-    "Opinion",
-    "Invalid",
-    "Won't Fix",
-    "Expired",
-    "Confirmed",
-    "Triaged",
-    "In Progress",
-    "Fix Committed",
-    "Fix Released",
-]

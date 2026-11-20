@@ -2,7 +2,7 @@
 
 ## Added
 
-- `bugit-v2 mcp`: headless MCP server (SSE, Bearer API key) that lets an AI agent triage Checkbox failures, collect and grep logs (PII-redacted), search for duplicates and file bugs after explicit human approval
+- `bugit-v2 mcp`: headless MCP server (SSE, Bearer API key) that lets an AI agent triage Checkbox failures, collect and grep logs (PII-redacted) and file bugs after explicit human approval
 - MCP drafts follow the bugit-v2 report format and fields; new read-only `get_draft` tool previews the final report
 - `local` MCP tracker that files reports to a directory on the device without a login, plus a copy-paste quick start prompt in the README
 - Socket-activated `bugit.mcp` snap daemon, configured with `snap set bugit mcp.bind-address=... mcp.api-key=...`
@@ -14,6 +14,15 @@
 
 - MCP: `draft_bug` logs a warning when no saved dut-info is found (CID/SKU stay blank); the daemon reads the dut-info saved by the DUT user
 - `bugit` skill: `configure.sh` rejects an invalid Launchpad assignee, CID, SKU, project, Jira assignee or platform tag up front with a clear message and an example
+
+- MCP: new `triage_failures` tool finds the error of every selected test and drafts one bug in a single call (proposed title/summary/actual result/failure rate, overridable); the playbook prefers it over `grep_log` + `draft_bug`
+- MCP: a draft lists every selected test under Affected Test Cases
+- `bugit` skill: new `scripts/bugit_mcp.py` (plain `python3` 3.10+, no dependencies) drives the triage from the shell (`failures`, `triage`, `edit`, `submit --approved`, `auth`, `call`); `/mcp reload` is no longer needed
+- MCP: removed the duplicate search (`search_bugs` tool and tracker search); triage no longer needs a tracker query
+- MCP: `triage_failures` now also returns `logs` (redacted, truncated stdout/stderr per selected test); `triage_failures`/the playbook now require the calling agent to analyze `errors`/`logs` and write a real root-cause `title`/`summary`/`actual_result` before showing the draft, instead of restating the raw exception text
+- `bugit` skill: `M triage` prints `errors` and `logs` for every selected test before the draft box; `triage.md` makes the root-cause rewrite step mandatory
+- MCP: `list_failed_tests` now groups failures by submission (`submission_id`/`testplan_id`/`modified` with a nested `tests` list) instead of a flat list
+- `bugit` skill: `M failures` prints tests grouped by submission; `M triage` warns (but still files one bug) when the chosen tests span more than one submission; `triage.md`/`SKILL.md` make it explicit that the draft must be pasted verbatim into the agent's own chat response, not just referenced
 
 
 # 0.2.8

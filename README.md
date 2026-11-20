@@ -106,11 +106,21 @@ Client config:
 }
 ```
 
-Start with the `bug_triage_playbook` prompt. Logs returned to the model are
-redacted (emails, IPs, MACs, username). Drafts use the same report layout as the TUI (`[Summary]`, `[Steps to Reproduce]`, ..., `[Additional Information]`, then `[Stage]` and `[Job Output]` on submit) and carry the same fields (severity, stage, platform tags, impacted features/vendors, assignee, LP status/series). `get_draft()` previews exactly what will be filed. Nothing is filed without a `draft_bug()`
-followed by an approved `confirm_submission()`. Log the user into Launchpad/Jira
-via `check_auth_status()` / `get_login_url()`. Use `tracker="local"` to file to a
-directory on the device (`report.md` + `logs.tar.gz`) without any login.
+Start with the `bug_triage_playbook` prompt. Logs returned to the model are redacted (emails,
+IPs, MACs, username). `list_failed_tests()` lists failures grouped by submission (newest first).
+Once logs are collected, `triage_failures()` is the primary path: in one call it finds the error
+of every selected test and drafts ONE bug listing all of them under Affected Test Cases,
+returning the redacted `errors`/`logs` of each test alongside the draft preview. The agent must
+then read `errors`/`logs`, write a real root-cause explanation of *why* the tests failed (not a
+restatement of the exception text), and call `update_draft()` with it before showing anything to
+the user; `draft_bug()` remains available as a manual fallback for drafting a bug
+section-by-section. Drafts use the same report layout as the TUI (`[Summary]`,
+`[Steps to Reproduce]`, ..., `[Additional Information]`, then `[Stage]` and `[Job Output]` on
+submit) and carry the same fields (severity, stage, platform tags, impacted features/vendors,
+assignee, LP status/series). `get_draft()` previews exactly what will be filed. Nothing is filed
+without an approved `confirm_submission()`. Log the user into Launchpad/Jira via
+`check_auth_status()` / `get_login_url()`. Use `tracker="local"` to file to a directory on the
+device (`report.md` + `logs.tar.gz`) without any login.
 
 ### Copilot CLI: `/bugit <ip>`
 
@@ -118,9 +128,17 @@ The `.github/skills/bugit` skill configures the MCP server on a DUT over SSH
 (sets `mcp.bind-address`, stores project/assignee/CID/SKU with `bugit.dut-info set` and the Jira credentials in bugit's own cache,
 reads the API key, detects port and SSE/HTTP transport),
 registers `bugit-<ip>` in `~/.copilot/mcp-config.json`, then runs the triage
-workflow: pick a failure (listed as `[testplan @ time] test_id`), then approve the draft. The SSH password is prompted at runtime and never stored. Needs `sshpass` and `jq`.
+workflow: pick a failure (listed as `[testplan @ time] test_id`, grouped by submission), then
+approve the draft. The SSH password is prompted at runtime and never stored. Needs `sshpass`,
+`jq` and `python3` (3.10+, standard library only, no `uv` or other dependencies).
+The triage runs as shell commands through `scripts/bugit_mcp.py`, a dependency-free MCP client
+that reads the server and key from `~/.copilot/mcp-config.json`: `failures` lists failed tests
+grouped by submission, `triage` collects the logs and calls `triage_failures()` (errors/logs and
+one draft for all selected tests, warning but still filing one bug if the chosen tests span more
+than one submission), `edit` updates the draft, `submit --approved` files it, and `auth`/`call`
+cover login status and any other MCP tool. The draft is always shown in full before the
+approve/edit/reject decision is asked.
 To use it from any directory, copy it to `~/.copilot/skills/bugit`.
-A possible duplicate found by `search_bugs` is shown as a warning after the draft preview; a draft is always produced and the user decides whether to file.
 
 ### Quick start prompt
 
@@ -130,8 +148,8 @@ Once the MCP server is configured in your agent, paste this to start:
 Use the bugit MCP server to help me file a bug for a failed Checkbox test.
 Start by running its `bug_triage_playbook` prompt and follow it (if prompts
 aren't supported, use the tools in order: list_checkbox_submissions,
-get_failed_test_cases, start_log_collection, check_job_status, grep_log,
-search_bugs, draft_bug, get_draft). Ask me which failure to investigate, and
+get_failed_test_cases, start_log_collection, check_job_status, triage_failures,
+then update_draft/get_draft as needed). Ask me which failure to investigate, and
 which tracker/project to use (tracker "local" needs no login). Show me the full
 get_draft preview and only call confirm_submission after I explicitly approve.
 ```

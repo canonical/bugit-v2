@@ -1,4 +1,4 @@
-"""Duplicate search and the draft -> confirm submission flow (human in the loop)"""
+"""The draft -> confirm submission flow (human in the loop)"""
 
 import re
 import secrets
@@ -75,8 +75,6 @@ def _validate_attach_logs(logs_dir: Path, names: Sequence[str]) -> list[str]:
 
 
 class BugTracker(Protocol):
-    def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]: ...
-
     def submit(self, draft: Draft, logs_dir: Path | None) -> dict[str, Any]: ...
 
 
@@ -112,15 +110,6 @@ class BugService:
             raise ValueError(
                 f"Unknown tracker {name!r}; expected one of {sorted(self._trackers)}"
             ) from None
-
-    def search_bugs(self, query: str, tracker: str | None = None) -> list[dict[str, Any]]:
-        if not query.strip():
-            raise ValueError("query must not be empty")
-        results = self._tracker(tracker or self._default_tracker).search(query.strip())
-        return [
-            {k: self._redact(v) if isinstance(v, str) else v for k, v in r.items()}
-            for r in results
-        ]
 
     def draft_bug(
         self,

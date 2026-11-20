@@ -47,7 +47,9 @@ if [ "$status_only" = 1 ]; then
   jira=false
   dut_sudo "test -s $JIRA_CREDS" >/dev/null 2>&1 && jira=true
   jq -n --arg ip "$IP" --argjson i "$info" --argjson j "$jira" \
-    '{dut:$ip, dut_info:$i, jira_credentials_cached:$j}'
+    '{dut:$ip, dut_info:$i, jira_credentials_cached:$j,
+      missing:([["cid","sku","project","jira_assignee","lp_assignee","platform_tags"][]
+        | select(($i[.] // null) as $v | $v == null or $v == "" or $v == [])])}'
   exit 0
 fi
 

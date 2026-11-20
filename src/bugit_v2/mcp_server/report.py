@@ -35,7 +35,7 @@ def render_description(
     if unknown:
         raise ValueError(f"Unknown report sections: {sorted(unknown)}")
     filled = {name: sections.get(name, "").strip() for name in SECTION_NAMES}
-    filled["Affected Test Cases"] = test_case or filled["Affected Test Cases"]
+    filled["Affected Test Cases"] = filled["Affected Test Cases"] or test_case or ""
     filled["Additional Information"] = "\n".join(
         [
             f"CID: {cid or ''}",

@@ -21,10 +21,24 @@ from bugit_v2.mcp_server.config import McpConfig
 from bugit_v2.mcp_server.jobs import JobManager
 from bugit_v2.mcp_server.logstore import LogStore
 from bugit_v2.mcp_server.playbook import BUG_TRIAGE_PLAYBOOK
+from bugit_v2.mcp_server.report import (
+    MAX_PREVIEW_OUTPUT,
+    SECTION_NAMES,
+    format_preview,
+    render_description,
+)
+from bugit_v2.mcp_server.triage import (
+    default_fields,
+    error_lines,
+    io_log_name,
+    last_lines,
+)
 from bugit_v2.models.dut_info import DutInfo
-from bugit_v2.mcp_server.report import SECTION_NAMES, format_preview, render_description
 
 logger = logging.getLogger(__name__)
+
+# the end of a test's output holds the cause; never read more than this per io-log
+_MAX_IO_LOG_BYTES = 2 * 1024 * 1024
 
 
 class _Approval(BaseModel):
@@ -81,7 +95,9 @@ def build_server(
         # Every request must carry the bearer key, which browsers never attach
         # on their own, so DNS-rebinding protection adds nothing here and would
         # break access via a LAN address.
-        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+        transport_security=TransportSecuritySettings(
+            enable_dns_rebinding_protection=False
+        ),
     )
     state = _Session()
 
@@ -115,11 +131,30 @@ def build_server(
 
     @mcp.tool()
     async def list_failed_tests() -> list[dict[str, Any]]:
-        """Use this INSTEAD of calling list_checkbox_submissions() and get_failed_test_cases() one by one. Returns, in one call, every failed test of the recent Checkbox runs (newest first), each with submission_id, testplan_id, modified, test_id, outcome and failed_at. ALWAYS show testplan_id and failed_at in front of each test_id when asking the user which failure to investigate."""
+        """Use this INSTEAD of calling list_checkbox_submissions() and get_failed_test_cases() one by one. Returns, in one call, every failed test of the recent Checkbox runs (newest first), GROUPED BY SUBMISSION: each item has submission_id, testplan_id, modified and a nested tests list of {test_id, outcome, failed_at}. ALWAYS present the failures grouped by submission (keep each submission's tests together, showing its testplan_id and modified time once) when asking the user which failure(s) to investigate. If the user picks tests from more than one submission for a single bug, warn them but it is allowed."""
         rows = await blocking(checkbox.list_failed_tests)()
         if rows:
             state.last_submission = rows[0]["submission_id"]
-        return rows
+        groups: list[dict[str, Any]] = []
+        for row in rows:
+            if groups and groups[-1]["submission_id"] == row["submission_id"]:
+                group = groups[-1]
+            else:
+                group = {
+                    "submission_id": row["submission_id"],
+                    "testplan_id": row["testplan_id"],
+                    "modified": row["modified"],
+                    "tests": [],
+                }
+                groups.append(group)
+            group["tests"].append(
+                {
+                    "test_id": row["test_id"],
+                    "outcome": row["outcome"],
+                    "failed_at": row["failed_at"],
+                }
+            )
+        return groups
 
     @mcp.tool()
     async def get_failed_test_cases(submission_id: str) -> list[dict[str, Any]]:
@@ -142,7 +177,9 @@ def build_server(
             raise ValueError(
                 f"Unknown log collector(s): {unknown}. Valid names: {sorted(known)} or 'all'"
             )
-        return jobs.start(context_test_case, submission_id or state.last_submission, names)
+        return jobs.start(
+            context_test_case, submission_id or state.last_submission, names
+        )
 
     @mcp.tool()
     async def list_log_collectors() -> list[dict[str, Any]]:
@@ -168,11 +205,6 @@ def build_server(
     async def tail_log(job_id: str, filename: str, lines: int = 50) -> str:
         """Use this to read the last N lines (max 1000) of a collected log file. Output is PII-redacted."""
         return await blocking(logstore.tail)(jobs.job_dir(job_id), filename, lines)
-
-    @mcp.tool()
-    async def search_bugs(query: str, tracker: str = "launchpad") -> list[dict[str, Any]]:
-        """Use this BEFORE drafting a bug to check for duplicates (read-only). tracker is 'launchpad', 'jira' or 'local'. Search with the distinctive error string you found. If a matching bug exists, warn the user about it but STILL call draft_bug() and show the draft; the user decides whether to file."""
-        return await blocking(bugs.search_bugs)(query, tracker)
 
     async def _machine_info() -> Mapping[str, str]:
         if machine_info is None:
@@ -200,11 +232,13 @@ def build_server(
                 raw = checkbox.get_job_output(draft.submission_id, draft.test_case)
             except Exception:
                 raw = None
-            output = {k: logstore.redact(str(v)) for k, v in raw.items()} if raw else None
+            output = (
+                {k: logstore.redact(str(v)) for k, v in raw.items()} if raw else None
+            )
         return format_preview(draft, output)
 
-    @mcp.tool()
-    async def draft_bug(
+    async def _create_draft(
+        *,
         title: str,
         summary: str = "",
         steps_to_reproduce: str = "",
@@ -228,8 +262,8 @@ def build_server(
         cid: str | None = None,
         sku: str | None = None,
         attach_logs: list[str] | None = None,
+        affected_test_cases: Sequence[str] = (),
     ) -> str:
-        """Use this to prepare a bug report in the same format as bugit-v2. It does NOT submit anything: it validates the payload and returns a draft_id. Fill summary, steps_to_reproduce, expected_result, actual_result and failure_rate; the server adds Affected Test Cases and Additional Information (CID, SKU, machine info) and, on submit, the Stage and Job Output. cid, sku, project, assignee, platform_tags and tags default to the values saved by `bugit.dut-info` when omitted (explicit arguments win); severity is highest (Critical on Launchpad), high, medium, low or lowest (propose one from the impact; the user can change it at approval); issue_file_time is immediate, after_reboot or later; platform_tags are Jira components; tags are extra tracker labels. Pass logs_job_id to link the collected logs, and attach_logs (file names from list_collected_logs()) for the files to upload with the bug; NOTHING is uploaded unless attach_logs is set, so leave it empty until the user picks files. Then call get_draft(draft_id), show the whole preview to the user and ask for explicit approval (approve/reject) before confirm_submission(). Only pass description to bypass the template."""
         if not (description.strip() or summary.strip()):
             raise ValueError("Provide a summary (preferred) or a full description")
         saved = dut_defaults()
@@ -261,6 +295,7 @@ def build_server(
                 "cid": cid or (saved.cid if saved else None) or "",
                 "sku": sku or (saved.sku if saved else None) or "",
                 "extra_info": additional_information,
+                "Affected Test Cases": "\n".join(affected_test_cases),
             }
             description = await _render(parts, test_case)
         return bugs.draft_bug(
@@ -283,6 +318,180 @@ def build_server(
             parts=parts,
             attach_logs=attach_logs or [],
         )
+
+    @mcp.tool()
+    async def draft_bug(
+        title: str,
+        summary: str = "",
+        steps_to_reproduce: str = "",
+        expected_result: str = "",
+        actual_result: str = "",
+        failure_rate: str = "",
+        additional_information: str = "",
+        tags: list[str] | None = None,
+        logs_job_id: str | None = None,
+        tracker: str | None = None,
+        project: str | None = None,
+        severity: str = "highest",
+        issue_file_time: str = "immediate",
+        platform_tags: list[str] | None = None,
+        impacted_features: list[str] | None = None,
+        impacted_vendors: list[str] | None = None,
+        assignee: str | None = None,
+        status: str = "New",
+        series: str | None = None,
+        description: str = "",
+        cid: str | None = None,
+        sku: str | None = None,
+        attach_logs: list[str] | None = None,
+    ) -> str:
+        """Use this to prepare a bug report in the same format as bugit-v2. It does NOT submit anything: it validates the payload and returns a draft_id. Fill summary, steps_to_reproduce, expected_result, actual_result and failure_rate; the server adds Affected Test Cases and Additional Information (CID, SKU, machine info) and, on submit, the Stage and Job Output. cid, sku, project, assignee, platform_tags and tags default to the values saved by `bugit.dut-info` when omitted (explicit arguments win); severity is highest (Critical on Launchpad), high, medium, low or lowest (propose one from the impact; the user can change it at approval); issue_file_time is immediate, after_reboot or later; platform_tags are Jira components; tags are extra tracker labels. Pass logs_job_id to link the collected logs, and attach_logs (file names from list_collected_logs()) for the files to upload with the bug; NOTHING is uploaded unless attach_logs is set, so leave it empty until the user picks files. Then call get_draft(draft_id), show the whole preview to the user and ask for explicit approval (approve/reject) before confirm_submission(). Only pass description to bypass the template."""
+        return await _create_draft(
+            title=title, summary=summary, steps_to_reproduce=steps_to_reproduce,
+            expected_result=expected_result, actual_result=actual_result,
+            failure_rate=failure_rate, additional_information=additional_information,
+            tags=tags, logs_job_id=logs_job_id, tracker=tracker, project=project,
+            severity=severity, issue_file_time=issue_file_time, platform_tags=platform_tags,
+            impacted_features=impacted_features, impacted_vendors=impacted_vendors,
+            assignee=assignee, status=status, series=series, description=description,
+            cid=cid, sku=sku, attach_logs=attach_logs,
+        )  # fmt: skip
+
+    def _job_texts(
+        job_dir: Path | None, submission_id: str | None, test_id: str
+    ) -> dict[str, str]:
+        """stderr/stdout of one test: collected io-logs, else the session's job output"""
+        texts: dict[str, str] = {}
+        if job_dir is not None:
+            for stream in ("stderr", "stdout"):
+                try:
+                    path = logstore.resolve(job_dir, io_log_name(test_id, stream))
+                except ValueError:
+                    continue
+                with open(path, "rb") as f:
+                    f.seek(max(0, path.stat().st_size - _MAX_IO_LOG_BYTES))
+                    texts[stream] = f.read().decode(errors="replace")
+        if not any(t.strip() for t in texts.values()) and submission_id:
+            try:
+                out = checkbox.get_job_output(submission_id, test_id) or {}
+            except Exception:
+                logger.exception("Could not read the job output of %s", test_id)
+                out = {}
+            texts = {
+                "stderr": str(out.get("stderr") or ""),
+                "stdout": str(out.get("stdout") or ""),
+            }
+        return texts
+
+    def _find_errors(
+        job_dir: Path | None, submission_id: str | None, test_id: str, keyword: str
+    ) -> list[str]:
+        """Error lines of one test: collected stderr, then stdout, then the session itself"""
+        texts = list(_job_texts(job_dir, submission_id, test_id).values())
+        for text in texts:
+            if lines := error_lines(text, keyword):
+                return [logstore.redact(line) for line in lines]
+        for text in texts:
+            if lines := last_lines(text):
+                return [logstore.redact(line) for line in lines]
+        return []
+
+    def _job_logs(
+        job_dir: Path | None, submission_id: str | None, test_id: str
+    ) -> dict[str, str]:
+        """Redacted, size-capped stdout/stderr of one test, for the agent's root-cause analysis"""
+        texts = _job_texts(job_dir, submission_id, test_id)
+        out: dict[str, str] = {}
+        for stream in ("stdout", "stderr"):
+            text = logstore.redact(texts.get(stream, ""))
+            if len(text) > MAX_PREVIEW_OUTPUT:
+                text = text[:MAX_PREVIEW_OUTPUT] + "\n... (truncated)"
+            out[stream] = text
+        return out
+
+    @mcp.tool()
+    async def triage_failures(
+        job_id: str,
+        test_ids: list[str],
+        tracker: str | None = None,
+        keyword: str = "error",
+        title: str | None = None,
+        summary: str | None = None,
+        steps_to_reproduce: str | None = None,
+        expected_result: str | None = None,
+        actual_result: str | None = None,
+        failure_rate: str | None = None,
+        severity: str = "highest",
+        submissions: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """Use this INSTEAD of grep_log() + draft_bug() once start_log_collection() is 'completed'. In one call it finds the error of every test in test_ids (all the failures the user chose; keyword is a case-insensitive literal, default 'error') and drafts ONE bug listing every test under Affected Test Cases. Title, summary, steps, expected/actual result and failure rate are proposed from the errors; pass any of them (or severity) to override. submissions maps a test_id to its submission_id when the tests come from different runs (default: the job's). Returns draft_id, preview (identical to get_draft()), errors (matched lines) and logs (the redacted, truncated stdout/stderr of each test) per test, and warnings. errors/logs are raw material for YOU, the calling agent, to analyze: read them and call update_draft() with a real root-cause title/summary/actual_result that explains WHY the test failed, not a restatement of the exception text, before showing the whole preview to the user and asking for explicit approval (approve/reject) before confirm_submission()."""
+        test_ids = list(dict.fromkeys(t.strip() for t in test_ids if t.strip()))
+        if not test_ids:
+            raise ValueError("test_ids must list at least one failed test")
+        if not keyword.strip():
+            raise ValueError("keyword must not be empty")
+        status = jobs.status(job_id)["status"]
+        if status != "completed":
+            raise ValueError(
+                f"Log collection {job_id} is {status!r}; poll check_job_status() until 'completed'"
+            )
+        job_dir = jobs.job_dir(job_id)
+        submission_id = jobs.context(job_id).submission_id or state.last_submission
+        subs = submissions or {}
+        errors = {
+            # the job only collected its own submission's io-logs
+            t: await blocking(_find_errors)(
+                job_dir if subs.get(t, submission_id) == submission_id else None,
+                subs.get(t) or submission_id,
+                t,
+                keyword,
+            )
+            for t in test_ids
+        }
+        warnings = [
+            f"No error output found for {t}" for t, lines in errors.items() if not lines
+        ]
+        logs = {
+            t: await blocking(_job_logs)(
+                job_dir if subs.get(t, submission_id) == submission_id else None,
+                subs.get(t) or submission_id,
+                t,
+            )
+            for t in test_ids
+        }
+
+        fields = default_fields(test_ids, errors)
+        overrides = dict(
+            title=title, summary=summary, steps_to_reproduce=steps_to_reproduce,
+            expected_result=expected_result, actual_result=actual_result,
+            failure_rate=failure_rate,
+        )  # fmt: skip
+        fields.update(
+            {k: v for k, v in overrides.items() if v is not None and v.strip()}
+        )
+
+        tracker_name = tracker or bugs.default_tracker
+
+        draft_id = await _create_draft(
+            title=fields["title"],
+            summary=fields["summary"],
+            steps_to_reproduce=fields["steps_to_reproduce"],
+            expected_result=fields["expected_result"],
+            actual_result=fields["actual_result"],
+            failure_rate=fields["failure_rate"],
+            logs_job_id=job_id,
+            tracker=tracker_name,
+            severity=severity,
+            affected_test_cases=test_ids,
+        )
+        preview = await blocking(lambda: _preview(bugs.get_draft(draft_id)))()
+        return {
+            "draft_id": draft_id,
+            "preview": preview,
+            "errors": errors,
+            "logs": logs,
+            "warnings": warnings,
+        }
 
     @mcp.tool()
     async def update_draft(
@@ -352,7 +561,9 @@ def build_server(
             ctx, f"Submit this bug?\n\n{await blocking(_preview)(draft)}"
         )
         if not approved:
-            raise ValueError("The user declined to submit this draft; do not retry without asking.")
+            raise ValueError(
+                "The user declined to submit this draft; do not retry without asking."
+            )
         return await blocking(bugs.confirm_submission)(draft_id)
 
     return mcp
@@ -364,8 +575,6 @@ def wrap_asgi(app: ASGIApp, cfg: McpConfig) -> ASGIApp:
 
 def build_default_services(cfg: McpConfig) -> dict[str, Any]:
     """Wire the real implementations (Launchpad, Jira, bugit log collectors)"""
-    from launchpadlib.launchpad import Launchpad
-
     from bugit_v2.bug_report_submitters.jira_submitter import (
         JIRA_SERVER_ADDRESS,
         JiraSubmitter,
@@ -413,26 +622,15 @@ def build_default_services(cfg: McpConfig) -> dict[str, Any]:
         validate_jira=default_validate_jira(JIRA_SERVER_ADDRESS),
     )
 
-    def jira_client() -> Any:
-        from jira import JIRA
-
-        creds = auth.jira_credentials()
-        if creds is None:
-            raise RuntimeError("No Jira credentials; call check_auth_status('jira')")
-        return JIRA(server=JIRA_SERVER_ADDRESS.rstrip("/"), basic_auth=creds, validate=True)
-
     trackers = {
         "local": LocalTracker(cfg.work_dir / "reports"),
         "launchpad": LaunchpadTracker(
-            lambda: Launchpad.login_anonymously(LP_APP_NAME, SERVICE_ROOT),
             LaunchpadSubmitter if is_prod() else MockLaunchpadSubmitter,
             cfg.default_project,
             report_source=checkbox.collector_input,
         ),
         "jira": JiraTracker(
-            jira_client,
             JiraSubmitter if is_prod() else MockJiraSubmitter,
-            JIRA_SERVER_ADDRESS,
             cfg.default_project,
             auth.jira_credentials,
             report_source=checkbox.collector_input,
@@ -445,6 +643,7 @@ def build_default_services(cfg: McpConfig) -> dict[str, Any]:
         default_tracker=cfg.default_tracker,
         default_project=cfg.default_project,
     )
+
     def dut_defaults() -> DutInfo | None:
         try:
             return get_saved_dut_info(search_other_users=True)

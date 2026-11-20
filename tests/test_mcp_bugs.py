@@ -8,14 +8,7 @@ from bugit_v2.mcp_server.bugs import BugService, Draft
 
 class FakeTracker:
     def __init__(self) -> None:
-        self.searched: list[str] = []
         self.submitted: list[tuple[Draft, Path | None]] = []
-
-    def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
-        self.searched.append(query)
-        return [
-            {"id": "1", "title": "wifi broken for alice at 10.0.0.1", "url": "http://x/1"}
-        ]
 
     def submit(self, draft: Draft, logs_dir: Path | None) -> dict[str, Any]:
         self.submitted.append((draft, logs_dir))
@@ -46,21 +39,10 @@ def parts(tmp_path: Path):
     return svc, lp, jira, logs, clock
 
 
-def test_search_uses_default_tracker_and_redacts(parts):
-    svc, lp, jira, *_ = parts
-    res = svc.search_bugs("wifi")
-    assert lp.searched == ["wifi"] and jira.searched == []
-    assert "alice" not in res[0]["title"]
-    svc.search_bugs("x", tracker="jira")
-    assert jira.searched == ["x"]
-
-
-def test_search_unknown_tracker_or_empty_query(parts):
+def test_draft_with_unknown_tracker_is_rejected(parts):
     svc, *_ = parts
     with pytest.raises(ValueError, match="tracker"):
-        svc.search_bugs("x", tracker="bugzilla")
-    with pytest.raises(ValueError):
-        svc.search_bugs("  ")
+        svc.draft_bug("Title", "Body", [], None, tracker="bugzilla")
 
 
 def test_draft_does_not_submit(parts):
