@@ -92,6 +92,35 @@ def test_cmd_failures_prints_tests_grouped_by_submission(capsys):
     out = json.loads(capsys.readouterr().out)
     assert [g["submission_id"] for g in out] == ["session:new", "session:old"]
     assert out[0]["tests"] == ["[plan @ 2026-01-02T03:04:05] gfx/a (session:new)"]
+    assert out[0]["choices"] == ["session:new | gfx/a | n/a"]
+    assert out[0]["severity_hints"] == {
+        out[0]["tests"][0]: {"cert_status": None, "suggested_severity": None}
+    }
+
+
+def test_attach_without_flags_lists_every_file_grouped(capsys):
+    files = [
+        {
+            "name": "dmesg-of-boot-1.log",
+            "size": 3,
+            "collector": "dmesg",
+            "collector_description": "dmesg Logs of This Boot",
+        },
+        {
+            "name": "snap_list.log",
+            "size": 5,
+            "collector": "snap-list",
+            "collector_description": "List of Snaps",
+        },
+    ]
+    bugit_mcp.print_log_list(files)
+    out = capsys.readouterr().out
+    assert "## dmesg: dmesg Logs of This Boot (1 files)" in out
+    assert "## snap-list: List of Snaps (1 files)" in out
+    assert json.loads(out[out.index("[") :]) == [
+        "dmesg-of-boot-1.log",
+        "snap_list.log",
+    ]
 
 
 def test_cmd_triage_warns_on_cross_submission_selection(capsys):
@@ -199,3 +228,49 @@ def test_client_speaks_mcp_with_the_standard_library(mcp_url, capsys):
     # a server without the new tools is reported as too old
     assert bugit_mcp.main(["call", "dut", "triage_failures", "{}"]) == 3
     assert "too old" in capsys.readouterr().err
+
+
+def test_submit_is_blocked_until_logs_are_chosen(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("COPILOT_MCP_CONFIG", str(tmp_path / "mcp.json"))
+    bugit_mcp.save_state("d1", job_id="job1", attach_chosen=False)
+    assert bugit_mcp.main(["submit", "1.2.3.4", "d1", "--approved"]) == 1
+    assert "attach 1.2.3.4 d1" in capsys.readouterr().err
+
+
+def test_attach_lists_then_applies_selection(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("COPILOT_MCP_CONFIG", str(tmp_path / "mcp.json"))
+    bugit_mcp.save_state("d1", job_id="job1", attach_chosen=False)
+    calls = []
+
+    class FakeClient:
+        def call(self, tool, **args):
+            calls.append((tool, args))
+            if tool == "list_collected_logs":
+                return [{"name": "dmesg.txt", "size": 1}]
+            return "PREVIEW"
+
+    def ns(**kw):
+        return argparse.Namespace(
+            ip="i", draft_id="d1", select=None, all=False, none=False, **kw
+        )
+
+    assert bugit_mcp.cmd_attach(FakeClient(), ns()) == 0
+    assert "dmesg.txt" in capsys.readouterr().out
+    with pytest.raises(bugit_mcp.Usage):
+        bugit_mcp.cmd_attach(
+            FakeClient(),
+            argparse.Namespace(
+                ip="i", draft_id="d1", select="nope", all=False, none=False
+            ),
+        )
+    assert (
+        bugit_mcp.cmd_attach(
+            FakeClient(),
+            argparse.Namespace(
+                ip="i", draft_id="d1", select="dmesg.txt", all=False, none=False
+            ),
+        )
+        == 0
+    )
+    assert ("update_draft", {"draft_id": "d1", "attach_logs": ["dmesg.txt"]}) in calls
+    assert bugit_mcp.load_state()["d1"]["attach_chosen"] is True

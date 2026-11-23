@@ -7,8 +7,9 @@ so the key never appears on a command line or in the chat.
 Usage:
   bugit_mcp.py failures <ip>
   bugit_mcp.py auth <ip> <tracker>
-  bugit_mcp.py triage <ip> --tracker <t> [--logs a,b] [--keyword k] [--override JSON] <test>...
+  bugit_mcp.py triage <ip> --tracker <t> [--logs a,b] [--keyword k] [--severity s] [--override JSON] <test>...
   bugit_mcp.py edit <ip> <draft_id> <JSON of fields to change>
+  bugit_mcp.py attach <ip> <draft_id> [--select a,b | --all | --none]
   bugit_mcp.py submit <ip> <draft_id> --approved
   bugit_mcp.py call <ip> <tool> [JSON arguments]
 
@@ -40,6 +41,7 @@ from render_draft import render  # noqa: E402
 LABEL_RE = re.compile(
     r"^\[(?P<plan>[^\]]*) @ (?P<at>[^\]]*)\] (?P<test>\S+) \((?P<sub>.+)\)$"
 )
+OPTION_RE = re.compile(r"^(?P<sub>\S+) \| (?P<test>\S+) \| (?P<sev>\S+)$")
 POLL_SECONDS = 3
 JOB_TIMEOUT = 20 * 60
 CALL_TIMEOUT = 10 * 60
@@ -55,9 +57,7 @@ class Usage(Exception):
 
 
 def server_entry(ip: str) -> dict[str, Any]:
-    path = Path(
-        os.environ.get("COPILOT_MCP_CONFIG", Path.home() / ".copilot/mcp-config.json")
-    )
+    path = server_config_path()
     try:
         servers = json.loads(path.read_text())["mcpServers"]
     except (OSError, ValueError, KeyError) as e:
@@ -66,6 +66,30 @@ def server_entry(ip: str) -> dict[str, Any]:
     if not entry or not entry.get("url"):
         raise Usage(f"bugit-{ip} is not in {path}; run configure.sh {ip} first")
     return entry
+
+
+def state_path() -> Path:
+    return server_config_path().with_name("bugit-drafts.json")
+
+
+def server_config_path() -> Path:
+    return Path(
+        os.environ.get("COPILOT_MCP_CONFIG", Path.home() / ".copilot/mcp-config.json")
+    )
+
+
+def load_state() -> dict[str, Any]:
+    try:
+        return json.loads(state_path().read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(draft_id: str, **fields: Any) -> None:
+    """Remember per draft its logs job and whether the user chose the attachments"""
+    state = load_state()
+    state[draft_id] = {**state.get(draft_id, {}), **fields}
+    state_path().write_text(json.dumps(state))
 
 
 def label(row: dict[str, Any]) -> str:
@@ -99,7 +123,7 @@ def parse_tests(
     out: list[tuple[str, str]] = []
     for t in tests:
         t = t.strip()
-        m = LABEL_RE.match(t)
+        m = LABEL_RE.match(t) or OPTION_RE.match(t)
         want_test, want_sub = (m["test"], m["sub"]) if m else (t, None)
         match = next(
             (
@@ -387,6 +411,14 @@ def show_draft(draft_id: str, preview: str) -> None:
     print(render(draft_id, preview))
 
 
+def option(row: dict[str, Any]) -> str:
+    """The `submission | test case name | suggested severity` line users pick from"""
+    return (
+        f"{row['submission_id']} | {str(row['test_id']).split('::')[-1]} | "
+        f"{row.get('suggested_severity') or 'n/a'}"
+    )
+
+
 def cmd_failures(c: Client, a: argparse.Namespace) -> int:
     groups = c.call("list_failed_tests")
     out = [
@@ -395,6 +427,14 @@ def cmd_failures(c: Client, a: argparse.Namespace) -> int:
             "testplan_id": g["testplan_id"],
             "modified": g["modified"],
             "tests": [label({**g, **t}) for t in g["tests"]],
+            "choices": [option({**g, **t}) for t in g["tests"]],
+            "severity_hints": {
+                label({**g, **t}): {
+                    "cert_status": t.get("cert_status"),
+                    "suggested_severity": t.get("suggested_severity"),
+                }
+                for t in g["tests"]
+            },
         }
         for g in groups
     ]
@@ -418,6 +458,8 @@ def cmd_triage(c: Client, a: argparse.Namespace) -> int:
     overrides = json.loads(a.override) if a.override else {}
     if not isinstance(overrides, dict):
         raise Usage("--override must be a JSON object")
+    if getattr(a, "severity", None):
+        overrides["severity"] = a.severity
     auth = c.call("check_auth_status", service=a.tracker)
     if not auth.get("authenticated"):
         print(json.dumps({"authenticated": False, "detail": auth.get("detail")}))
@@ -448,6 +490,7 @@ def cmd_triage(c: Client, a: argparse.Namespace) -> int:
     print(json.dumps(out["errors"], indent=1))
     print("=== logs (raw stdout/stderr per test, for root-cause analysis) ===")
     print(json.dumps(out["logs"], indent=1))
+    save_state(out["draft_id"], job_id=job_id, attach_chosen=False)
     show_draft(out["draft_id"], out["preview"])
     for w in out["warnings"]:
         print(f"WARNING: {w}")
@@ -460,8 +503,50 @@ def cmd_edit(c: Client, a: argparse.Namespace) -> int:
     if not isinstance(changes, dict) or not changes:
         raise Usage("changes must be a non-empty JSON object of draft fields")
     c.call("update_draft", draft_id=a.draft_id, **changes)
+    if "attach_logs" in changes:
+        save_state(a.draft_id, attach_chosen=True)
     show_draft(a.draft_id, c.call("get_draft", draft_id=a.draft_id))
     print(f"\ndraft_id: {a.draft_id}")
+    return 0
+
+
+def print_log_list(files: Sequence[dict[str, Any]]) -> None:
+    """Every collected file, grouped by collector, then the flat list to choose from"""
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for f in files:
+        groups.setdefault(f.get("collector") or "other", []).append(f)
+    print(f"=== {len(files)} files in {len(groups)} collector groups ===")
+    for key, items in groups.items():
+        title = items[0].get("collector_description") or key
+        print(f"\n## {key}: {title} ({len(items)} files)")
+        for f in items:
+            print(f"  {f['name']}  ({f['size']} bytes)")
+    print("\n=== all file names (use these with --select) ===")
+    print(json.dumps([f["name"] for f in files], indent=1))
+
+
+def cmd_attach(c: Client, a: argparse.Namespace) -> int:
+    job_id = load_state().get(a.draft_id, {}).get("job_id")
+    if not job_id:
+        raise Usage(f"no logs job is known for draft {a.draft_id}; run `triage` first")
+    files = c.call("list_collected_logs", job_id=job_id)
+    names = [f["name"] for f in files]
+    if a.all:
+        chosen = names
+    elif a.none:
+        chosen = []
+    elif a.select:
+        chosen = [n.strip() for n in a.select.split(",") if n.strip()]
+        unknown = [n for n in chosen if n not in names]
+        if unknown:
+            raise Usage(f"unknown log file(s) {unknown}; choose from {names}")
+    else:
+        print_log_list(files)
+        return 0
+    c.call("update_draft", draft_id=a.draft_id, attach_logs=chosen)
+    save_state(a.draft_id, attach_chosen=True)
+    show_draft(a.draft_id, c.call("get_draft", draft_id=a.draft_id))
+    print(f"\nattached: {chosen or 'none'}\ndraft_id: {a.draft_id}")
     return 0
 
 
@@ -505,6 +590,11 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--override", help="JSON: title, summary, severity, ... to replace defaults"
     )
+    s.add_argument(
+        "--severity",
+        choices=("highest", "high", "medium", "low", "lowest"),
+        help="the severity the user chose",
+    )
     s.add_argument("tests", nargs="+")
     s.set_defaults(fn=cmd_triage)
     s = sub.add_parser("edit")
@@ -512,6 +602,14 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("draft_id")
     s.add_argument("changes")
     s.set_defaults(fn=cmd_edit)
+    s = sub.add_parser("attach")
+    s.add_argument("ip")
+    s.add_argument("draft_id")
+    g = s.add_mutually_exclusive_group()
+    g.add_argument("--select", help="comma separated file names to upload")
+    g.add_argument("--all", action="store_true")
+    g.add_argument("--none", action="store_true")
+    s.set_defaults(fn=cmd_attach)
     s = sub.add_parser("submit")
     s.add_argument("ip")
     s.add_argument("draft_id")
@@ -531,6 +629,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         if a.cmd == "submit" and not a.approved:
             raise Usage(
                 "refusing to submit without --approved (the user must approve the draft)"
+            )
+        if a.cmd == "submit" and not load_state().get(a.draft_id, {}).get(
+            "attach_chosen", True
+        ):
+            raise Usage(
+                f"choose the logs first: `attach {a.ip} {a.draft_id}`, then "
+                "`--select a,b`, `--all` or `--none`"
             )
         return with_client(a.ip, lambda c: a.fn(c, a))
     except (Usage, ToolError) as e:

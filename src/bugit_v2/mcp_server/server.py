@@ -6,17 +6,18 @@ import os
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, create_model
 from starlette.types import ASGIApp
 
 from bugit_v2.mcp_server.auth import BearerAuthMiddleware
 from bugit_v2.mcp_server.authstate import AuthService
 from bugit_v2.mcp_server.bugs import BugService
 from bugit_v2.mcp_server.checkbox import CheckboxService
+from bugit_v2.mcp_server.collector import collector_for_file
 from bugit_v2.mcp_server.config import McpConfig
 from bugit_v2.mcp_server.jobs import JobManager
 from bugit_v2.mcp_server.logstore import LogStore
@@ -64,6 +65,35 @@ async def ask_user_approval(ctx: Context, message: str) -> bool:  # type: ignore
         return True
     result = await ctx.elicit(message=message, schema=_Approval)
     return result.action == "accept" and result.data.approve
+
+
+async def ask_log_selection(
+    ctx: Context, names: Sequence[str]  # type: ignore[type-arg]
+) -> list[str] | None:
+    """Let the human pick the files to upload (MCP elicitation); None if unsupported or cancelled"""
+    from mcp import types
+
+    try:
+        supported = ctx.request_context.session.check_client_capability(
+            types.ClientCapabilities(elicitation=types.ElicitationCapability())
+        )
+    except Exception:
+        return None
+    if not supported:
+        return None
+    schema = create_model(
+        "_LogSelection",
+        files=(
+            list[Literal[tuple(names)]],  # type: ignore[valid-type]
+            Field(
+                default=[], description="Logs to upload with the bug (none by default)"
+            ),
+        ),
+    )
+    result = await ctx.elicit(message="Which logs should be attached?", schema=schema)
+    if result.action != "accept":
+        return None
+    return list(result.data.files)
 
 
 @dataclass(slots=True)
@@ -131,7 +161,7 @@ def build_server(
 
     @mcp.tool()
     async def list_failed_tests() -> list[dict[str, Any]]:
-        """Use this INSTEAD of calling list_checkbox_submissions() and get_failed_test_cases() one by one. Returns, in one call, every failed test of the recent Checkbox runs (newest first), GROUPED BY SUBMISSION: each item has submission_id, testplan_id, modified and a nested tests list of {test_id, outcome, failed_at}. ALWAYS present the failures grouped by submission (keep each submission's tests together, showing its testplan_id and modified time once) when asking the user which failure(s) to investigate. If the user picks tests from more than one submission for a single bug, warn them but it is allowed."""
+        """Use this INSTEAD of calling list_checkbox_submissions() and get_failed_test_cases() one by one. Returns, in one call, every failed test of the recent Checkbox runs (newest first), GROUPED BY SUBMISSION: each item has submission_id, testplan_id, modified and a nested tests list of {test_id, outcome, failed_at, cert_status, suggested_severity} (blocker -> highest/Critical, non-blocker -> high, null -> unknown, no suggestion; ask the user for the severity AFTER they pick the tests and BEFORE drafting, preselecting the highest suggested_severity of the chosen tests). ALWAYS present the failures grouped by submission (keep each submission's tests together, showing its testplan_id and modified time once) when asking the user which failure(s) to investigate. If the user picks tests from more than one submission for a single bug, warn them but it is allowed."""
         rows = await blocking(checkbox.list_failed_tests)()
         if rows:
             state.last_submission = rows[0]["submission_id"]
@@ -152,6 +182,8 @@ def build_server(
                     "test_id": row["test_id"],
                     "outcome": row["outcome"],
                     "failed_at": row["failed_at"],
+                    "cert_status": row.get("cert_status"),
+                    "suggested_severity": row.get("suggested_severity"),
                 }
             )
         return groups
@@ -193,8 +225,18 @@ def build_server(
 
     @mcp.tool()
     async def list_collected_logs(job_id: str) -> list[dict[str, Any]]:
-        """Use this to list the files (name, size) collected by a completed job_id. Pass these names as filename to grep_log() and tail_log()."""
-        return await blocking(logstore.list_files)(jobs.job_dir(job_id))
+        """Use this to list ALL the files (name, size, collector, collector_description) collected by a completed job_id. Pass these names as filename to grep_log() and tail_log(). When the user chooses attachments, show the COMPLETE list grouped by collector (never a shortened or suggested subset)."""
+        files = await blocking(logstore.list_files)(jobs.job_dir(job_id))
+        titles = {c["name"]: c["description"] for c in log_catalog}
+        titles["context"] = "Test context, job output and collector errors"
+        titles["other"] = "Other files"
+        out: list[dict[str, Any]] = []
+        for f in files:
+            key = collector_for_file(f["name"])
+            out.append(
+                {**f, "collector": key, "collector_description": titles.get(key, key)}
+            )
+        return out
 
     @mcp.tool()
     async def grep_log(job_id: str, filename: str, keyword: str) -> str:
@@ -345,7 +387,7 @@ def build_server(
         sku: str | None = None,
         attach_logs: list[str] | None = None,
     ) -> str:
-        """Use this to prepare a bug report in the same format as bugit-v2. It does NOT submit anything: it validates the payload and returns a draft_id. Fill summary, steps_to_reproduce, expected_result, actual_result and failure_rate; the server adds Affected Test Cases and Additional Information (CID, SKU, machine info) and, on submit, the Stage and Job Output. cid, sku, project, assignee, platform_tags and tags default to the values saved by `bugit.dut-info` when omitted (explicit arguments win); severity is highest (Critical on Launchpad), high, medium, low or lowest (propose one from the impact; the user can change it at approval); issue_file_time is immediate, after_reboot or later; platform_tags are Jira components; tags are extra tracker labels. Pass logs_job_id to link the collected logs, and attach_logs (file names from list_collected_logs()) for the files to upload with the bug; NOTHING is uploaded unless attach_logs is set, so leave it empty until the user picks files. Then call get_draft(draft_id), show the whole preview to the user and ask for explicit approval (approve/reject) before confirm_submission(). Only pass description to bypass the template."""
+        """Use this to prepare a bug report in the same format as bugit-v2. It does NOT submit anything: it validates the payload and returns a draft_id. Fill summary, steps_to_reproduce, expected_result, actual_result and failure_rate; the server adds Affected Test Cases and Additional Information (CID, SKU, machine info) and, on submit, the Stage and Job Output. cid, sku, project, assignee, platform_tags and tags default to the values saved by `bugit.dut-info` when omitted (explicit arguments win); severity is highest (Critical on Launchpad), high, medium, low or lowest (propose one from the impact; the user can change it at approval); issue_file_time is immediate, after_reboot or later; platform_tags are Jira components; tags are extra tracker labels. Pass logs_job_id to link the collected logs, and attach_logs (file names from list_collected_logs()) for the files to upload with the bug; NOTHING is uploaded unless attach_logs is set, so leave it empty: the user picks the files right AFTER approving the draft. Then call get_draft(draft_id), show the whole preview to the user and ask for explicit approval (approve/reject) before confirm_submission(). Only pass description to bypass the template."""
         return await _create_draft(
             title=title, summary=summary, steps_to_reproduce=steps_to_reproduce,
             expected_result=expected_result, actual_result=actual_result,
@@ -557,6 +599,13 @@ def build_server(
     async def confirm_submission(draft_id: str, ctx: Context) -> dict[str, Any]:  # type: ignore[type-arg]
         """Executes the FINAL, IRREVERSIBLE submission of a draft to the issue tracker. NEVER call this without the user's explicit approval of the draft in this conversation. Needs a draft_id from draft_bug() and a logged-in tracker (see check_auth_status())."""
         draft = bugs.get_draft(draft_id)
+        if draft.logs_job_id and not draft.attach_logs:
+            files = await blocking(logstore.list_files)(jobs.job_dir(draft.logs_job_id))
+            names = [f["name"] for f in files]
+            picked = await ask_log_selection(ctx, names) if names else None
+            if picked:
+                bugs.update_draft(draft_id, attach_logs=picked)
+                draft = bugs.get_draft(draft_id)
         approved = await ask_user_approval(
             ctx, f"Submit this bug?\n\n{await blocking(_preview)(draft)}"
         )

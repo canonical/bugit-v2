@@ -120,7 +120,7 @@ submit) and carry the same fields (severity, stage, platform tags, impacted feat
 assignee, LP status/series). `get_draft()` previews exactly what will be filed. Nothing is filed
 without an approved `confirm_submission()`. Log the user into Launchpad/Jira via
 `check_auth_status()` / `get_login_url()`. Use `tracker="local"` to file to a directory on the
-device (`report.md` + `logs.tar.gz`) without any login.
+device (`report.md` + one `<collector>.tar.xz` per log group) without any login.
 
 ### Copilot CLI: `/bugit <ip>`
 

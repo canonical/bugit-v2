@@ -1,9 +1,5 @@
 from bugit_v2.mcp_server.bugs import Draft
-from bugit_v2.mcp_server.report import (
-    SECTION_NAMES,
-    format_preview,
-    render_description,
-)
+from bugit_v2.mcp_server.report import SECTION_NAMES, format_preview, render_description
 
 
 def test_section_order_matches_bugit_editor():
@@ -60,7 +56,9 @@ def make_draft(**kw) -> Draft:
 
 def test_preview_shows_what_will_be_submitted_for_launchpad():
     out = format_preview(
-        make_draft(severity="highest", issue_file_time="immediate", platform_tags=["numbat"]),
+        make_draft(
+            severity="highest", issue_file_time="immediate", platform_tags=["numbat"]
+        ),
         {"stdout": "out", "stderr": "", "comments": ""},
     )
     assert "Tracker: launchpad" in out and "Project: somerville" in out
@@ -81,6 +79,6 @@ def test_preview_without_job_output_has_no_block():
     assert "[Job Output]" not in format_preview(make_draft(), None)
 
 
-def test_preview_truncates_long_job_output():
+def test_preview_marks_long_job_output_as_attached():
     out = format_preview(make_draft(), {"stdout": "x" * 10000})
-    assert "truncated" in out and len(out) < 6000
+    assert "job_stdout.txt" in out and "xxxx" not in out

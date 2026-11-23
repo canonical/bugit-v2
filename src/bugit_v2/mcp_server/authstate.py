@@ -97,7 +97,9 @@ class AuthService:
         self._lp_pending = False
 
     def jira_credentials(self) -> tuple[str, str] | None:
-        email, token = self._env.get("BUGIT_JIRA_EMAIL"), self._env.get("BUGIT_JIRA_TOKEN")
+        email, token = self._env.get("BUGIT_JIRA_EMAIL"), self._env.get(
+            "BUGIT_JIRA_TOKEN"
+        )
         if email and token:
             return email, token
         try:

@@ -21,6 +21,7 @@ from bugit_v2.bug_report_submitters.bug_report_submitter import (
 from bugit_v2.models.attachment_request import AttachmentRequest
 from bugit_v2.models.bug_report import BugReport, pretty_issue_file_times
 from bugit_v2.utils import is_prod
+from bugit_v2.utils.constants import MAX_JOB_OUTPUT_LEN
 
 LP_AUTH_FILE_PATH = Path("/tmp/bugit-v2-launchpad.txt")
 DEFAULT_ATTACHMENT_COMMENT = "Automatically attached by bugit-v2"
@@ -410,14 +411,13 @@ class LaunchpadSubmitter(BugReportSubmitter[Path]):
                 description_to_submit += "\n\n" + "[Job Output]\n"
 
                 for k, v in job_output.items():
-                    description_to_submit += "\n".join(
-                        [
-                            f"Job {k}",
-                            "----",
-                            str(v) or f"No {v} was found for this job",
-                            "\n",
-                        ]
-                    )
+                    text = str(v) or f"No {k} was found for this job"
+                    if len(str(v)) >= MAX_JOB_OUTPUT_LEN:
+                        text = (
+                            f"Job {k} is too long to fit inside the description. "
+                            f"It's in the job_{k}.txt file in the attachments."
+                        )
+                    description_to_submit += "\n".join([f"Job {k}", "----", text, "\n"])
 
         # actually create the bug
         self.lp_bug_object = lp_client.bugs.createBug(  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]

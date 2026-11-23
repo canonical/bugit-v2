@@ -77,7 +77,11 @@ class JobManager:
         job_id = uuid.uuid4().hex
         directory = self._base / job_id
         directory.mkdir(parents=True)
-        job = _Job(job_id, directory, CollectContext(context_test_case, submission_id, tuple(log_names)))
+        job = _Job(
+            job_id,
+            directory,
+            CollectContext(context_test_case, submission_id, tuple(log_names)),
+        )
         self._jobs[job_id] = job
         job.task = asyncio.create_task(self._run(job))
         return job_id

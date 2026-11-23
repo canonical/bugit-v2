@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Final
 
 from bugit_v2.models.bug_report import pretty_issue_file_times, pretty_severities
+from bugit_v2.utils.constants import MAX_JOB_OUTPUT_LEN
 
 if TYPE_CHECKING:
     from bugit_v2.mcp_server.bugs import Draft
@@ -51,8 +52,11 @@ def _job_output_block(tracker: str, job_output: Mapping[str, str]) -> str:
     parts: list[str] = []
     for k, v in job_output.items():
         text = str(v)
-        if len(text) > MAX_PREVIEW_OUTPUT:
-            text = text[:MAX_PREVIEW_OUTPUT] + "\n... (truncated in this preview)"
+        if len(text) >= MAX_JOB_OUTPUT_LEN:
+            text = (
+                f"Job {k} is too long to fit inside the description. "
+                f"It's in the job_{k}.txt file in the attachments."
+            )
         if tracker == "jira":
             parts.append(f"*Job {k}*\n{{noformat}}{text}{{noformat}}")
         else:
@@ -60,11 +64,15 @@ def _job_output_block(tracker: str, job_output: Mapping[str, str]) -> str:
     return "\n\n".join(parts)
 
 
-def format_preview(draft: "Draft", job_output: Mapping[str, str] | None) -> str:  # noqa: F821
+def format_preview(
+    draft: "Draft", job_output: Mapping[str, str] | None
+) -> str:  # noqa: F821
     """What the user is about to file, including what the submitter appends"""
 
     def csv(items: object) -> str:
-        return ", ".join(items) if items else ""  # pyright: ignore[reportGeneralTypeIssues]
+        return (
+            ", ".join(items) if items else ""
+        )  # pyright: ignore[reportGeneralTypeIssues]
 
     lines = [
         f"Tracker: {draft.tracker}",

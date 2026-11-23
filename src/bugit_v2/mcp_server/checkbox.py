@@ -1,5 +1,6 @@
 """Read-only discovery of local Checkbox sessions and submission tarballs"""
 
+import asyncio
 import datetime as dt
 import gzip
 import logging
@@ -10,16 +11,29 @@ from typing import Any
 
 import ijson
 
-from bugit_v2.checkbox_utils.checkbox_session import (
-    SESSION_ROOT_DIR,
-    CheckboxSession,
-)
+from bugit_v2.checkbox_utils.checkbox_session import SESSION_ROOT_DIR, CheckboxSession
+from bugit_v2.checkbox_utils.get_cert_status import get_certification_status
 from bugit_v2.checkbox_utils.submission_extractor import read_simple_submission
 from bugit_v2.models.bug_report import BugReport
 
 logger = logging.getLogger(__name__)
 
 FAILED_OUTCOMES = ("fail", "crash")
+
+# same suggestion as the bugit TUI (bug_report_screen._color_cert_status_box)
+SUGGESTED_SEVERITY = {"blocker": "highest", "non-blocker": "high"}
+
+
+def _session_cert_status(
+    testplan_id: str, test_id: str, session_dir: Path
+) -> str | None:
+    """Look the status up in the test plan (a session does not record it)"""
+    try:
+        found = asyncio.run(get_certification_status(testplan_id, test_id, session_dir))
+    except Exception as e:
+        logger.debug("no cert status for %s: %r", test_id, e)
+        return None
+    return found.cert_status if found else None
 
 
 def _iso(ts: float) -> str:
@@ -105,7 +119,9 @@ class CheckboxService:
     def get_failed_test_cases(self, submission_id: str) -> list[dict[str, Any]]:
         kind, path = self._resolve(submission_id)
         failed_at = _iso(
-            (path / "session").stat().st_mtime if kind == "session" else path.stat().st_mtime
+            (path / "session").stat().st_mtime
+            if kind == "session"
+            else path.stat().st_mtime
         )
         cases: list[dict[str, Any]] = []
         if kind == "session":
@@ -144,21 +160,34 @@ class CheckboxService:
             except Exception as e:
                 logger.debug("skipping %s: %r", sub["submission_id"], e)
                 continue
-            rows += [
-                {
-                    "submission_id": sub["submission_id"],
-                    "kind": sub["kind"],
-                    "testplan_id": sub["testplan_id"],
-                    "modified": sub["modified"],
-                    **case,
-                }
-                for case in cases
-            ]
+            for case in cases:
+                status = case.get("certification_status")
+                if status is None and sub["kind"] == "session":
+                    status = _session_cert_status(
+                        sub["testplan_id"],
+                        case["test_id"],
+                        self._resolve(sub["submission_id"])[1],
+                    )
+                rows.append(
+                    {
+                        "submission_id": sub["submission_id"],
+                        "kind": sub["kind"],
+                        "testplan_id": sub["testplan_id"],
+                        "modified": sub["modified"],
+                        **case,
+                        "cert_status": status,
+                        "suggested_severity": SUGGESTED_SEVERITY.get(status or ""),
+                    }
+                )
         return rows
 
     def describe(self, submission_id: str) -> dict[str, Any]:
         kind, path = self._resolve(submission_id)
-        mtime = (path / "session").stat().st_mtime if kind == "session" else path.stat().st_mtime
+        mtime = (
+            (path / "session").stat().st_mtime
+            if kind == "session"
+            else path.stat().st_mtime
+        )
         return {"kind": kind, "path": str(path), "failed_at": _iso(mtime)}
 
     def collector_input(self, submission_id: str) -> BugReport:
@@ -172,7 +201,9 @@ class CheckboxService:
             severity="medium",
             issue_file_time="later",
             checkbox_session=CheckboxSession(path) if kind == "session" else None,
-            checkbox_submission=read_simple_submission(path) if kind == "submission" else None,
+            checkbox_submission=(
+                read_simple_submission(path) if kind == "submission" else None
+            ),
             job_id=None,
         )
 
@@ -183,5 +214,9 @@ class CheckboxService:
             return dict(out) if out else None
         for r in read_simple_submission(path).base.results:
             if r.full_id == test_id:
-                return {"stdout": r.io_log or "", "stderr": "", "comments": r.comments or ""}
+                return {
+                    "stdout": r.io_log or "",
+                    "stderr": "",
+                    "comments": r.comments or "",
+                }
         return None

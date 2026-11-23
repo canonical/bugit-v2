@@ -48,7 +48,10 @@ def expand_archives(job_dir: Path) -> None:
                 with tarfile.open(path) as tar:
                     tar.extractall(dest, filter="data")
             elif name.endswith(".gz"):
-                with gzip.open(path, "rb") as src, open(path.with_suffix(""), "wb") as dst:
+                with (
+                    gzip.open(path, "rb") as src,
+                    open(path.with_suffix(""), "wb") as dst,
+                ):
                     copied = 0
                     while chunk := src.read(1024 * 1024):
                         copied += len(chunk)

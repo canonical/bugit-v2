@@ -9,28 +9,41 @@ from pathlib import Path
 from typing import Any
 
 from bugit_v2.mcp_server.bugs import Draft
+from bugit_v2.mcp_server.collector import collector_for_file
 from bugit_v2.models.bug_report import BugReport
+from bugit_v2.utils.constants import MAX_JOB_OUTPUT_LEN
 
 logger = logging.getLogger(__name__)
 
 MAX_ATTACHED_FILE_BYTES = 50 * 10**6
 
 
-def _pack_logs(logs_dir: Path, out: Path, only: Collection[str] | None = None) -> None:
+def _pack_logs(
+    logs_dir: Path, out_dir: Path, only: Collection[str] | None = None
+) -> list[Path]:
+    """Packs the logs into one <collector>.tar.xz per collector (group) in out_dir"""
+    groups: dict[str, list[tuple[Path, str]]] = {}
     skipped: list[str] = []
-    with tarfile.open(out, "w:gz") as tar:
-        for p in sorted(logs_dir.rglob("*")):
-            if not p.is_file() or p.is_symlink():
-                continue
-            rel = p.relative_to(logs_dir).as_posix()
-            if only is not None and rel not in only:
-                continue
-            if p.stat().st_size > MAX_ATTACHED_FILE_BYTES:
-                skipped.append(rel)
-                continue
-            tar.add(p, arcname=rel, recursive=False)
+    for p in sorted(logs_dir.rglob("*")):
+        if not p.is_file() or p.is_symlink():
+            continue
+        rel = p.relative_to(logs_dir).as_posix()
+        if only is not None and rel not in only:
+            continue
+        if p.stat().st_size > MAX_ATTACHED_FILE_BYTES:
+            skipped.append(rel)
+            continue
+        groups.setdefault(collector_for_file(rel), []).append((p, rel))
+    archives: list[Path] = []
+    for group, files in groups.items():
+        archive = out_dir / f"{group}.tar.xz"
+        with tarfile.open(archive, "w:xz") as tar:
+            for p, rel in files:
+                tar.add(p, arcname=rel, recursive=False)
+        archives.append(archive)
     if skipped:
         logger.warning("Not attaching oversized files: %s", skipped)
+    return archives
 
 
 type ReportSource = Callable[[str], Any]
@@ -45,7 +58,11 @@ def _report(
             "or configure a default project"
         )
     # gives the submitter the checkbox data it needs to append [Job Output]
-    source = report_source(draft.submission_id) if report_source and draft.submission_id else None
+    source = (
+        report_source(draft.submission_id)
+        if report_source and draft.submission_id
+        else None
+    )
     return BugReport(
         report_id=uuid.uuid4(),
         title=draft.title,
@@ -66,16 +83,34 @@ def _report(
     )
 
 
+def _long_job_outputs(report: BugReport, out_dir: Path) -> list[Path]:
+    """Writes each job output too long for the description to out_dir/job_<name>.txt"""
+    if not (report.checkbox_session and report.job_id):
+        return []
+    output = report.checkbox_session.get_job_output(report.job_id) or {}
+    files: list[Path] = []
+    for k, v in output.items():
+        if len(str(v)) >= MAX_JOB_OUTPUT_LEN:
+            f = out_dir / f"job_{k}.txt"
+            f.write_text(str(v))
+            files.append(f)
+    return files
+
+
 def _run_submitter(
-    submitter: Any, report: BugReport, logs_dir: Path | None, only: Collection[str] | None = None
+    submitter: Any,
+    report: BugReport,
+    logs_dir: Path | None,
+    only: Collection[str] | None = None,
 ) -> str:
     for _ in submitter.submit(report):
         pass
-    if logs_dir is not None:
-        with tempfile.TemporaryDirectory() as tmp:
-            archive = Path(tmp) / "logs.tar.gz"
-            _pack_logs(logs_dir, archive, only)
-            submitter.upload_attachment(archive, "logs.tar.gz")
+    with tempfile.TemporaryDirectory() as tmp:
+        for f in _long_job_outputs(report, Path(tmp)):
+            submitter.upload_attachment(f, f.name)
+        if logs_dir is not None:
+            for archive in _pack_logs(logs_dir, Path(tmp), only):
+                submitter.upload_attachment(archive, archive.name)
     submitter.finalize()
     return submitter.bug_url
 
@@ -92,9 +127,17 @@ class LaunchpadTracker:
         self._report_source = report_source
 
     def submit(self, draft: Draft, logs_dir: Path | None) -> dict[str, Any]:
-        report = _report(draft, draft.project or self._default_project, self._report_source)
-        url = _run_submitter(self._submitter_factory(), report, logs_dir, draft.attach_logs or None)
-        return {"url": url, "id": url.rstrip("/").rsplit("/", 1)[-1], "tracker": "launchpad"}
+        report = _report(
+            draft, draft.project or self._default_project, self._report_source
+        )
+        url = _run_submitter(
+            self._submitter_factory(), report, logs_dir, draft.attach_logs or None
+        )
+        return {
+            "url": url,
+            "id": url.rstrip("/").rsplit("/", 1)[-1],
+            "tracker": "launchpad",
+        }
 
 
 class JiraTracker:
@@ -118,7 +161,9 @@ class JiraTracker:
             )
         from bugit_v2.bug_report_submitters.jira_submitter import JiraBasicAuth
 
-        report = _report(draft, draft.project or self._default_project, self._report_source)
+        report = _report(
+            draft, draft.project or self._default_project, self._report_source
+        )
         submitter = self._submitter_factory()
         submitter.auth = JiraBasicAuth(*creds)
         url = _run_submitter(submitter, report, logs_dir, draft.attach_logs or None)
@@ -126,7 +171,7 @@ class JiraTracker:
 
 
 class LocalTracker:
-    """Files reports as directories on disk (report.md + logs.tar.gz); needs no account"""
+    """Files reports as directories on disk (report.md + one <collector>.tar.xz per log group); needs no account"""
 
     def __init__(self, reports_dir: Path) -> None:
         self._dir = reports_dir
@@ -145,5 +190,10 @@ class LocalTracker:
             f"# {draft.title}\n\n" + "\n".join(meta) + f"\n\n{draft.description}\n"
         )
         if logs_dir is not None:
-            _pack_logs(logs_dir, target / "logs.tar.gz", draft.attach_logs or None)
-        return {"url": target.as_uri(), "id": bug_id, "path": str(target), "tracker": "local"}
+            _pack_logs(logs_dir, target, draft.attach_logs or None)
+        return {
+            "url": target.as_uri(),
+            "id": bug_id,
+            "path": str(target),
+            "tracker": "local",
+        }

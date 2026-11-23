@@ -215,9 +215,13 @@ class BugService:
             ("impacted_vendors", impacted_vendors),
         ):
             if len(values) > MAX_TAGS or not all(_TAG_RE.fullmatch(v) for v in values):
-                raise ValueError(f"{name} must be words without spaces or special characters")
+                raise ValueError(
+                    f"{name} must be words without spaces or special characters"
+                )
         if assignee is not None and not _ASSIGNEE_RE.fullmatch(assignee):
-            raise ValueError("assignee must be a Launchpad ID or a Jira email, without spaces")
+            raise ValueError(
+                "assignee must be a Launchpad ID or a Jira email, without spaces"
+            )
         tracker = tracker or self._default_tracker
         self._tracker(tracker)
         if logs_job_id is not None:
@@ -265,7 +269,9 @@ class BugService:
     def confirm_submission(self, draft_id: str) -> dict[str, Any]:
         draft = self.get_draft(draft_id)
         logs_dir = (
-            self._job_dir(draft.logs_job_id) if draft.logs_job_id and draft.attach_logs else None
+            self._job_dir(draft.logs_job_id)
+            if draft.logs_job_id and draft.attach_logs
+            else None
         )
         result = self._tracker(draft.tracker).submit(draft, logs_dir)
         # only consume the draft after success so a transient failure can be retried

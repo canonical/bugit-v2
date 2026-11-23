@@ -2,6 +2,7 @@
 
 ## Added
 
+- MCP playbook/`bugit` skill: the user selects the failed tests first, then the severity (preselected from the chosen tests)
 - `bugit-v2 mcp`: headless MCP server (SSE, Bearer API key) that lets an AI agent triage Checkbox failures, collect and grep logs (PII-redacted) and file bugs after explicit human approval
 - MCP drafts follow the bugit-v2 report format and fields; new read-only `get_draft` tool previews the final report
 - `local` MCP tracker that files reports to a directory on the device without a login, plus a copy-paste quick start prompt in the README
@@ -12,6 +13,8 @@
 - MCP: `draft_bug` defaults project, assignee, platform tags and tags from `bugit.dut-info`, and the daemon (root) now finds the dut-info saved by the DUT user
 - `bugit` skill: credentials are stored with `credentials.sh` (hidden prompt, mode 600) instead of the chat; `BUGIT_PLATFORM_TAGS` in `configure.sh`
 
+- MCP/`bugit` skill: `list_failed_tests` returns `cert_status` and `suggested_severity` (blocker: highest, non-blocker: high, as in the TUI) so the severity is chosen before drafting (`triage --severity`); `list_collected_logs` tags each file with its collector and `attach` prints the full grouped list; the full draft is always shown
+- Log attachments are chosen right after the draft is approved: the playbook asks for them as a separate step, `confirm_submission` elicits the selection when supported, and the `bugit` skill gets `bugit_mcp.py attach` (submit is blocked until logs are chosen)
 - MCP: `draft_bug` logs a warning when no saved dut-info is found (CID/SKU stay blank); the daemon reads the dut-info saved by the DUT user
 - `bugit` skill: `configure.sh` rejects an invalid Launchpad assignee, CID, SKU, project, Jira assignee or platform tag up front with a clear message and an example
 

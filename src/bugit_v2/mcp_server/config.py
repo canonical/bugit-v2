@@ -46,11 +46,22 @@ class McpConfig:
         return cls(
             api_key=api_key,
             bind_address=env.get("BUGIT_MCP_BIND_ADDRESS") or defaults.bind_address,
-            port=_port(env["BUGIT_MCP_PORT"]) if "BUGIT_MCP_PORT" in env else defaults.port,
-            work_dir=Path(env["BUGIT_MCP_WORK_DIR"]) if "BUGIT_MCP_WORK_DIR" in env else defaults.work_dir,
-            default_tracker=env.get("BUGIT_MCP_DEFAULT_TRACKER") or defaults.default_tracker,
+            port=(
+                _port(env["BUGIT_MCP_PORT"])
+                if "BUGIT_MCP_PORT" in env
+                else defaults.port
+            ),
+            work_dir=(
+                Path(env["BUGIT_MCP_WORK_DIR"])
+                if "BUGIT_MCP_WORK_DIR" in env
+                else defaults.work_dir
+            ),
+            default_tracker=env.get("BUGIT_MCP_DEFAULT_TRACKER")
+            or defaults.default_tracker,
             default_project=env.get("BUGIT_MCP_DEFAULT_PROJECT") or None,
-            submission_dirs=tuple(Path(p) for p in dirs.split(os.pathsep) if p) if dirs else (),
+            submission_dirs=(
+                tuple(Path(p) for p in dirs.split(os.pathsep) if p) if dirs else ()
+            ),
             idle_timeout=int(env.get("BUGIT_MCP_IDLE_TIMEOUT") or 0),
         )
 

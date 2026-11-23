@@ -24,7 +24,9 @@ _SUBMISSION_ONLY = "checkbox-submission"
 
 
 class CheckboxLike(Protocol):
-    def get_job_output(self, submission_id: str, test_id: str) -> dict[str, str] | None: ...
+    def get_job_output(
+        self, submission_id: str, test_id: str
+    ) -> dict[str, str] | None: ...
     def describe(self, submission_id: str) -> dict[str, Any]: ...
     def collector_input(self, submission_id: str) -> Any: ...
 
@@ -40,6 +42,37 @@ def describe_collectors(collectors: Mapping[str, Any]) -> list[dict[str, Any]]:
         for name, c in collectors.items()
         if name not in _NOT_FOR_MCP and not getattr(c, "hidden", False)
     ]
+
+
+_CONTEXT_FILES = ("context.txt", "collector-errors.txt")
+
+
+def collector_for_file(name: str) -> str:
+    """Which collector produced a file of a log job ('context' for the
+    bookkeeping files, 'other' when unknown)"""
+    top = name.split("/", 1)[0]
+    if top == "checkbox_session" or top.startswith("checkbox_session."):
+        return "checkbox-session"
+    if top.startswith("dmesg-of-boot-"):
+        return "dmesg"
+    if top.startswith("journalctl_") and top.endswith("_days.log"):
+        return "journalctl-" + top.split("_")[1] + "-days"
+    if top.startswith("nvidia-bug-report"):
+        return "nvidia-bug-report"
+    if top.startswith("sosreport"):
+        return "sosreport"
+    if top.endswith(".tar.xz"):
+        return "checkbox-submission"
+    simple = {
+        "acpidump.log": "acpidump",
+        "snap_list.log": "snap-list",
+        "snap_debug.log": "snap-debug",
+    }
+    if top in simple:
+        return simple[top]
+    if top in _CONTEXT_FILES or (top.startswith("job_") and top.endswith(".txt")):
+        return "context"
+    return "other"
 
 
 def resolve_names(

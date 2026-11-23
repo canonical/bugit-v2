@@ -168,7 +168,7 @@ async def test_playbook_prompt(env):
     ):
         assert f"`{tool}()`" in text
     assert "Call `confirm_submission()` only after an explicit approval" in text
-    assert "TWICE" in text and "<testplan_id> @ <failed_at>" in text
+    assert "FOUR times" in text and "<testplan_id> @ <failed_at>" in text
     assert "ALWAYS call `draft_bug()`" in text
     assert "`get_draft()`" in text
 
@@ -451,6 +451,27 @@ async def test_severity_and_attached_logs_can_be_chosen_after_drafting(env):
     assert tracker.submitted[0].attach_logs == [name]
 
 
+async def test_confirm_elicits_the_logs_to_attach(env, monkeypatch):
+    server, tracker, _ = env
+    import bugit_v2.mcp_server.server as srv
+
+    job_id = await _collect(server)
+    name = (await call(server, "list_collected_logs", job_id=job_id))[0]["name"]
+    offered = []
+
+    async def pick(ctx, names):
+        offered.extend(names)
+        return [name]
+
+    monkeypatch.setattr(srv, "ask_log_selection", pick)
+    draft_id = await call(
+        server, "draft_bug", title="T", summary="s", logs_job_id=job_id
+    )
+    await call(server, "confirm_submission", draft_id=draft_id)
+    assert name in offered
+    assert tracker.submitted[0].attach_logs == [name]
+
+
 def _io_log(server_jobs, job_id: str, test_id: str, stderr: str) -> None:
     d = server_jobs.job_dir(job_id) / "checkbox_session" / "io-logs"
     d.mkdir(parents=True, exist_ok=True)
@@ -515,3 +536,22 @@ async def test_triage_failures_needs_a_known_job_and_tests(env):
     job_id = await _collect(server)
     with pytest.raises(Exception, match="at least one"):
         await call(server, "triage_failures", job_id=job_id, test_ids=[" "])
+
+
+def test_collector_for_file_groups_collector_output():
+    from bugit_v2.mcp_server.collector import collector_for_file
+
+    assert collector_for_file("checkbox_session/io-logs/x.stderr") == "checkbox-session"
+    assert collector_for_file("dmesg-of-boot-abc.log") == "dmesg"
+    assert collector_for_file("journalctl_3_days.log") == "journalctl-3-days"
+    assert collector_for_file("snap_list.log") == "snap-list"
+    assert collector_for_file("context.txt") == "context"
+    assert collector_for_file("job_stderr.txt") == "context"
+    assert collector_for_file("mystery.bin") == "other"
+
+
+async def test_failed_tests_carry_cert_status_and_suggested_severity(env):
+    server, *_ = env
+    groups = await call(server, "list_failed_tests")
+    test = groups[0]["tests"][0]
+    assert "cert_status" in test and "suggested_severity" in test
