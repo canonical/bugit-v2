@@ -37,6 +37,11 @@ fi
 # whenever the server changes to force re-authentication
 if [ "$JIRA_SERVER" != "$OLD_JIRA_SERVER" ]; then
     rm -f /tmp/jira_submitter-credentials.json
+    # the MCP daemon reads JIRA_SERVER once at startup, so restart it if
+    # it is currently running (socket activation brings it back on demand)
+    if snapctl services bugit.mcp 2>/dev/null | grep -Eq ' active( |$)'; then
+        snapctl restart bugit.mcp || true
+    fi
 fi
 
 # Configures the AI Log Collector, an experimental LLM-driven collector.

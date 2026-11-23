@@ -3,7 +3,7 @@
 Removes `bugit-<ip>` entries from `~/.copilot/mcp-config.json`. Nothing else is deleted.
 
 1. List the `bugit-*` names that will be removed. Never show a key.
-2. Ask with `ask_user` two yes/no fields: `unbind` and `purge`.
+2. Run `<skill-dir>/scripts/ask_form.py cleanup` and pass its JSON as `requestedSchema`.
    - `unbind`: stop the server on the DUT.
    - `purge`: clear the saved settings and Jira login on the DUT.
 3. **STOP.** Wait for the answer.

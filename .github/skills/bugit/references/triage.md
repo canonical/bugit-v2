@@ -6,14 +6,14 @@ Ask the user four times: A, A2, B, C. Remember `tracker`, `draft_id`.
 T1. Run `M failures <ip>`. `choices` lists each failed test as
 `submission | test case name | suggested severity` (`n/a` if none).
 T2. Run `<skill-dir>/scripts/configure.sh --status <ip>` and read `missing`.
-Ask with `ask_user`: a multi-select of ALL `choices` lines verbatim, none preselected,
-and a text field per `missing` name. **STOP.**
+Run `<skill-dir>/scripts/ask_form.py failures --line "<each choice>" --missing <names>` and
+pass its JSON as `requestedSchema`. Nothing is preselected. **STOP.**
 
 T3. If `missing` values were given, run `setup.md` step 8 with them.
 
 ## Question A2
-Ask with `ask_user`: a `severity` choice (highest = Critical, high, medium, low, lowest),
-preselecting the highest `suggested_severity` of the chosen tests. **STOP.**
+Run `<skill-dir>/scripts/ask_form.py severity --suggest <highest suggested_severity>` and pass
+its JSON as `requestedSchema`. **STOP.**
 
 ## Pipeline
 All chosen tests go into ONE bug.
@@ -33,7 +33,7 @@ every section, in a `text` block. List the warnings, then write exactly:
 `Draft above. Choose approve, edit or reject.`
 
 ## Question B
-Ask with `ask_user`: choice `approve`, `edit`, `reject`; text "What should change?". **STOP.**
+Run `<skill-dir>/scripts/ask_form.py approve` and pass its JSON as `requestedSchema`. **STOP.**
 
 | Answer | Do this |
 | --- | --- |

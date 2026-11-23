@@ -9,5 +9,11 @@ for f in "$dir"/SKILL.md "$dir"/references/*.md; do
   [ "$words" -le "$max_words" ] || { echo "$f: $words words (max $max_words)"; rc=1; }
   long=$(awk -v m="$max_line" 'length($0) > m {n++} END {print n+0}' "$f")
   [ "$long" -eq 0 ] || { echo "$f: $long lines longer than $max_line"; rc=1; }
+  # Every ask_user form must come from ask_form.py so requestedSchema stays a JSON object.
+  if grep -q 'ask_user' "$f"; then
+    grep -q 'ask_form.py' "$f" || { echo "$f: ask_user without ask_form.py"; rc=1; }
+  fi
+  grep -qE "(ask_user|requestedSchema)[^A-Za-z]*['\"]\{" "$f" &&
+    { echo "$f: schema written as a quoted string"; rc=1; }
 done
 exit $rc

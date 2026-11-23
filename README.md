@@ -76,6 +76,9 @@ sudo snap set bugit jira-server=<your_url>
 Run `sudo snap unset bugit jira-server` to revert to the default
 (`https://warthogs.atlassian.net`).
 
+The setting also applies to the [MCP server](#mcp-server-ai-agents); a running
+`bugit.mcp` daemon is restarted automatically when the URL changes.
+
 ## MCP Server (AI agents)
 
 `bugit-v2 mcp` runs a headless [MCP](https://modelcontextprotocol.io) server over SSE
@@ -137,7 +140,8 @@ grouped by submission, `triage` collects the logs and calls `triage_failures()` 
 one draft for all selected tests, warning but still filing one bug if the chosen tests span more
 than one submission), `edit` updates the draft, `submit --approved` files it, and `auth`/`call`
 cover login status and any other MCP tool. The draft is always shown in full before the
-approve/edit/reject decision is asked.
+approve/edit/reject decision is asked. Every question is asked with `ask_user`, and
+`scripts/ask_form.py` prints the exact schema object so the form is never rejected.
 To use it from any directory, copy it to `~/.copilot/skills/bugit`.
 
 ### Quick start prompt

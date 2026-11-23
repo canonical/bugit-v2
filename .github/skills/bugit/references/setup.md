@@ -1,11 +1,13 @@
 # Setup: `/bugit <ip>`
 
-1. If `<ip>` is missing, ask for it with `ask_user`.
+1. If `<ip>` is missing, run `<skill-dir>/scripts/ask_form.py text ip "DUT ip"` and pass its
+   JSON as `requestedSchema`.
 2. Check that `~/.config/bugit/credentials` exists.
 3. If it is missing, tell the user: `Run <skill-dir>/scripts/credentials.sh in your terminal, then tell me.` **STOP.**
 4. Run `python3 --version`. If it fails or is older than 3.10, tell the user to install Python 3.10 or newer. **STOP.**
 5. Run `<skill-dir>/scripts/configure.sh --status <ip>`. Read `missing` and `jira_credentials_cached`.
-6. Ask ONE `ask_user` form: one text field for each name in `missing`, plus `tracker`. Use the table.
+6. Run `<skill-dir>/scripts/ask_form.py setup --missing <names> --tracker local` and pass its
+   JSON as `requestedSchema` (ONE form). Use the table.
 
    | Field | Format | Example |
    | --- | --- | --- |

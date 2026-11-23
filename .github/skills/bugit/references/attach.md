@@ -3,8 +3,9 @@
 1. Run `M attach <ip> <draft_id>`.
 2. Paste its COMPLETE output into your own message: every group and every file name.
    Never shorten it, filter it or show only a "suggested" list.
-3. Ask with `ask_user`: a multi-select of the groups and a multi-select of ALL file names.
-   Preselect nothing. A chosen group means all of its files.
+3. Run `<skill-dir>/scripts/ask_form.py attach --group "<group>: <file>, <file>"` for every
+   group and pass its JSON as `requestedSchema`. Preselect nothing. A chosen group means all
+   of its files.
    **STOP.**
 4. Run `M attach <ip> <draft_id> --select "<a>,<b>"`, or `--none` if nothing was chosen.
 5. Paste the full draft box as in `triage.md` T7.

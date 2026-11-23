@@ -21,6 +21,12 @@ argument-hint: <ip address> | cleanup [ip]
 2. **STOP** means end your turn and wait.
 3. Never ask for or print a password or token.
 4. Never guess a value. Ask with `ask_user`.
-5. Run `M submit` only after the user says approve and the logs are chosen.
-6. If a command fails, show the error and stop.
-7. If you tell the user to look at tool output, paste it into your own response; never say "see above".
+5. `ask_user` needs `requestedSchema` as a JSON object, never a quoted string. Run
+   `<skill-dir>/scripts/ask_form.py <form>` and paste what it prints. Right: the parameter value
+   starts with `{"properties":` . Wrong: it starts with `"` or `'`, or has `\"` inside. Do not
+   wrap, escape, or reformat it. If `ask_user` reports
+   `Expected object, received string`, run `ask_form.py --check '<your schema>'`.
+6. Run `M submit` only after the user says approve and the logs are chosen.
+7. If a command fails, show the error and stop.
+8. If you tell the user to look at tool output, paste it into your own response; never say
+   "see above".

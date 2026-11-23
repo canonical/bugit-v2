@@ -27,6 +27,10 @@
 - MCP: `list_failed_tests` now groups failures by submission (`submission_id`/`testplan_id`/`modified` with a nested `tests` list) instead of a flat list
 - `bugit` skill: `M failures` prints tests grouped by submission; `M triage` warns (but still files one bug) when the chosen tests span more than one submission; `triage.md`/`SKILL.md` make it explicit that the draft must be pasted verbatim into the agent's own chat response, not just referenced
 
+## Fixed
+
+- `bugit` skill: every question now comes from `scripts/ask_form.py`, which prints the `ask_user` `requestedSchema` as a JSON object, so a hand-written schema no longer fails with `Expected object, received string`; `lint_skill.sh` flags a question that asks `ask_user` without it
+
 
 # 0.2.8
 
