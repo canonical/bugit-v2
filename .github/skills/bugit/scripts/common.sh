@@ -7,7 +7,7 @@ load_credentials() {
   [ -f "$BUGIT_CRED_FILE" ] || return 0
   if [ "$(stat -c %a "$BUGIT_CRED_FILE")" != 600 ]; then
     echo "refusing to read $BUGIT_CRED_FILE: mode must be 600 (chmod 600 it)" >&2
-    return 1
+    return 6
   fi
   local k v
   while IFS='=' read -r k v; do
@@ -17,4 +17,20 @@ load_credentials() {
         ;;
     esac
   done <"$BUGIT_CRED_FILE"
+}
+
+BUGIT_SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Return 6 and print the exact command to run when a secret the tracker needs is missing.
+check_credentials() {
+  local tracker="${1:-local}" missing=()
+  [ -n "${SSHPASS:-}" ] || missing+=("SSH password")
+  if [ "$tracker" = jira ]; then
+    [ -n "${BUGIT_JIRA_EMAIL:-}" ] || missing+=("Jira email")
+    [ -n "${BUGIT_JIRA_TOKEN:-}" ] || missing+=("Jira API token")
+  fi
+  [ ${#missing[@]} -gt 0 ] || return 0
+  printf 'missing credentials in %s: %s\n' "$BUGIT_CRED_FILE" "$(IFS=,; echo "${missing[*]}" | sed 's/,/, /g')" >&2
+  echo "Run $BUGIT_SCRIPTS/credentials.sh --tracker $tracker in your terminal, then tell me." >&2
+  return 6
 }

@@ -1,8 +1,9 @@
 """Bug report layout, identical to what the bugit-v2 TUI editor produces"""
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Final
 
+from bugit_v2.mcp_server.collector import collector_for_file
 from bugit_v2.models.bug_report import pretty_issue_file_times, pretty_severities
 from bugit_v2.utils.constants import MAX_JOB_OUTPUT_LEN
 
@@ -21,6 +22,27 @@ SECTION_NAMES: Final = (
 )
 
 MAX_PREVIEW_OUTPUT = 2000
+
+# what "highest" is called on each tracker, same as the TUI's report editor
+HIGHEST_BY_TRACKER: Final = {
+    "jira": "Highest",
+    "launchpad": "Critical",
+    "local": "Highest / Critical",
+}
+
+
+def severity_label(tracker: str, severity: str) -> str:
+    if severity == "highest":
+        return HIGHEST_BY_TRACKER.get(tracker, pretty_severities["highest"])
+    return pretty_severities[severity]  # pyright: ignore[reportArgumentType]
+
+
+def attachment_archives(files: Sequence[str]) -> str:
+    """The <collector>.tar.xz archives submit uploads, with the files in each"""
+    groups: dict[str, list[str]] = {}
+    for f in files:
+        groups.setdefault(collector_for_file(f), []).append(f)
+    return "; ".join(f"{g}.tar.xz ({', '.join(fs)})" for g, fs in groups.items())
 
 
 def render_description(
@@ -77,7 +99,7 @@ def format_preview(
     lines = [
         f"Tracker: {draft.tracker}",
         f"Project: {draft.project or ''}",
-        f"Severity: {pretty_severities[draft.severity]}",
+        f"Severity: {severity_label(draft.tracker, draft.severity)}",
         f"Stage: {pretty_issue_file_times[draft.issue_file_time]}",
         f"Platform tags: {csv(draft.platform_tags)}",
         f"Additional tags: {csv(draft.tags)}",
@@ -85,7 +107,9 @@ def format_preview(
         f"Impacted features: {csv(draft.impacted_features)}",
         f"Impacted vendors: {csv(draft.impacted_vendors)}",
     ]
-    lines.append(f"Attached logs: {csv(draft.attach_logs) or 'none'}")
+    lines.append(
+        f"Attached logs (tar.xz): {attachment_archives(draft.attach_logs) or 'none'}"
+    )
     if draft.tracker == "launchpad":
         lines += [f"Status: {draft.status}", f"Series: {draft.series or ''}"]
     out = "\n".join(lines) + f"\n\nTitle: {draft.title}\n\n{draft.description}"

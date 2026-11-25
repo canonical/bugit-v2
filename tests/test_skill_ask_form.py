@@ -61,11 +61,16 @@ def test_failures_without_lines_is_an_error(capsys):
 
 
 def test_severity_preselects_the_suggestion(capsys):
-    severity = run(["severity", "--suggest", "Critical"], capsys)["properties"][
-        "severity"
-    ]
-    assert severity["default"] == "Critical"
+    props = run(["severity", "--suggest", "highest"], capsys)["properties"]
+    severity = props["severity"]
+    assert severity["default"] == "highest"
     assert [option["const"] for option in severity["oneOf"]] == ask_form.SEVERITIES
+    assert props["stage"]["default"] == "immediate"
+    assert [o["const"] for o in props["stage"]["oneOf"]] == [
+        "immediate",
+        "after_reboot",
+        "later",
+    ]
 
 
 def test_severity_rejects_an_unknown_value():
@@ -79,13 +84,12 @@ def test_approve_form_offers_the_three_decisions(capsys):
     assert "changes" in properties
 
 
-def test_attach_derives_the_file_list_from_the_groups(capsys):
+def test_attach_offers_groups_only(capsys):
     properties = run(
-        ["attach", "--group", "checkbox: a.log, b.log", "--group", "oem: c.log"],
-        capsys,
+        ["attach", "--group", "checkbox: a.log, b.log", "--group", "oem"], capsys
     )["properties"]
     assert properties["groups"]["items"]["enum"] == ["checkbox", "oem"]
-    assert properties["files"]["items"]["enum"] == ["a.log", "b.log", "c.log"]
+    assert "files" not in properties
 
 
 def test_check_unwraps_a_quoted_string_schema(capsys):
@@ -151,3 +155,15 @@ def test_lint_flags_a_quoted_schema(tmp_path):
     )
     assert result.returncode == 1
     assert "quoted string" in result.stdout
+
+
+def test_lint_flags_stop_right_after_a_form(tmp_path):
+    skill = _skill(
+        tmp_path,
+        "Run `ask_form.py tracker` and pass its JSON as `requestedSchema`.\n**STOP.**\n",
+    )
+    result = subprocess.run(
+        ["bash", str(LINT), str(skill)], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 1
+    assert "STOP** right after an ask_user form" in result.stdout

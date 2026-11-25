@@ -15,5 +15,8 @@ for f in "$dir"/SKILL.md "$dir"/references/*.md; do
   fi
   grep -qE "(ask_user|requestedSchema)[^A-Za-z]*['\"]\{" "$f" &&
     { echo "$f: schema written as a quoted string"; rc=1; }
+  # ask_user already waits for the answer; a STOP after it makes models end the turn early.
+  stop=$(awk '/requestedSchema/ {s=NR} /\*\*STOP/ && s && NR-s<=2 {print NR; exit}' "$f")
+  [ -z "$stop" ] || { echo "$f:$stop: **STOP** right after an ask_user form"; rc=1; }
 done
 exit $rc

@@ -9,6 +9,7 @@ import pytest
 from bugit_v2.mcp_server.authstate import AuthService
 from bugit_v2.mcp_server.bugs import BugService, Draft
 from bugit_v2.mcp_server.checkbox import CheckboxService
+from bugit_v2.mcp_server.collector import collector_for_file
 from bugit_v2.mcp_server.config import McpConfig
 from bugit_v2.mcp_server.jobs import JobManager
 from bugit_v2.mcp_server.logstore import LogStore
@@ -440,13 +441,18 @@ async def test_severity_and_attached_logs_can_be_chosen_after_drafting(env):
     draft_id = await call(
         server, "draft_bug", title="T", summary="s", logs_job_id=job_id
     )
-    assert "Attached logs: none" in await call(server, "get_draft", draft_id=draft_id)
+    assert "Attached logs (tar.xz): none" in await call(
+        server, "get_draft", draft_id=draft_id
+    )
     name = (await call(server, "list_collected_logs", job_id=job_id))[0]["name"]
     await call(
         server, "update_draft", draft_id=draft_id, severity="medium", attach_logs=[name]
     )
     preview = await call(server, "get_draft", draft_id=draft_id)
-    assert "Severity: Medium" in preview and f"Attached logs: {name}" in preview
+    assert "Severity: Medium" in preview
+    assert (
+        f"Attached logs (tar.xz): {collector_for_file(name)}.tar.xz ({name})" in preview
+    )
     await call(server, "confirm_submission", draft_id=draft_id)
     assert tracker.submitted[0].attach_logs == [name]
 
@@ -520,6 +526,7 @@ async def test_triage_failures_overrides_fallbacks_and_warnings(env):
     out = await call(
         server, "triage_failures", job_id=job_id,
         test_ids=["wifi/connect", "gone/test"], title="My title", severity="low",
+        issue_file_time="after_reboot",
     )  # fmt: skip
     # no collected io-log: falls back to the session output (no keyword match -> last lines)
     assert out["errors"] == {"wifi/connect": ["err of wifi/connect"], "gone/test": []}
@@ -527,6 +534,7 @@ async def test_triage_failures_overrides_fallbacks_and_warnings(env):
     assert out["logs"]["gone/test"] == {"stdout": "", "stderr": ""}
     assert "No error output found for gone/test" in out["warnings"]
     assert "Title: My title" in out["preview"] and "Severity: Low" in out["preview"]
+    assert "Stage: Device froze, reported after a reboot" in out["preview"]
 
 
 async def test_triage_failures_needs_a_known_job_and_tests(env):

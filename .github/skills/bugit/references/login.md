@@ -6,7 +6,7 @@
    | Exit | Do this |
    | --- | --- |
    | 0 | Done. Go on. |
-   | 4, tracker jira | Tell the user to run `credentials.sh` with the Jira email and token. **STOP.** Then run `configure.sh <ip>`. Go to step 1. |
+   | 4, tracker jira | Tell the user to run `<skill-dir>/scripts/credentials.sh --tracker jira`. **STOP.** Then run `configure.sh <ip>`. Go to step 1. |
    | 4, tracker launchpad | Show `login_url`. Tell the user to open it and approve. **STOP.** Then go to step 1. |
    | other | Show the error. **STOP.** |
 

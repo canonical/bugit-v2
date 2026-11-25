@@ -7,9 +7,9 @@ so the key never appears on a command line or in the chat.
 Usage:
   bugit_mcp.py failures <ip>
   bugit_mcp.py auth <ip> <tracker>
-  bugit_mcp.py triage <ip> --tracker <t> [--logs a,b] [--keyword k] [--severity s] [--override JSON] <test>...
+  bugit_mcp.py triage <ip> --tracker <t> [--logs a,b] [--keyword k] [--severity s] [--stage s] [--override JSON] <test>...
   bugit_mcp.py edit <ip> <draft_id> <JSON of fields to change>
-  bugit_mcp.py attach <ip> <draft_id> [--select a,b | --all | --none]
+  bugit_mcp.py attach <ip> <draft_id> [--files | --groups g1,g2 | --select a,b | --all | --none]
   bugit_mcp.py submit <ip> <draft_id> --approved
   bugit_mcp.py call <ip> <tool> [JSON arguments]
 
@@ -36,6 +36,7 @@ from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from ask_form import form_attach  # noqa: E402
 from render_draft import render  # noqa: E402
 
 LABEL_RE = re.compile(
@@ -460,6 +461,8 @@ def cmd_triage(c: Client, a: argparse.Namespace) -> int:
         raise Usage("--override must be a JSON object")
     if getattr(a, "severity", None):
         overrides["severity"] = a.severity
+    if getattr(a, "stage", None):
+        overrides["issue_file_time"] = a.stage
     auth = c.call("check_auth_status", service=a.tracker)
     if not auth.get("authenticated"):
         print(json.dumps({"authenticated": False, "detail": auth.get("detail")}))
@@ -510,19 +513,38 @@ def cmd_edit(c: Client, a: argparse.Namespace) -> int:
     return 0
 
 
-def print_log_list(files: Sequence[dict[str, Any]]) -> None:
-    """Every collected file, grouped by collector, then the flat list to choose from"""
+def group_logs(files: Sequence[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     groups: dict[str, list[dict[str, Any]]] = {}
     for f in files:
         groups.setdefault(f.get("collector") or "other", []).append(f)
+    return groups
+
+
+def print_log_summary(files: Sequence[dict[str, Any]]) -> None:
+    """One line per collector group, then the ready ask_user form (groups only)"""
+    groups = group_logs(files)
+    print(f"=== {len(files)} files in {len(groups)} log groups ===")
+    for key, items in groups.items():
+        title = items[0].get("collector_description") or key
+        size = sum(int(f.get("size") or 0) for f in items)
+        print(f"- {key}: {title} ({len(items)} files, {size} bytes)")
+    print("\n=== requestedSchema for ask_user (pass as-is) ===")
+    print(json.dumps(form_attach(list(groups))["requestedSchema"], indent=2))
+
+
+def print_log_list(files: Sequence[dict[str, Any]]) -> None:
+    """Every collected file, grouped by collector"""
+    groups = group_logs(files)
     print(f"=== {len(files)} files in {len(groups)} collector groups ===")
     for key, items in groups.items():
         title = items[0].get("collector_description") or key
         print(f"\n## {key}: {title} ({len(items)} files)")
         for f in items:
             print(f"  {f['name']}  ({f['size']} bytes)")
-    print("\n=== all file names (use these with --select) ===")
-    print(json.dumps([f["name"] for f in files], indent=1))
+
+
+def split_csv(value: str) -> list[str]:
+    return [n.strip() for n in value.split(",") if n.strip()]
 
 
 def cmd_attach(c: Client, a: argparse.Namespace) -> int:
@@ -535,18 +557,33 @@ def cmd_attach(c: Client, a: argparse.Namespace) -> int:
         chosen = names
     elif a.none:
         chosen = []
+    elif a.groups:
+        groups = group_logs(files)
+        wanted = split_csv(a.groups)
+        unknown = [g for g in wanted if g not in groups]
+        if unknown:
+            raise Usage(f"unknown log group(s) {unknown}; choose from {list(groups)}")
+        chosen = [f["name"] for g in wanted for f in groups[g]]
     elif a.select:
-        chosen = [n.strip() for n in a.select.split(",") if n.strip()]
+        chosen = split_csv(a.select)
         unknown = [n for n in chosen if n not in names]
         if unknown:
-            raise Usage(f"unknown log file(s) {unknown}; choose from {names}")
-    else:
+            shown = ", ".join(unknown[:5]) + (" ..." if len(unknown) > 5 else "")
+            raise Usage(
+                f"{len(unknown)} unknown log file(s): {shown}. To attach whole groups "
+                f"use --groups {','.join(group_logs(files))}; "
+                "run with --files to see every file name"
+            )
+    elif a.files:
         print_log_list(files)
+        return 0
+    else:
+        print_log_summary(files)
         return 0
     c.call("update_draft", draft_id=a.draft_id, attach_logs=chosen)
     save_state(a.draft_id, attach_chosen=True)
     show_draft(a.draft_id, c.call("get_draft", draft_id=a.draft_id))
-    print(f"\nattached: {chosen or 'none'}\ndraft_id: {a.draft_id}")
+    print(f"\nattached: {len(chosen)} file(s)\ndraft_id: {a.draft_id}")
     return 0
 
 
@@ -595,6 +632,11 @@ def parser() -> argparse.ArgumentParser:
         choices=("highest", "high", "medium", "low", "lowest"),
         help="the severity the user chose",
     )
+    s.add_argument(
+        "--stage",
+        choices=("immediate", "after_reboot", "later"),
+        help="when the issue was filed (issue_file_time) the user chose",
+    )
     s.add_argument("tests", nargs="+")
     s.set_defaults(fn=cmd_triage)
     s = sub.add_parser("edit")
@@ -606,6 +648,8 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("ip")
     s.add_argument("draft_id")
     g = s.add_mutually_exclusive_group()
+    g.add_argument("--files", action="store_true", help="list every file name")
+    g.add_argument("--groups", help="comma separated log groups to upload whole")
     g.add_argument("--select", help="comma separated file names to upload")
     g.add_argument("--all", action="store_true")
     g.add_argument("--none", action="store_true")
@@ -635,7 +679,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ):
             raise Usage(
                 f"choose the logs first: `attach {a.ip} {a.draft_id}`, then "
-                "`--select a,b`, `--all` or `--none`"
+                "`--groups a,b`, `--select a,b`, `--all` or `--none`"
             )
         return with_client(a.ip, lambda c: a.fn(c, a))
     except (Usage, ToolError) as e:

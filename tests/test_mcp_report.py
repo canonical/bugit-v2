@@ -62,12 +62,35 @@ def test_preview_shows_what_will_be_submitted_for_launchpad():
         {"stdout": "out", "stderr": "", "comments": ""},
     )
     assert "Tracker: launchpad" in out and "Project: somerville" in out
-    assert "Severity: Critical (LP) / Highest (Jira)" in out
+    assert "Severity: Critical\n" in out
     assert "Platform tags: numbat" in out
     assert "Title: T" in out
     assert "[Summary]\nbody" in out
     assert "[Stage]\nRight after it happened" in out
     assert "[Job Output]\n" in out and "Job stdout\n----\nout" in out
+
+
+def test_preview_names_highest_severity_per_tracker():
+    assert "Severity: Highest\n" in format_preview(make_draft(tracker="jira"), None)
+    local = format_preview(make_draft(tracker="local"), None)
+    assert "Severity: Highest / Critical\n" in local
+    assert "Severity: Low\n" in format_preview(
+        make_draft(tracker="jira", severity="low"), None
+    )
+
+
+def test_preview_lists_one_tar_xz_per_log_group():
+    out = format_preview(
+        make_draft(
+            attach_logs=["dmesg-of-boot-0.log", "acpidump.log", "dmesg-of-boot-1.log"]
+        ),
+        None,
+    )
+    assert (
+        "Attached logs (tar.xz): dmesg.tar.xz (dmesg-of-boot-0.log, dmesg-of-boot-1.log); "
+        "acpidump.tar.xz (acpidump.log)"
+    ) in out
+    assert "Attached logs (tar.xz): none" in format_preview(make_draft(), None)
 
 
 def test_preview_jira_uses_noformat_blocks():

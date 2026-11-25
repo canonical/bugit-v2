@@ -8,11 +8,12 @@ string`. Run this and paste what it prints as the `requestedSchema` argument.
 Usage:
   ask_form.py cleanup
   ask_form.py text <field> [title]
+  ask_form.py tracker
   ask_form.py setup [--missing project cid] [--tracker local]
   ask_form.py failures [--line "sub | test | high"]... [--missing project cid]
-  ask_form.py severity [--suggest high]
+  ask_form.py severity [--suggest high]      (asks severity and stage)
   ask_form.py approve
-  ask_form.py attach [--group "collector: a.log, b.log"]...
+  ask_form.py attach [--group collector]...
   ask_form.py --check '<the schema you drafted>'
 
 Needs only python3 >= 3.10 (standard library). Exit 0 prints a schema object, 1 bad usage.
@@ -23,8 +24,14 @@ import json
 import sys
 from typing import Any
 
-SEVERITIES = ["Critical", "high", "medium", "low", "lowest"]
+SEVERITIES = ["highest", "high", "medium", "low", "lowest"]
 TRACKERS = ["local", "jira", "launchpad"]
+# issue_file_time values and what the draft calls them under Stage
+STAGES = {
+    "immediate": "Right after it happened",
+    "after_reboot": "Device froze, reported after a reboot",
+    "later": "At a later stage",
+}
 DECISIONS = ["approve", "edit", "reject"]
 TYPES = {"string", "boolean", "array", "number", "integer"}
 
@@ -126,8 +133,12 @@ def form_cleanup() -> dict[str, Any]:
 
 
 def form_missing(missing: list[str]) -> dict[str, Any]:
+    # Accept either space-separated args (`--missing a b c`) or a single
+    # comma-separated string (`--missing a,b,c`), since callers sometimes pass
+    # the `missing` JSON array from `configure.sh` joined with commas.
+    names = [part for item in missing for part in item.split(",") if part]
     properties: dict[str, Any] = {}
-    for name in missing:
+    for name in names:
         if name not in SETUP_FIELDS:
             raise ValueError(
                 f"unknown setting '{name}': use one of {', '.join(SETUP_FIELDS)}"
@@ -136,9 +147,17 @@ def form_missing(missing: list[str]) -> dict[str, Any]:
     return properties
 
 
+def form_tracker() -> dict[str, Any]:
+    return form(
+        "Which bug tracker will you file to?",
+        {"tracker": choice("tracker", "Tracker", TRACKERS, "local")},
+    )
+
+
 def form_setup(missing: list[str], tracker: str) -> dict[str, Any]:
-    properties = form_missing(missing)
-    properties["tracker"] = choice("tracker", "Tracker", TRACKERS, tracker)
+    skip = {"jira": "lp_assignee", "launchpad": "jira_assignee"}.get(tracker)
+    names = [part for item in missing for part in item.split(",") if part]
+    properties = form_missing([m for m in names if m != skip])
     return form("Fill in the missing bugit settings.", properties)
 
 
@@ -158,8 +177,17 @@ def form_failures(lines: list[str], missing: list[str]) -> dict[str, Any]:
 
 def form_severity(suggest: str | None) -> dict[str, Any]:
     return form(
-        "What severity should this bug have?",
-        {"severity": choice("severity", "Severity", SEVERITIES, suggest)},
+        "What severity and stage should this bug have?",
+        {
+            "severity": choice("severity", "Severity", SEVERITIES, suggest),
+            "stage": {
+                "type": "string",
+                "title": "Stage",
+                "description": "When was the issue filed?",
+                "oneOf": [{"const": k, "title": v} for k, v in STAGES.items()],
+                "default": "immediate",
+            },
+        },
     )
 
 
@@ -178,24 +206,20 @@ def form_approve() -> dict[str, Any]:
 
 
 def form_attach(groups: list[str]) -> dict[str, Any]:
+    """Groups only: a run can collect hundreds of files, too many for one list."""
     names: list[str] = []
-    files: list[str] = []
     for group in groups:
-        label, _, members = group.partition(":")
-        label = label.strip()
+        label = group.partition(":")[0].strip()
         if not label:
-            raise ValueError(f"bad group '{group}': use \"<group>: <file>, <file>\"")
-        names.append(label)
-        for member in members.split(","):
-            member = member.strip()
-            if member and member not in files:
-                files.append(member)
+            raise ValueError(f"bad group '{group}': use \"<group>\"")
+        if label not in names:
+            names.append(label)
     if not names:
         raise ValueError(
             "no log groups: pass --group for every group printed by `M attach`"
         )
     return form(
-        "Which logs should be attached?",
+        "Which log groups should be attached?",
         {
             "groups": multi(
                 "groups",
@@ -203,7 +227,6 @@ def form_attach(groups: list[str]) -> dict[str, Any]:
                 "A chosen group attaches all of its files.",
                 names,
             ),
-            "files": multi("files", "Log files", "Select individual files.", files),
         },
     )
 
@@ -243,12 +266,15 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="form")
 
     sub.add_parser("cleanup", help="unbind/purge yes/no form")
+    sub.add_parser("tracker", help="tracker choice")
 
     p = sub.add_parser("text", help="one free-text field, e.g. the DUT ip")
     p.add_argument("name", help="field name")
     p.add_argument("title", nargs="?", default="", help="label shown to the user")
 
-    p = sub.add_parser("setup", help="one text field per missing setting, plus tracker")
+    p = sub.add_parser(
+        "setup", help="one text field per missing setting for the tracker"
+    )
     p.add_argument(
         "--missing", nargs="*", default=[], help="names from `configure.sh --status`"
     )
@@ -262,17 +288,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--missing", nargs="*", default=[])
 
-    p = sub.add_parser("severity", help="severity choice")
+    p = sub.add_parser("severity", help="severity and stage choice")
     p.add_argument(
         "--suggest", choices=SEVERITIES, help="highest suggested_severity of the tests"
     )
 
     sub.add_parser("approve", help="approve/edit/reject form")
 
-    p = sub.add_parser("attach", help="multi-select of log groups and their files")
-    p.add_argument(
-        "--group", action="append", default=[], help='"<group>: <file>, <file>"'
-    )
+    p = sub.add_parser("attach", help="multi-select of log groups")
+    p.add_argument("--group", action="append", default=[], help="a log group name")
 
     return parser
 
@@ -286,6 +310,8 @@ def main(argv: list[str]) -> int:
             schema = form_cleanup()["requestedSchema"]
         elif args.form == "text":
             schema = form_text(args.name, args.title or args.name)["requestedSchema"]
+        elif args.form == "tracker":
+            schema = form_tracker()["requestedSchema"]
         elif args.form == "setup":
             schema = form_setup(args.missing, args.tracker)["requestedSchema"]
         elif args.form == "failures":

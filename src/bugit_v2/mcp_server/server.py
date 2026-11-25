@@ -464,9 +464,10 @@ def build_server(
         actual_result: str | None = None,
         failure_rate: str | None = None,
         severity: str = "highest",
+        issue_file_time: str = "immediate",
         submissions: dict[str, str] | None = None,
     ) -> dict[str, Any]:
-        """Use this INSTEAD of grep_log() + draft_bug() once start_log_collection() is 'completed'. In one call it finds the error of every test in test_ids (all the failures the user chose; keyword is a case-insensitive literal, default 'error') and drafts ONE bug listing every test under Affected Test Cases. Title, summary, steps, expected/actual result and failure rate are proposed from the errors; pass any of them (or severity) to override. submissions maps a test_id to its submission_id when the tests come from different runs (default: the job's). Returns draft_id, preview (identical to get_draft()), errors (matched lines) and logs (the redacted, truncated stdout/stderr of each test) per test, and warnings. errors/logs are raw material for YOU, the calling agent, to analyze: read them and call update_draft() with a real root-cause title/summary/actual_result that explains WHY the test failed, not a restatement of the exception text, before showing the whole preview to the user and asking for explicit approval (approve/reject) before confirm_submission()."""
+        """Use this INSTEAD of grep_log() + draft_bug() once start_log_collection() is 'completed'. In one call it finds the error of every test in test_ids (all the failures the user chose; keyword is a case-insensitive literal, default 'error') and drafts ONE bug listing every test under Affected Test Cases. Title, summary, steps, expected/actual result and failure rate are proposed from the errors; pass any of them (or severity, or issue_file_time: immediate, after_reboot or later) to override. submissions maps a test_id to its submission_id when the tests come from different runs (default: the job's). Returns draft_id, preview (identical to get_draft()), errors (matched lines) and logs (the redacted, truncated stdout/stderr of each test) per test, and warnings. errors/logs are raw material for YOU, the calling agent, to analyze: read them and call update_draft() with a real root-cause title/summary/actual_result that explains WHY the test failed, not a restatement of the exception text, before showing the whole preview to the user and asking for explicit approval (approve/reject) before confirm_submission()."""
         test_ids = list(dict.fromkeys(t.strip() for t in test_ids if t.strip()))
         if not test_ids:
             raise ValueError("test_ids must list at least one failed test")
@@ -524,6 +525,7 @@ def build_server(
             logs_job_id=job_id,
             tracker=tracker_name,
             severity=severity,
+            issue_file_time=issue_file_time,
             affected_test_cases=test_ids,
         )
         preview = await blocking(lambda: _preview(bugs.get_draft(draft_id)))()

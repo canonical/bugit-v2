@@ -18,7 +18,8 @@ argument-hint: <ip address> | cleanup [ip]
 
 ## Rules
 1. Do one step at a time. Never skip a step.
-2. **STOP** means end your turn and wait.
+2. `ask_user` waits for the answer itself: use it and go on in the same turn.
+   **STOP** means end your turn and wait; do it only where a step says **STOP**.
 3. Never ask for or print a password or token.
 4. Never guess a value. Ask with `ask_user`.
 5. `ask_user` needs `requestedSchema` as a JSON object, never a quoted string. Run

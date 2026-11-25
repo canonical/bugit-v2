@@ -39,7 +39,7 @@ if [ -z "$names" ]; then
 fi
 
 if [ "$unbind" = 1 ]; then
-  : "${SSHPASS:?set SSHPASS in the environment for --unbind}"
+  check_credentials local || exit 6
   export SSHPASS
   command -v sshpass >/dev/null || { echo "sshpass missing: sudo apt install sshpass" >&2; exit 1; }
   unset_cmd="snap unset bugit mcp.bind-address"

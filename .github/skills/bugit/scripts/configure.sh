@@ -7,18 +7,23 @@
 # The BUGIT_* values that are set are stored by bugit on the DUT (bugit.dut-info).
 # SSHPASS and the Jira email/token are read from the file made by credentials.sh
 # (BUGIT_CRED_FILE, mode 600) when not in the environment, so they never go through the chat.
-# Invalid values are rejected up front (exit 5) with the expected format.
+# Invalid values are rejected up front (exit 5) with the expected format; missing
+# credentials exit 6 with the credentials.sh command to run.
 # --status only reports which settings the DUT already has (secrets redacted).
 # Prints a JSON summary (the API key and tokens are never printed).
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
-load_credentials
+load_credentials || exit 6
 
 status_only=0
-if [ "${1:-}" = "--status" ]; then status_only=1; shift; fi
-IP="${1:?usage: configure.sh [--status] <ip> [user]}"
+TRACKER=""
+if [ "${1:-}" = "--status" ]; then
+  status_only=1; shift
+  if [ "${1:-}" = "--tracker" ]; then TRACKER="${2:-}"; shift 2 || true; fi
+fi
+IP="${1:?usage: configure.sh [--status [--tracker <t>]] <ip> [user]}"
 USER_NAME="${2:-ubuntu}"
-: "${SSHPASS:?no SSH password: run scripts/credentials.sh in a terminal first}"
+check_credentials "${TRACKER:-local}" || exit 6
 export SSHPASS
 CONFIG="${COPILOT_MCP_CONFIG:-$HOME/.copilot/mcp-config.json}"
 NAME="bugit-$IP"
@@ -46,9 +51,11 @@ if [ "$status_only" = 1 ]; then
   [ -n "$info" ] || info='{}'
   jira=false
   dut_sudo "test -s $JIRA_CREDS" >/dev/null 2>&1 && jira=true
-  jq -n --arg ip "$IP" --argjson i "$info" --argjson j "$jira" \
+  # the assignee of the other tracker is not needed
+  jq -n --arg ip "$IP" --arg t "$TRACKER" --argjson i "$info" --argjson j "$jira" \
     '{dut:$ip, dut_info:$i, jira_credentials_cached:$j,
       missing:([["cid","sku","project","jira_assignee","lp_assignee","platform_tags"][]
+        | select(($t != "jira" or . != "lp_assignee") and ($t != "launchpad" or . != "jira_assignee"))
         | select(($i[.] // null) as $v | $v == null or $v == "" or $v == [])])}'
   exit 0
 fi

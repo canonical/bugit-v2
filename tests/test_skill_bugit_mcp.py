@@ -98,33 +98,44 @@ def test_cmd_failures_prints_tests_grouped_by_submission(capsys):
     }
 
 
-def test_attach_without_flags_lists_every_file_grouped(capsys):
-    files = [
-        {
-            "name": "dmesg-of-boot-1.log",
-            "size": 3,
-            "collector": "dmesg",
-            "collector_description": "dmesg Logs of This Boot",
-        },
-        {
-            "name": "snap_list.log",
-            "size": 5,
-            "collector": "snap-list",
-            "collector_description": "List of Snaps",
-        },
-    ]
-    bugit_mcp.print_log_list(files)
+LOGS = [
+    {
+        "name": "dmesg-of-boot-1.log",
+        "size": 3,
+        "collector": "dmesg",
+        "collector_description": "dmesg Logs of This Boot",
+    },
+    {
+        "name": "snap_list.log",
+        "size": 5,
+        "collector": "snap-list",
+        "collector_description": "List of Snaps",
+    },
+    {"name": "snap_info.log", "size": 7, "collector": "snap-list"},
+]
+
+
+def test_attach_summary_prints_groups_and_a_groups_only_form(capsys):
+    bugit_mcp.print_log_summary(LOGS)
     out = capsys.readouterr().out
-    assert "## dmesg: dmesg Logs of This Boot (1 files)" in out
-    assert "## snap-list: List of Snaps (1 files)" in out
-    assert json.loads(out[out.index("[") :]) == [
-        "dmesg-of-boot-1.log",
-        "snap_list.log",
-    ]
+    assert "- dmesg: dmesg Logs of This Boot (1 files, 3 bytes)" in out
+    assert "- snap-list: List of Snaps (2 files, 12 bytes)" in out
+    assert "snap_info.log" not in out
+    schema = json.loads(out[out.index("{") :])
+    assert schema["properties"]["groups"]["items"]["enum"] == ["dmesg", "snap-list"]
+    assert "files" not in schema["properties"]
+
+
+def test_attach_files_flag_lists_every_file_grouped(capsys):
+    bugit_mcp.print_log_list(LOGS)
+    out = capsys.readouterr().out
+    assert "## snap-list: List of Snaps (2 files)" in out
+    assert "snap_info.log  (7 bytes)" in out
 
 
 def test_cmd_triage_warns_on_cross_submission_selection(capsys):
     calls: list[str] = []
+    triage_args: dict = {}
 
     class FakeClient:
         def call(self, tool, **args):
@@ -138,6 +149,7 @@ def test_cmd_triage_warns_on_cross_submission_selection(capsys):
             if tool == "check_job_status":
                 return {"status": "completed"}
             if tool == "triage_failures":
+                triage_args.update(args)
                 return {
                     "draft_id": "d1",
                     "preview": "P",
@@ -152,9 +164,11 @@ def test_cmd_triage_warns_on_cross_submission_selection(capsys):
         logs="",
         keyword=None,
         override=None,
+        stage="later",
         tests=[bugit_mcp.label(r) for r in bugit_mcp.flatten_groups(GROUPS)],
     )
     assert bugit_mcp.cmd_triage(FakeClient(), a) == 0
+    assert triage_args["issue_file_time"] == "later"
     err = capsys.readouterr().err
     assert "WARNING: selected tests span 2 different submissions" in err
 
@@ -246,31 +260,29 @@ def test_attach_lists_then_applies_selection(tmp_path, monkeypatch, capsys):
         def call(self, tool, **args):
             calls.append((tool, args))
             if tool == "list_collected_logs":
-                return [{"name": "dmesg.txt", "size": 1}]
+                return LOGS
             return "PREVIEW"
 
     def ns(**kw):
-        return argparse.Namespace(
-            ip="i", draft_id="d1", select=None, all=False, none=False, **kw
+        base = dict(
+            ip="i", draft_id="d1", files=False, groups=None, select=None, all=False
         )
+        return argparse.Namespace(**{**base, "none": False, **kw})
 
     assert bugit_mcp.cmd_attach(FakeClient(), ns()) == 0
-    assert "dmesg.txt" in capsys.readouterr().out
-    with pytest.raises(bugit_mcp.Usage):
-        bugit_mcp.cmd_attach(
-            FakeClient(),
-            argparse.Namespace(
-                ip="i", draft_id="d1", select="nope", all=False, none=False
-            ),
-        )
+    assert "- dmesg:" in capsys.readouterr().out
+    with pytest.raises(bugit_mcp.Usage, match="--groups dmesg,snap-list"):
+        bugit_mcp.cmd_attach(FakeClient(), ns(select="dmesg"))
+    with pytest.raises(bugit_mcp.Usage, match="unknown log group"):
+        bugit_mcp.cmd_attach(FakeClient(), ns(groups="nope"))
+    assert bugit_mcp.cmd_attach(FakeClient(), ns(select="snap_list.log")) == 0
     assert (
-        bugit_mcp.cmd_attach(
-            FakeClient(),
-            argparse.Namespace(
-                ip="i", draft_id="d1", select="dmesg.txt", all=False, none=False
-            ),
-        )
-        == 0
-    )
-    assert ("update_draft", {"draft_id": "d1", "attach_logs": ["dmesg.txt"]}) in calls
+        "update_draft",
+        {"draft_id": "d1", "attach_logs": ["snap_list.log"]},
+    ) in calls
+    assert bugit_mcp.cmd_attach(FakeClient(), ns(groups="snap-list")) == 0
+    assert (
+        "update_draft",
+        {"draft_id": "d1", "attach_logs": ["snap_list.log", "snap_info.log"]},
+    ) in calls
     assert bugit_mcp.load_state()["d1"]["attach_chosen"] is True
